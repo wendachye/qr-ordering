@@ -1,5 +1,10 @@
 import { prisma } from '../../lib/prisma';
 import { getDefaultStoreId } from '../../lib/store';
+import {
+  featureLockedError,
+  hasFeature,
+  resolveEntitlementsForStore,
+} from '../../lib/entitlements';
 import { parseTaxes } from './adminSettings.service';
 
 // Round to cents to avoid float-summing artefacts (Decimal(10,2) source data).
@@ -84,6 +89,13 @@ function daypartKey(hour: number): (typeof DAYPARTS)[number]['key'] {
 export async function getSalesReport(fromInput?: string, toInput?: string) {
   const storeId = await getDefaultStoreId();
   const { start, endExclusive, fromStr, toStr, days, kind } = resolveRange(fromInput, toInput);
+
+  // The single-day Z-reading is on every plan; multi-day / month aggregates are
+  // the "advanced reports" feature.
+  if (kind !== 'day') {
+    const ent = await resolveEntitlementsForStore(storeId);
+    if (!hasFeature(ent, 'reports_advanced')) throw featureLockedError('reports_advanced');
+  }
 
   const [store, settledSessions, cancelledSessions, voidedItems] = await Promise.all([
     prisma.store.findUnique({

@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../lib/response';
 import { getDefaultStoreId } from '../../lib/store';
 import { salePriceOf } from '../../lib/pricing';
+import { limitReachedError, resolveEntitlementsForStore } from '../../lib/entitlements';
 import type {
   CreateCategoryInput,
   CreateItemInput,
@@ -118,6 +119,7 @@ function toItemDto(item: {
   discountType: string | null;
   discountValue: unknown;
   isAvailable: boolean;
+  posOnly: boolean;
   sortOrder: number;
   isFeatured: boolean;
   featuredOrder: number;
@@ -146,6 +148,7 @@ function toItemDto(item: {
     discountValue: Number(item.discountValue ?? 0),
     salePrice: salePriceOf(Number(item.price), item.discountType, Number(item.discountValue ?? 0)),
     isAvailable: item.isAvailable,
+    posOnly: item.posOnly,
     sortOrder: item.sortOrder,
     isFeatured: item.isFeatured,
     featuredOrder: item.featuredOrder,
@@ -209,6 +212,14 @@ export async function createItem(input: CreateItemInput) {
   const storeId = await getDefaultStoreId();
   await ensureCategoryInStore(input.categoryId, storeId);
 
+  // Enforce the plan's menu-item cap (null = unlimited).
+  const ent = await resolveEntitlementsForStore(storeId);
+  if (ent.limits.maxMenuItems != null) {
+    const count = await prisma.menuItem.count({ where: { storeId } });
+    if (count >= ent.limits.maxMenuItems)
+      throw limitReachedError('menuItems', ent.limits.maxMenuItems);
+  }
+
   // Append to the end of its category (drag-and-drop manages order thereafter).
   const agg = await prisma.menuItem.aggregate({
     where: { storeId, categoryId: input.categoryId },
@@ -227,6 +238,7 @@ export async function createItem(input: CreateItemInput) {
       discountType: input.discountType ?? null,
       discountValue: input.discountType ? (input.discountValue ?? 0) : 0,
       isAvailable: input.isAvailable,
+      posOnly: input.posOnly,
       sortOrder: (agg._max.sortOrder ?? -1) + 1,
       ...(input.optionGroups?.length
         ? { optionGroups: optionGroupsCreate(input.optionGroups) }
@@ -266,6 +278,7 @@ export async function updateItem(id: string, input: UpdateItemInput) {
         discountType: input.discountType,
         discountValue: input.discountValue,
         isAvailable: input.isAvailable,
+        posOnly: input.posOnly,
         sortOrder: input.sortOrder,
         ...(input.optionGroups && input.optionGroups.length
           ? { optionGroups: optionGroupsCreate(input.optionGroups) }
@@ -402,6 +415,7 @@ export async function reorderFeatured(ids: string[]) {
 
 const MENU_SETTINGS_SELECT = {
   featuredTitle: true,
+  featuredEnabled: true,
   takeawayCharge: true,
   bannerImageUrls: true,
   bannerTitle: true,
@@ -410,6 +424,7 @@ const MENU_SETTINGS_SELECT = {
 
 type MenuSettingsRow = {
   featuredTitle: string;
+  featuredEnabled: boolean;
   takeawayCharge: unknown;
   bannerImageUrls: string[];
   bannerTitle: string | null;
@@ -419,6 +434,7 @@ type MenuSettingsRow = {
 function toMenuSettingsDto(store: MenuSettingsRow | null) {
   return {
     featuredTitle: store?.featuredTitle ?? 'Popular',
+    featuredEnabled: store?.featuredEnabled ?? true,
     takeawayCharge: Number(store?.takeawayCharge ?? 0),
     bannerImageUrls: store?.bannerImageUrls ?? [],
     bannerTitle: store?.bannerTitle ?? null,
@@ -437,6 +453,7 @@ export async function getMenuSettings() {
 
 export async function updateMenuSettings(input: {
   featuredTitle?: string;
+  featuredEnabled?: boolean;
   takeawayCharge?: number;
   bannerImageUrls?: string[];
   bannerTitle?: string | null;
@@ -450,6 +467,7 @@ export async function updateMenuSettings(input: {
     where: { id: storeId },
     data: {
       ...(input.featuredTitle !== undefined ? { featuredTitle: input.featuredTitle } : {}),
+      ...(input.featuredEnabled !== undefined ? { featuredEnabled: input.featuredEnabled } : {}),
       ...(input.takeawayCharge !== undefined ? { takeawayCharge: input.takeawayCharge } : {}),
       ...(input.bannerImageUrls !== undefined
         ? { bannerImageUrls: input.bannerImageUrls.filter((u) => u.trim()) }

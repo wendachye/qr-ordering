@@ -7,9 +7,9 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 async function ctx() {
   const { data } = await registerTenant();
   const token = data.token as string;
-  const tables = (await api().get('/api/admin/tables').set(auth(token))).body.data;
+  const tables = (await api().get('/admin/tables').set(auth(token))).body.data;
   const code = tables[0].code as string;
-  const menu = (await api().get(`/api/public/menu?tableCode=${code}`)).body.data;
+  const menu = (await api().get(`/public/menu?tableCode=${code}`)).body.data;
   const line = firstOrderable(menu);
   const item = menu.categories
     .flatMap((c: any) => c.items)
@@ -19,15 +19,15 @@ async function ctx() {
 
 const placeOrder = (token: string, code: string, line: any, qty: number) =>
   api()
-    .post('/api/admin/orders')
+    .post('/admin/orders')
     .set(auth(token))
     .send({ tableCode: code, items: [{ ...line, quantity: qty }] });
 const createVoucher = (token: string, body: any) =>
-  api().post('/api/admin/vouchers').set(auth(token)).send(body);
+  api().post('/admin/vouchers').set(auth(token)).send(body);
 const close = (token: string, sessionId: string, body: any) =>
-  api().post(`/api/admin/sessions/${sessionId}/close`).set(auth(token)).send(body);
+  api().post(`/admin/sessions/${sessionId}/close`).set(auth(token)).send(body);
 const applyVoucher = (code: string, voucher: string) =>
-  api().post('/api/public/voucher').send({ tableCode: code, code: voucher });
+  api().post('/public/voucher').send({ tableCode: code, code: voucher });
 
 describe('vouchers — CRUD', () => {
   it('creates a voucher (code uppercased) and rejects a duplicate', async () => {
@@ -47,7 +47,7 @@ describe('vouchers — CRUD', () => {
     });
     expect(dup.status).toBe(409);
 
-    const list = (await api().get('/api/admin/vouchers').set(auth(token))).body.data;
+    const list = (await api().get('/admin/vouchers').set(auth(token))).body.data;
     expect(list.some((v: any) => v.code === 'SAVE10')).toBe(true);
   });
 
@@ -80,10 +80,10 @@ describe('vouchers — redemption', () => {
     expect(closed.body.data.voucherDiscount).toBeCloseTo(round2(unit * 4 * 0.1), 2);
     expect(closed.body.data.netTotal).toBeCloseTo(round2(unit * 4 * 0.9), 2);
 
-    const vouchers = (await api().get('/api/admin/vouchers').set(auth(token))).body.data;
+    const vouchers = (await api().get('/admin/vouchers').set(auth(token))).body.data;
     expect(vouchers.find((v: any) => v.code === 'SAVE10').redeemedCount).toBe(1);
 
-    const report = (await api().get('/api/admin/reports/sales').set(auth(token))).body.data;
+    const report = (await api().get('/admin/reports/sales').set(auth(token))).body.data;
     expect(report.vouchers.count).toBe(1);
     expect(report.vouchers.amount).toBeCloseTo(round2(unit * 4 * 0.1), 2);
     expect(report.sales.voucherDiscounts).toBeCloseTo(round2(unit * 4 * 0.1), 2);

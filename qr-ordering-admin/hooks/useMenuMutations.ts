@@ -215,6 +215,26 @@ export function useRenameFeaturedTitle() {
   });
 }
 
+// Master on/off for the customer-menu featured strip.
+export function useToggleFeaturedEnabled() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (enabled: boolean) => menuSettingsApi.setFeaturedEnabled(enabled),
+    onSuccess: (settings) => {
+      queryClient.setQueryData(["menu-settings"], settings);
+      toast(
+        settings.featuredEnabled
+          ? "Featured strip is shown on the customer menu."
+          : "Featured strip is hidden from the customer menu.",
+        "success"
+      );
+    },
+    onError: (err) => toast(err instanceof ApiError ? err.message : "Update failed.", "error"),
+  });
+}
+
 // Save the customer-menu hero banner (image / title / subtitle).
 export function useSaveBanner() {
   const queryClient = useQueryClient();

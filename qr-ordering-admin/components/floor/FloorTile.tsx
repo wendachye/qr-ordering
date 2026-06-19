@@ -1,20 +1,10 @@
 "use client";
 
-import {
-  MoreHorizontal,
-  QrCode,
-  Link2,
-  Pencil,
-  Power,
-  Trash2,
-  AlertTriangle,
-  History,
-} from "lucide-react";
+import { MoreHorizontal, QrCode, Link2, AlertTriangle, History } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useDraftCount } from "@/hooks/useDraftCart";
@@ -22,33 +12,32 @@ import { cn } from "@/lib/cn";
 import { formatPrice, formatRelative } from "@/lib/format";
 import type { FloorEntry } from "@/lib/types";
 
-// One tile on the floor grid. Free → tap to start an order; occupied → tap to
-// open the running tab. The ⋯ menu (table management) is a sibling of the tap
-// target so its clicks don't trigger navigation.
+// One tile on the live Tables grid. Free → tap to start an order; occupied →
+// tap to open the running tab. The ⋯ menu (QR / link / history) is a sibling of
+// the tap target so its clicks don't trigger navigation. Table setup lives in
+// Settings → Tables.
 export function FloorTile({
   entry,
   onOpen,
   onQr,
   onCopy,
-  onEdit,
-  onToggle,
-  onDelete,
   onHistory,
 }: {
   entry: FloorEntry;
   onOpen: () => void;
   onQr: () => void;
   onCopy: () => void;
-  onEdit: () => void;
-  onToggle: () => void;
-  onDelete: () => void;
   onHistory: () => void;
 }) {
   const { table, session } = entry;
   const occupied = !!session;
   const interactive = occupied || table.isActive;
-  // Unsent items parked on this table's tab (saved locally, not yet sent).
-  const unsent = useDraftCount(session?.id ?? "");
+  // Unsent items parked on this table (saved locally, not yet sent). An occupied
+  // tab keys its draft by session id; a free table's in-progress New order keys
+  // by table code, so a half-built order shows here too.
+  const unsent = useDraftCount(
+    occupied ? session!.id : table.isActive ? `table:${table.code}` : ""
+  );
 
   return (
     <div className="relative">
@@ -100,7 +89,16 @@ export function FloorTile({
               )}
             </div>
           ) : table.isActive ? (
-            <span className="text-sm font-semibold text-accent-700">+ Start order</span>
+            <div className="flex items-end justify-between gap-2">
+              <span className="text-sm font-semibold text-accent-700">
+                {unsent > 0 ? "Resume order" : "+ Start order"}
+              </span>
+              {unsent > 0 && (
+                <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
+                  {unsent} unsent
+                </span>
+              )}
+            </div>
           ) : (
             <span className="text-sm font-medium text-slate-400">Inactive</span>
           )}
@@ -130,22 +128,6 @@ export function FloorTile({
           <DropdownMenuItem onSelect={onHistory}>
             <History />
             History
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onEdit}>
-            <Pencil />
-            Edit
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onToggle}>
-            <Power />
-            {table.isActive ? "Deactivate" : "Activate"}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="text-red-600 focus:bg-red-50 focus:text-red-700"
-            onSelect={onDelete}
-          >
-            <Trash2 />
-            Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

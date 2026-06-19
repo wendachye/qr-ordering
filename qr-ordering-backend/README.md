@@ -80,34 +80,34 @@ Response envelope: `{ "success": true, "data": ... }` or `{ "success": false, "e
 
 **Public (customer)**
 
-- `GET  /api/public/tables/:tableCode`
-- `GET  /api/public/menu?tableCode=TBL001`
-- `POST /api/orders`
+- `GET  /api/v1/public/tables/:tableCode`
+- `GET  /api/v1/public/menu?tableCode=TBL001`
+- `POST /api/v1/orders`
 
 **Admin auth** (JWT)
 
-- `POST /api/admin/auth/login`
-- `GET  /api/admin/auth/me`
+- `POST /api/v1/admin/auth/login`
+- `GET  /api/v1/admin/auth/me`
 
 **Admin orders**
 
-- `GET   /api/admin/orders`
-- `GET   /api/admin/orders/:id`
-- `PATCH /api/admin/orders/:id/status`
-- `POST  /api/admin/orders/:id/reprint`
+- `GET   /api/v1/admin/orders`
+- `GET   /api/v1/admin/orders/:id`
+- `PATCH /api/v1/admin/orders/:id/status`
+- `POST  /api/v1/admin/orders/:id/reprint`
 
 **Admin menu**
 
-- `GET|POST /api/admin/menu/categories`, `PATCH|DELETE /api/admin/menu/categories/:id`
-- `GET|POST /api/admin/menu/items`, `PATCH|DELETE /api/admin/menu/items/:id`
-- `PATCH /api/admin/menu/items/:id/sold-out`
+- `GET|POST /api/v1/admin/menu/categories`, `PATCH|DELETE /api/v1/admin/menu/categories/:id`
+- `GET|POST /api/v1/admin/menu/items`, `PATCH|DELETE /api/v1/admin/menu/items/:id`
+- `PATCH /api/v1/admin/menu/items/:id/sold-out`
 
 **Print agent** (header `x-print-agent-key`)
 
-- `GET  /api/print-agent/jobs/pending`
-- `POST /api/print-agent/jobs/:id/mark-printing`
-- `POST /api/print-agent/jobs/:id/mark-printed`
-- `POST /api/print-agent/jobs/:id/mark-failed`
+- `GET  /api/v1/print-agent/jobs/pending`
+- `POST /api/v1/print-agent/jobs/:id/mark-printing`
+- `POST /api/v1/print-agent/jobs/:id/mark-printed`
+- `POST /api/v1/print-agent/jobs/:id/mark-failed`
 
 See the OpenAPI spec at `/api/openapi.json` (Swagger UI at `/api/docs`).
 

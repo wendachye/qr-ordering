@@ -8,7 +8,7 @@ describe('menu banner settings', () => {
     const token = data.token;
 
     const saved = await api()
-      .patch('/api/admin/menu/settings')
+      .patch('/admin/menu/settings')
       .set(auth(token))
       .send({
         bannerImageUrls: ['/uploads/banner1.jpg', '/uploads/banner2.jpg'],
@@ -24,9 +24,9 @@ describe('menu banner settings', () => {
     expect(saved.body.data.bannerSubtitle).toBe('Fresh from the grill');
 
     // Exposed on the customer-facing menu as a `banner` object with an image list.
-    const tables = (await api().get('/api/admin/tables').set(auth(token))).body.data;
+    const tables = (await api().get('/admin/tables').set(auth(token))).body.data;
     const code = tables[0].code;
-    const menu = (await api().get(`/api/public/menu?tableCode=${code}`)).body.data;
+    const menu = (await api().get(`/public/menu?tableCode=${code}`)).body.data;
     expect(menu.banner).toEqual({
       imageUrls: ['/uploads/banner1.jpg', '/uploads/banner2.jpg'],
       title: "Tonight's Specials",
@@ -35,7 +35,7 @@ describe('menu banner settings', () => {
 
     // An empty list clears the images; a blank title falls back to defaults.
     const cleared = await api()
-      .patch('/api/admin/menu/settings')
+      .patch('/admin/menu/settings')
       .set(auth(token))
       .send({ bannerImageUrls: [], bannerTitle: '   ' });
     expect(cleared.status).toBe(200);

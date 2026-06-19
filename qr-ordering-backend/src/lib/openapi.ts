@@ -185,24 +185,24 @@ const uploadBody = z.object({
 
 const paths: ZodOpenApiPathsObject = {
   // Public (customer) — no auth
-  '/api/public/tables/{tableCode}': {
+  '/api/v1/public/tables/{tableCode}': {
     get: op({
       tags: ['Public'],
       summary: 'Resolve a table by its QR code',
       params: pathParam('tableCode'),
     }),
   },
-  '/api/public/menu': {
+  '/api/v1/public/menu': {
     get: op({
       tags: ['Public'],
       summary: 'Get the menu for a table',
       params: { query: menuQuery },
     }),
   },
-  '/api/public/voucher': {
+  '/api/v1/public/voucher': {
     post: op({ tags: ['Public'], summary: 'Apply a voucher to a table', body: applyVoucherSchema }),
   },
-  '/api/orders': {
+  '/api/v1/orders': {
     post: op({
       tags: ['Orders'],
       summary: 'Place a customer order',
@@ -213,7 +213,7 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Admin auth
-  '/api/admin/auth/register': {
+  '/api/v1/admin/auth/register': {
     post: op({
       tags: ['Auth'],
       summary: 'Register a new restaurant (tenant) + owner',
@@ -222,7 +222,7 @@ const paths: ZodOpenApiPathsObject = {
       errorCodes: ['400', '409', '429'],
     }),
   },
-  '/api/admin/auth/login': {
+  '/api/v1/admin/auth/login': {
     post: op({
       tags: ['Auth'],
       summary: 'Admin login → JWT',
@@ -230,10 +230,10 @@ const paths: ZodOpenApiPathsObject = {
       errorCodes: ['400', '401', '429'],
     }),
   },
-  '/api/admin/auth/me': {
+  '/api/v1/admin/auth/me': {
     get: op({ tags: ['Auth'], summary: 'Current admin profile', auth: 'bearer' }),
   },
-  '/api/admin/auth/verify-password': {
+  '/api/v1/admin/auth/verify-password': {
     post: op({
       tags: ['Auth'],
       summary: 'Verify the current admin password',
@@ -243,10 +243,10 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Billing (account area — not subscription-gated)
-  '/api/admin/billing': {
+  '/api/v1/admin/billing': {
     get: op({ tags: ['Billing'], summary: 'Billing / subscription state', auth: 'bearer' }),
   },
-  '/api/admin/billing/checkout': {
+  '/api/v1/admin/billing/checkout': {
     post: op({
       tags: ['Billing'],
       summary: 'Create a Stripe Checkout session',
@@ -254,16 +254,24 @@ const paths: ZodOpenApiPathsObject = {
       body: checkoutBody,
     }),
   },
-  '/api/admin/billing/portal': {
+  '/api/v1/admin/billing/portal': {
     post: op({
       tags: ['Billing'],
       summary: 'Create a Stripe Billing Portal session',
       auth: 'bearer',
     }),
   },
+  '/api/v1/admin/billing/apply': {
+    post: op({
+      tags: ['Billing'],
+      summary: 'Apply a plan directly (only when Stripe billing is disabled)',
+      auth: 'bearer',
+      body: checkoutBody,
+    }),
+  },
 
   // Admin orders
-  '/api/admin/orders': {
+  '/api/v1/admin/orders': {
     post: op({
       tags: ['Orders'],
       summary: 'Staff places an order',
@@ -279,10 +287,10 @@ const paths: ZodOpenApiPathsObject = {
       params: { query: orderStatusQuery },
     }),
   },
-  '/api/admin/orders/print-health': {
+  '/api/v1/admin/orders/print-health': {
     get: op({ tags: ['Orders'], summary: 'Kitchen print health', auth: 'bearer' }),
   },
-  '/api/admin/orders/table/{tableId}': {
+  '/api/v1/admin/orders/table/{tableId}': {
     get: op({
       tags: ['Orders'],
       summary: 'Order history for a table',
@@ -290,7 +298,7 @@ const paths: ZodOpenApiPathsObject = {
       params: pathParam('tableId'),
     }),
   },
-  '/api/admin/orders/items/{id}/void': {
+  '/api/v1/admin/orders/items/{id}/void': {
     post: op({
       tags: ['Orders'],
       summary: 'Void a sent line item',
@@ -299,7 +307,7 @@ const paths: ZodOpenApiPathsObject = {
       body: voidItemSchema,
     }),
   },
-  '/api/admin/orders/{id}': {
+  '/api/v1/admin/orders/{id}': {
     get: op({
       tags: ['Orders'],
       summary: 'Order detail',
@@ -307,7 +315,7 @@ const paths: ZodOpenApiPathsObject = {
       params: pathParam('id'),
     }),
   },
-  '/api/admin/orders/{id}/status': {
+  '/api/v1/admin/orders/{id}/status': {
     patch: op({
       tags: ['Orders'],
       summary: 'Update order status',
@@ -316,7 +324,7 @@ const paths: ZodOpenApiPathsObject = {
       body: updateOrderStatusSchema,
     }),
   },
-  '/api/admin/orders/{id}/reprint': {
+  '/api/v1/admin/orders/{id}/reprint': {
     post: op({
       tags: ['Orders'],
       summary: 'Reprint the kitchen ticket',
@@ -326,7 +334,7 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Admin tables
-  '/api/admin/tables': {
+  '/api/v1/admin/tables': {
     get: op({ tags: ['Tables'], summary: 'List tables', auth: 'bearer' }),
     post: op({
       tags: ['Tables'],
@@ -336,7 +344,7 @@ const paths: ZodOpenApiPathsObject = {
       status: 201,
     }),
   },
-  '/api/admin/tables/{id}': {
+  '/api/v1/admin/tables/{id}': {
     patch: op({
       tags: ['Tables'],
       summary: 'Update a table',
@@ -353,14 +361,14 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Floor & sessions
-  '/api/admin/floor': {
+  '/api/v1/admin/floor': {
     get: op({
       tags: ['Floor & Sessions'],
       summary: 'Live floor (tables + open tabs)',
       auth: 'bearer',
     }),
   },
-  '/api/admin/sessions': {
+  '/api/v1/admin/sessions': {
     get: op({
       tags: ['Floor & Sessions'],
       summary: 'List sessions (tabs)',
@@ -368,7 +376,7 @@ const paths: ZodOpenApiPathsObject = {
       params: { query: sessionListQuerySchema },
     }),
   },
-  '/api/admin/sessions/{id}': {
+  '/api/v1/admin/sessions/{id}': {
     get: op({
       tags: ['Floor & Sessions'],
       summary: 'Session detail',
@@ -376,7 +384,7 @@ const paths: ZodOpenApiPathsObject = {
       params: pathParam('id'),
     }),
   },
-  '/api/admin/sessions/{id}/pax': {
+  '/api/v1/admin/sessions/{id}/pax': {
     patch: op({
       tags: ['Floor & Sessions'],
       summary: 'Set covers (pax)',
@@ -385,7 +393,7 @@ const paths: ZodOpenApiPathsObject = {
       body: sessionPaxSchema,
     }),
   },
-  '/api/admin/sessions/{id}/close': {
+  '/api/v1/admin/sessions/{id}/close': {
     post: op({
       tags: ['Floor & Sessions'],
       summary: 'Close a tab with payment',
@@ -394,7 +402,7 @@ const paths: ZodOpenApiPathsObject = {
       body: closeSessionSchema,
     }),
   },
-  '/api/admin/sessions/{id}/cancel': {
+  '/api/v1/admin/sessions/{id}/cancel': {
     post: op({
       tags: ['Floor & Sessions'],
       summary: 'Cancel a tab',
@@ -402,7 +410,7 @@ const paths: ZodOpenApiPathsObject = {
       params: pathParam('id'),
     }),
   },
-  '/api/admin/sessions/{id}/move': {
+  '/api/v1/admin/sessions/{id}/move': {
     post: op({
       tags: ['Floor & Sessions'],
       summary: 'Move a tab to another table',
@@ -411,7 +419,7 @@ const paths: ZodOpenApiPathsObject = {
       body: moveSessionSchema,
     }),
   },
-  '/api/admin/sessions/{id}/combine': {
+  '/api/v1/admin/sessions/{id}/combine': {
     post: op({
       tags: ['Floor & Sessions'],
       summary: 'Combine two tabs',
@@ -420,7 +428,7 @@ const paths: ZodOpenApiPathsObject = {
       body: combineSessionSchema,
     }),
   },
-  '/api/admin/sessions/{id}/reopen': {
+  '/api/v1/admin/sessions/{id}/reopen': {
     post: op({
       tags: ['Floor & Sessions'],
       summary: 'Reopen a closed tab',
@@ -430,7 +438,7 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Reports
-  '/api/admin/reports/sales': {
+  '/api/v1/admin/reports/sales': {
     get: op({
       tags: ['Reports'],
       summary: 'Sales (Z-reading) report',
@@ -440,7 +448,7 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Settings
-  '/api/admin/settings': {
+  '/api/v1/admin/settings': {
     get: op({ tags: ['Settings'], summary: 'Store settings', auth: 'bearer' }),
     patch: op({
       tags: ['Settings'],
@@ -449,7 +457,7 @@ const paths: ZodOpenApiPathsObject = {
       body: settingsUpdateSchema,
     }),
   },
-  '/api/admin/settings/pin': {
+  '/api/v1/admin/settings/pin': {
     post: op({
       tags: ['Settings'],
       summary: 'Set the override PIN',
@@ -457,7 +465,7 @@ const paths: ZodOpenApiPathsObject = {
       body: setPinSchema,
     }),
   },
-  '/api/admin/settings/pin/verify': {
+  '/api/v1/admin/settings/pin/verify': {
     post: op({
       tags: ['Settings'],
       summary: 'Verify the override PIN',
@@ -467,7 +475,7 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Vouchers
-  '/api/admin/vouchers': {
+  '/api/v1/admin/vouchers': {
     get: op({ tags: ['Vouchers'], summary: 'List vouchers', auth: 'bearer' }),
     post: op({
       tags: ['Vouchers'],
@@ -477,7 +485,7 @@ const paths: ZodOpenApiPathsObject = {
       status: 201,
     }),
   },
-  '/api/admin/vouchers/{id}': {
+  '/api/v1/admin/vouchers/{id}': {
     patch: op({
       tags: ['Vouchers'],
       summary: 'Update a voucher',
@@ -494,7 +502,7 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Loyalty
-  '/api/admin/loyalty/config': {
+  '/api/v1/admin/loyalty/config': {
     get: op({ tags: ['Loyalty'], summary: 'Loyalty program config', auth: 'bearer' }),
     patch: op({
       tags: ['Loyalty'],
@@ -503,7 +511,7 @@ const paths: ZodOpenApiPathsObject = {
       body: loyaltyConfigSchema,
     }),
   },
-  '/api/admin/loyalty/members': {
+  '/api/v1/admin/loyalty/members': {
     get: op({
       tags: ['Loyalty'],
       summary: 'List/search members',
@@ -518,7 +526,7 @@ const paths: ZodOpenApiPathsObject = {
       status: 201,
     }),
   },
-  '/api/admin/loyalty/members/{id}': {
+  '/api/v1/admin/loyalty/members/{id}': {
     get: op({
       tags: ['Loyalty'],
       summary: 'Member detail',
@@ -539,7 +547,7 @@ const paths: ZodOpenApiPathsObject = {
       params: pathParam('id'),
     }),
   },
-  '/api/admin/loyalty/members/{id}/adjust': {
+  '/api/v1/admin/loyalty/members/{id}/adjust': {
     post: op({
       tags: ['Loyalty'],
       summary: 'Adjust a member’s points',
@@ -548,7 +556,7 @@ const paths: ZodOpenApiPathsObject = {
       body: adjustPointsSchema,
     }),
   },
-  '/api/admin/loyalty/rewards': {
+  '/api/v1/admin/loyalty/rewards': {
     get: op({ tags: ['Loyalty'], summary: 'List rewards', auth: 'bearer' }),
     post: op({
       tags: ['Loyalty'],
@@ -558,7 +566,7 @@ const paths: ZodOpenApiPathsObject = {
       status: 201,
     }),
   },
-  '/api/admin/loyalty/rewards/{id}': {
+  '/api/v1/admin/loyalty/rewards/{id}': {
     patch: op({
       tags: ['Loyalty'],
       summary: 'Update a reward',
@@ -575,10 +583,10 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Platform (super-admin)
-  '/api/admin/platform/plans': {
+  '/api/v1/admin/platform/plans': {
     get: op({ tags: ['Platform'], summary: 'List subscription plans', auth: 'platform' }),
   },
-  '/api/admin/platform/plans/{key}': {
+  '/api/v1/admin/platform/plans/{key}': {
     patch: op({
       tags: ['Platform'],
       summary: 'Update a plan',
@@ -587,7 +595,7 @@ const paths: ZodOpenApiPathsObject = {
       body: updatePlanSchema,
     }),
   },
-  '/api/admin/platform/audit': {
+  '/api/v1/admin/platform/audit': {
     get: op({
       tags: ['Platform'],
       summary: 'Operator audit log',
@@ -595,7 +603,7 @@ const paths: ZodOpenApiPathsObject = {
       params: { query: auditQuerySchema },
     }),
   },
-  '/api/admin/platform/clients': {
+  '/api/v1/admin/platform/clients': {
     get: op({ tags: ['Platform'], summary: 'List clients', auth: 'platform' }),
     post: op({
       tags: ['Platform'],
@@ -605,7 +613,7 @@ const paths: ZodOpenApiPathsObject = {
       status: 201,
     }),
   },
-  '/api/admin/platform/clients/{id}': {
+  '/api/v1/admin/platform/clients/{id}': {
     get: op({
       tags: ['Platform'],
       summary: 'Client detail + outlets',
@@ -620,7 +628,7 @@ const paths: ZodOpenApiPathsObject = {
       body: updateClientSchema,
     }),
   },
-  '/api/admin/platform/clients/{id}/outlets': {
+  '/api/v1/admin/platform/clients/{id}/outlets': {
     post: op({
       tags: ['Platform'],
       summary: 'Add an outlet to a client',
@@ -630,7 +638,7 @@ const paths: ZodOpenApiPathsObject = {
       status: 201,
     }),
   },
-  '/api/admin/platform/clients/{id}/apply-plan': {
+  '/api/v1/admin/platform/clients/{id}/apply-plan': {
     post: op({
       tags: ['Platform'],
       summary: 'Apply a plan to a client',
@@ -639,7 +647,7 @@ const paths: ZodOpenApiPathsObject = {
       body: applyPlanSchema,
     }),
   },
-  '/api/admin/platform/outlets/{storeId}': {
+  '/api/v1/admin/platform/outlets/{storeId}': {
     patch: op({
       tags: ['Platform'],
       summary: 'Update an outlet',
@@ -648,7 +656,7 @@ const paths: ZodOpenApiPathsObject = {
       body: updateOutletSchema,
     }),
   },
-  '/api/admin/platform/outlets/{storeId}/impersonate': {
+  '/api/v1/admin/platform/outlets/{storeId}/impersonate': {
     post: op({
       tags: ['Platform'],
       summary: 'Mint an impersonation (view-as) token for an outlet',
@@ -658,10 +666,10 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Outlet switching (client owner)
-  '/api/admin/outlets': {
+  '/api/v1/admin/outlets': {
     get: op({ tags: ['Outlets'], summary: 'List sibling outlets', auth: 'bearer' }),
   },
-  '/api/admin/outlets/{storeId}/switch': {
+  '/api/v1/admin/outlets/{storeId}/switch': {
     post: op({
       tags: ['Outlets'],
       summary: 'Switch to a sibling outlet (new scoped JWT)',
@@ -671,7 +679,7 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Menu — categories
-  '/api/admin/menu/categories': {
+  '/api/v1/admin/menu/categories': {
     get: op({ tags: ['Menu'], summary: 'List categories', auth: 'bearer' }),
     post: op({
       tags: ['Menu'],
@@ -681,7 +689,7 @@ const paths: ZodOpenApiPathsObject = {
       status: 201,
     }),
   },
-  '/api/admin/menu/categories/reorder': {
+  '/api/v1/admin/menu/categories/reorder': {
     patch: op({
       tags: ['Menu'],
       summary: 'Reorder categories',
@@ -689,7 +697,7 @@ const paths: ZodOpenApiPathsObject = {
       body: reorderSchema,
     }),
   },
-  '/api/admin/menu/categories/{id}': {
+  '/api/v1/admin/menu/categories/{id}': {
     patch: op({
       tags: ['Menu'],
       summary: 'Update a category',
@@ -706,7 +714,7 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Menu — items
-  '/api/admin/menu/items': {
+  '/api/v1/admin/menu/items': {
     get: op({
       tags: ['Menu'],
       summary: 'List items',
@@ -721,10 +729,10 @@ const paths: ZodOpenApiPathsObject = {
       status: 201,
     }),
   },
-  '/api/admin/menu/items/reorder': {
+  '/api/v1/admin/menu/items/reorder': {
     patch: op({ tags: ['Menu'], summary: 'Reorder items', auth: 'bearer', body: reorderSchema }),
   },
-  '/api/admin/menu/items/featured/reorder': {
+  '/api/v1/admin/menu/items/featured/reorder': {
     patch: op({
       tags: ['Menu'],
       summary: 'Reorder featured items',
@@ -732,7 +740,7 @@ const paths: ZodOpenApiPathsObject = {
       body: reorderSchema,
     }),
   },
-  '/api/admin/menu/items/{id}': {
+  '/api/v1/admin/menu/items/{id}': {
     patch: op({
       tags: ['Menu'],
       summary: 'Update an item',
@@ -747,7 +755,7 @@ const paths: ZodOpenApiPathsObject = {
       params: pathParam('id'),
     }),
   },
-  '/api/admin/menu/items/{id}/sold-out': {
+  '/api/v1/admin/menu/items/{id}/sold-out': {
     patch: op({
       tags: ['Menu'],
       summary: 'Toggle sold-out',
@@ -756,7 +764,7 @@ const paths: ZodOpenApiPathsObject = {
       body: soldOutSchema,
     }),
   },
-  '/api/admin/menu/items/{id}/move': {
+  '/api/v1/admin/menu/items/{id}/move': {
     patch: op({
       tags: ['Menu'],
       summary: 'Move an item to another category',
@@ -765,7 +773,7 @@ const paths: ZodOpenApiPathsObject = {
       body: moveItemSchema,
     }),
   },
-  '/api/admin/menu/items/{id}/feature': {
+  '/api/v1/admin/menu/items/{id}/feature': {
     patch: op({
       tags: ['Menu'],
       summary: 'Feature / unfeature an item',
@@ -774,7 +782,7 @@ const paths: ZodOpenApiPathsObject = {
       body: featureSchema,
     }),
   },
-  '/api/admin/menu/settings': {
+  '/api/v1/admin/menu/settings': {
     get: op({ tags: ['Menu'], summary: 'Menu settings', auth: 'bearer' }),
     patch: op({
       tags: ['Menu'],
@@ -785,7 +793,7 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Uploads
-  '/api/admin/uploads/image': {
+  '/api/v1/admin/uploads/image': {
     post: op({
       tags: ['Uploads'],
       summary: 'Upload an item image',
@@ -796,10 +804,10 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Print agent (shared-secret)
-  '/api/print-agent/jobs/pending': {
+  '/api/v1/print-agent/jobs/pending': {
     get: op({ tags: ['Print Agent'], summary: 'Poll due print jobs', auth: 'printAgent' }),
   },
-  '/api/print-agent/jobs/{id}/mark-printing': {
+  '/api/v1/print-agent/jobs/{id}/mark-printing': {
     post: op({
       tags: ['Print Agent'],
       summary: 'Mark a job as printing',
@@ -807,7 +815,7 @@ const paths: ZodOpenApiPathsObject = {
       params: pathParam('id'),
     }),
   },
-  '/api/print-agent/jobs/{id}/mark-printed': {
+  '/api/v1/print-agent/jobs/{id}/mark-printed': {
     post: op({
       tags: ['Print Agent'],
       summary: 'Mark a job as printed',
@@ -815,7 +823,7 @@ const paths: ZodOpenApiPathsObject = {
       params: pathParam('id'),
     }),
   },
-  '/api/print-agent/jobs/{id}/mark-failed': {
+  '/api/v1/print-agent/jobs/{id}/mark-failed': {
     post: op({
       tags: ['Print Agent'],
       summary: 'Mark a job as failed (queues a retry)',
@@ -861,7 +869,7 @@ export const openapiDocument = createDocument({
         scheme: 'bearer',
         bearerFormat: 'JWT',
         description:
-          'Admin JWT from POST /api/admin/auth/login. Platform routes also require a platform-admin token.',
+          'Admin JWT from POST /api/v1/admin/auth/login. Platform routes also require a platform-admin token.',
       },
       printAgentKey: {
         type: 'apiKey',

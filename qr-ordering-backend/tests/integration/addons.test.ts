@@ -5,9 +5,9 @@ import { api, auth, registerTenant } from '../helpers';
 async function ctx() {
   const { data } = await registerTenant();
   const token = data.token as string;
-  const tables = (await api().get('/api/admin/tables').set(auth(token))).body.data;
+  const tables = (await api().get('/admin/tables').set(auth(token))).body.data;
   const code = tables[0].code as string;
-  const menu = (await api().get(`/api/public/menu?tableCode=${code}`)).body.data;
+  const menu = (await api().get(`/public/menu?tableCode=${code}`)).body.data;
   // A plain item: available, no required options, no standing menu discount.
   const item = menu.categories
     .flatMap((c: any) => c.items)
@@ -22,7 +22,7 @@ describe('custom add-ons (special requests with a price)', () => {
   it('adds priced add-ons to a menu-item line and folds them into the price', async () => {
     const { token, code, item } = await ctx();
     const res = await api()
-      .post('/api/admin/orders')
+      .post('/admin/orders')
       .set(auth(token))
       .send({
         tableCode: code,
@@ -42,7 +42,7 @@ describe('custom add-ons (special requests with a price)', () => {
     expect(res.body.data.total).toBeCloseTo(item.price + 3.5, 2);
 
     const sid = res.body.data.sessionId as string;
-    const session = (await api().get(`/api/admin/sessions/${sid}`).set(auth(token))).body.data;
+    const session = (await api().get(`/admin/sessions/${sid}`).set(auth(token))).body.data;
     const line = session.rounds
       .flatMap((r: any) => r.items)
       .find((i: any) => i.menuItemId === item.id);
@@ -56,7 +56,7 @@ describe('custom add-ons (special requests with a price)', () => {
   it('multiplies add-ons by quantity', async () => {
     const { token, code, item } = await ctx();
     const res = await api()
-      .post('/api/admin/orders')
+      .post('/admin/orders')
       .set(auth(token))
       .send({
         tableCode: code,
@@ -76,7 +76,7 @@ describe('custom add-ons (special requests with a price)', () => {
   it('records a free (RM0) add-on as a special request with no charge', async () => {
     const { token, code, item } = await ctx();
     const res = await api()
-      .post('/api/admin/orders')
+      .post('/admin/orders')
       .set(auth(token))
       .send({
         tableCode: code,
@@ -92,7 +92,7 @@ describe('custom add-ons (special requests with a price)', () => {
     expect(res.status).toBe(201);
     expect(res.body.data.total).toBeCloseTo(item.price, 2);
     const sid = res.body.data.sessionId as string;
-    const session = (await api().get(`/api/admin/sessions/${sid}`).set(auth(token))).body.data;
+    const session = (await api().get(`/admin/sessions/${sid}`).set(auth(token))).body.data;
     const line = session.rounds
       .flatMap((r: any) => r.items)
       .find((i: any) => i.menuItemId === item.id);
@@ -104,7 +104,7 @@ describe('custom add-ons (special requests with a price)', () => {
   it('a public (customer) order cannot add custom add-ons', async () => {
     const { code, item } = await ctx();
     const res = await api()
-      .post('/api/orders')
+      .post('/orders')
       .send({
         tableCode: code,
         items: [

@@ -175,8 +175,64 @@ when `NODE_ENV=production`.
 
 ## Roadmap
 
-In progress / planned:
-- **Loyalty** — schema, config, members & rewards CRUD are in; settlement earn/redeem, the
-  admin UI, and mobile self-serve enrolment are next.
-- **Subscriptions** — plan entitlements are enforced platform-side; per-feature backend gates
-  and the Plans console UI are being finished.
+Legend: ✅ shipped · 🟡 in progress · ⬜ planned. The platform is production-grade today for
+ordering, POS, reporting, multi-tenancy and billing. Recent additions: **POS-only ("secret")
+menu items** (orderable by staff, hidden from the customer menu), per-table **draft orders**
+(parked unsent, with "Clear all"), the live **Tables** view with table setup under Settings →
+Tables, **plan-detail billing cards**, and **entitlement gating** enforced end-to-end.
+
+### Up next — priority order
+1. **Loyalty P3 — earn & redeem at settlement** — the biggest functional unlock: turns the dormant
+   loyalty schema + CRUD into a working program. Needs careful money-math + an adversarial review.
+2. **Loyalty P4 — loyalty admin UI** — manage config / members / rewards and attach + redeem at the POS.
+3. **Consolidate CI to the repo root** — quick devops win so GitHub Actions actually runs the suites.
+
+### Subscriptions & billing
+- ✅ **Stripe billing** — plans, free trial, Checkout, Billing Portal, webhook-synced status,
+  and a trial / past-due / inactive banner. Where Stripe isn't configured (dev / self-hosted),
+  a tenant can **apply a plan directly** from the billing page (no payment collected).
+- ✅ **Plan-detail billing UI** — the billing tab renders each plan's price, feature list and limits
+  with "Current plan" / "Most popular" badges, sourced from the operator-editable `Plan` catalogue.
+- ✅ **Entitlement enforcement (backend)** — gated feature routers (loyalty, vouchers, multi-day
+  reports, multiple taxes + service charge) return `403 PLAN_FEATURE_LOCKED`, and table / menu-item
+  creation is capped at the plan limit (`403 PLAN_LIMIT_REACHED`); an active trial grants full Pro.
+  `GET /api/v1/admin/entitlements` exposes the resolved tier + features + limits + live usage.
+- ✅ **Entitlement gating (admin UI)** — a `useEntitlements()` hook + reusable upgrade prompt lock the
+  gated controls *before* the 403: month / custom-range reports, the Vouchers tab, and service charge
+  / multiple taxes in Settings, plus live "X / N" usage on Tables and Menu.
+- ⬜ **Annual plans, proration, and per-client invoicing** once a multi-outlet client wants a
+  single subscription across its outlets.
+
+### Loyalty (phased)
+- ✅ **P1–P2** — schema + migration, program config, and member/reward CRUD backed by a points
+  ledger.
+- ⬜ **P3 — earn & redeem at settlement** — accrue points when a tab is paid and redeem a
+  reward against the bill, with the ledger as the source of truth (plus an adversarial review
+  of the math and edge cases: voids, reopens, partial payments). ← **highest-value unlock**
+- ⬜ **P4 — admin UI** — manage config / members / rewards, attach + redeem a member at the
+  POS, and a loyalty report.
+- ⬜ **P5 — diner self-serve** — public phone-OTP endpoints so a customer can enrol and check
+  their balance from the mobile app without staff.
+- ⬜ **P6 — tiers, expiry & bonuses** — membership tiers, point expiry (a scheduled job),
+  birthday / bonus campaigns, and correct reversal when a settled tab is reopened.
+
+### Platform & operations
+- ⬜ **Consolidate CI to the repo root** — the per-app `.github/workflows/ci.yml` files are
+  nested in subfolders, so GitHub Actions doesn't pick them up; move them to a root
+  `.github/workflows/` with `paths:` filters (one job per app). *Quick win — do it soon.*
+- ⬜ **Split the operator console** into its own deployment at the first external tenant or a
+  second operator (today it's intentionally embedded at `/platform/*`).
+- ⬜ **Audit columns + soft-delete** across tenant tables (the operator audit log already
+  covers platform actions) — design parked in
+  [`qr-ordering-backend/docs/audit-soft-delete-plan.md`](./qr-ordering-backend/docs/audit-soft-delete-plan.md).
+
+### Product polish
+- ⬜ **Denser table-workspace right panel** for high-item-count tabs.
+- ⬜ **Realtime floor** — optional WebSocket/SSE to replace the 5-second polling on the floor.
+
+### API & docs
+- 🟡 **Typed responses in the OpenAPI spec** — request bodies are generated from the Zod
+  validators; response bodies are currently the generic `{ success, data }` envelope and are
+  being filled in per-endpoint.
+- ⬜ **`/api/v2`** if/when a breaking change lands — the API is already versioned under
+  `/api/v1`, so a new version is additive (mount a `v2` router; clients pin their version).

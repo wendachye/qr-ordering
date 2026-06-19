@@ -17,6 +17,7 @@ import { menuRouter } from '../modules/menu/menu.routes';
 import { uploadsRouter } from '../modules/uploads/uploads.routes';
 import { printAgentRouter } from '../modules/print-jobs/printJobs.routes';
 import { billingRouter } from '../modules/billing/billing.routes';
+import { adminEntitlementsRouter } from '../modules/admin/entitlements.routes';
 
 // Central API route table. Mounted once by createApp(). The Stripe webhook,
 // static /uploads, and health/metrics stay in app.ts because they depend on
@@ -24,31 +25,32 @@ import { billingRouter } from '../modules/billing/billing.routes';
 export const apiRouter = Router();
 
 // Broad per-IP flood backstop across the API surface. The local print agent
-// (/api/print-agent) is intentionally excluded — it polls frequently and is
+// (/api/v1/print-agent) is intentionally excluded — it polls frequently and is
 // already gated by its own shared-secret key.
-apiRouter.use('/api/public', generalLimiter);
-apiRouter.use('/api/orders', generalLimiter);
-apiRouter.use('/api/admin', generalLimiter);
+apiRouter.use('/public', generalLimiter);
+apiRouter.use('/orders', generalLimiter);
+apiRouter.use('/admin', generalLimiter);
 
 // Public (customer) APIs
-apiRouter.use('/api/public', publicRouter);
-apiRouter.use('/api/orders', ordersRouter);
+apiRouter.use('/public', publicRouter);
+apiRouter.use('/orders', ordersRouter);
 
 // Admin APIs
-apiRouter.use('/api/admin/auth', authRouter);
-apiRouter.use('/api/admin/billing', billingRouter);
-apiRouter.use('/api/admin/orders', adminOrdersRouter);
-apiRouter.use('/api/admin/tables', adminTablesRouter);
-apiRouter.use('/api/admin/floor', adminFloorRouter);
-apiRouter.use('/api/admin/sessions', adminSessionsRouter);
-apiRouter.use('/api/admin/reports', adminReportsRouter);
-apiRouter.use('/api/admin/settings', adminSettingsRouter);
-apiRouter.use('/api/admin/vouchers', adminVouchersRouter);
-apiRouter.use('/api/admin/loyalty', adminLoyaltyRouter);
-apiRouter.use('/api/admin/platform', adminPlatformRouter);
-apiRouter.use('/api/admin/outlets', adminOutletsRouter);
-apiRouter.use('/api/admin/menu', menuRouter);
-apiRouter.use('/api/admin/uploads', uploadsRouter);
+apiRouter.use('/admin/auth', authRouter);
+apiRouter.use('/admin/billing', billingRouter);
+apiRouter.use('/admin/entitlements', adminEntitlementsRouter);
+apiRouter.use('/admin/orders', adminOrdersRouter);
+apiRouter.use('/admin/tables', adminTablesRouter);
+apiRouter.use('/admin/floor', adminFloorRouter);
+apiRouter.use('/admin/sessions', adminSessionsRouter);
+apiRouter.use('/admin/reports', adminReportsRouter);
+apiRouter.use('/admin/settings', adminSettingsRouter);
+apiRouter.use('/admin/vouchers', adminVouchersRouter);
+apiRouter.use('/admin/loyalty', adminLoyaltyRouter);
+apiRouter.use('/admin/platform', adminPlatformRouter);
+apiRouter.use('/admin/outlets', adminOutletsRouter);
+apiRouter.use('/admin/menu', menuRouter);
+apiRouter.use('/admin/uploads', uploadsRouter);
 
 // Local print agent API
-apiRouter.use('/api/print-agent', printAgentRouter);
+apiRouter.use('/print-agent', printAgentRouter);

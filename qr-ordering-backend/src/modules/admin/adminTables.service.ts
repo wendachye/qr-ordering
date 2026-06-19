@@ -3,6 +3,7 @@ import { ApiError } from '../../lib/response';
 import { randomTableCode } from '../../lib/code';
 import { compareNatural } from '../../lib/sort';
 import { getDefaultStoreId } from '../../lib/store';
+import { limitReachedError, resolveEntitlementsForStore } from '../../lib/entitlements';
 import type { CreateTableInput, UpdateTableInput } from '../../validators/table';
 
 async function ensureTable(id: string) {
@@ -34,6 +35,14 @@ export async function listTables() {
 
 export async function createTable(input: CreateTableInput) {
   const storeId = await getDefaultStoreId();
+
+  // Enforce the plan's table cap (null = unlimited).
+  const ent = await resolveEntitlementsForStore(storeId);
+  if (ent.limits.maxTables != null) {
+    const count = await prisma.table.count({ where: { storeId } });
+    if (count >= ent.limits.maxTables) throw limitReachedError('tables', ent.limits.maxTables);
+  }
+
   // Codes are server-minted and globally unique (Table.code is unique storewide
   // and lives in the QR URL), so tenants never collide on a human-typed code.
   // Retry on the astronomically-rare P2002 collision.

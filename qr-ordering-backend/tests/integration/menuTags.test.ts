@@ -7,12 +7,12 @@ describe('menu item tags', () => {
     const { data } = await registerTenant();
     const token = data.token;
 
-    const cats = (await api().get('/api/admin/menu/categories').set(auth(token))).body.data;
+    const cats = (await api().get('/admin/menu/categories').set(auth(token))).body.data;
     const categoryId = cats[0].id;
 
     // Create with tags.
     const created = await api()
-      .post('/api/admin/menu/items')
+      .post('/admin/menu/items')
       .set(auth(token))
       .send({ categoryId, name: 'Tag Test Dish', price: 12.5, tags: ['Spicy', 'Halal'] });
     expect([200, 201]).toContain(created.status);
@@ -21,25 +21,25 @@ describe('menu item tags', () => {
 
     // Update tags.
     const updated = await api()
-      .patch(`/api/admin/menu/items/${id}`)
+      .patch(`/admin/menu/items/${id}`)
       .set(auth(token))
       .send({ tags: ['Vegetarian'] });
     expect(updated.status).toBe(200);
     expect(updated.body.data.tags).toEqual(['Vegetarian']);
 
     // Exposed on the customer-facing public menu.
-    const tables = (await api().get('/api/admin/tables').set(auth(token))).body.data;
+    const tables = (await api().get('/admin/tables').set(auth(token))).body.data;
     const code = tables[0].code;
-    const menu = (await api().get(`/api/public/menu?tableCode=${code}`)).body.data;
+    const menu = (await api().get(`/public/menu?tableCode=${code}`)).body.data;
     const found = menu.categories.flatMap((c: any) => c.items).find((i: any) => i.id === id);
     expect(found?.tags).toEqual(['Vegetarian']);
   });
 
   it('rejects more than 8 tags', async () => {
     const { data } = await registerTenant();
-    const cats = (await api().get('/api/admin/menu/categories').set(auth(data.token))).body.data;
+    const cats = (await api().get('/admin/menu/categories').set(auth(data.token))).body.data;
     const res = await api()
-      .post('/api/admin/menu/items')
+      .post('/admin/menu/items')
       .set(auth(data.token))
       .send({
         categoryId: cats[0].id,

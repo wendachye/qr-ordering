@@ -5,8 +5,8 @@
 
 import { API_BASE_URL } from "./api";
 
-// Backend origin = API base URL without the trailing "/api".
-const ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
+// Backend origin = API base URL without the trailing "/api" or "/api/v1".
+const ORIGIN = API_BASE_URL.replace(/\/api(\/v\d+)?\/?$/, "");
 
 export function assetUrl(url: string | null | undefined): string {
   if (!url) return "";

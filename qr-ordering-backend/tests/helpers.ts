@@ -4,7 +4,26 @@ import { createApp } from '../src/app';
 
 // One in-process app instance per test file (supertest needs no open port).
 export const app = createApp();
-export const api = () => request(app);
+
+// All feature APIs live under a single versioned prefix. Tests call version-less
+// paths (e.g. `/admin/auth/login`) and this wrapper prepends the prefix, so a
+// future bump (`/api/v2`) is a one-line change here — not a sweep across every
+// test. Non-feature paths (`/health`, `/metrics`, `/api/stripe/webhook`) and any
+// already-prefixed path pass through untouched.
+export const API_PREFIX = '/api/v1';
+const FEATURE_ROOT = /^\/(public|orders|admin|print-agent)(\/|\?|$)/;
+const withPrefix = (path: string) => (FEATURE_ROOT.test(path) ? `${API_PREFIX}${path}` : path);
+
+export const api = () => {
+  const agent = request(app);
+  return {
+    get: (path: string) => agent.get(withPrefix(path)),
+    post: (path: string) => agent.post(withPrefix(path)),
+    put: (path: string) => agent.put(withPrefix(path)),
+    patch: (path: string) => agent.patch(withPrefix(path)),
+    delete: (path: string) => agent.delete(withPrefix(path)),
+  };
+};
 
 let seq = 0;
 /** A short, unique suffix for isolated test data (emails, slugs, …). */
@@ -18,7 +37,7 @@ export function auth(token: string) {
 }
 
 export async function login(email: string, password: string) {
-  const res = await api().post('/api/admin/auth/login').send({ email, password });
+  const res = await api().post('/admin/auth/login').send({ email, password });
   return res.body?.data as { token: string; user: { id: string; email: string; storeId: string } };
 }
 
@@ -32,7 +51,7 @@ export async function registerTenant(
     email: overrides.email ?? `owner_${tag}@test.local`,
     password: overrides.password ?? 'password12345',
   };
-  const res = await api().post('/api/admin/auth/register').send(body);
+  const res = await api().post('/admin/auth/register').send(body);
   return {
     status: res.status,
     body,

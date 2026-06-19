@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { requireAdmin } from '../../middleware/auth';
 import { sendOk } from '../../lib/response';
-import { createCheckout, createPortal, getBillingState } from './billing.service';
+import { applyPlan, createCheckout, createPortal, getBillingState } from './billing.service';
 
 export const billingRouter = Router();
 
@@ -25,4 +25,11 @@ billingRouter.post('/checkout', async (req, res) => {
 // POST /api/admin/billing/portal — Stripe Billing Portal URL.
 billingRouter.post('/portal', async (_req, res) => {
   sendOk(res, await createPortal());
+});
+
+// POST /api/admin/billing/apply — directly activate a plan (only when Stripe is
+// not configured; with Stripe on, use /checkout so payment is collected).
+billingRouter.post('/apply', async (req, res) => {
+  const { plan } = z.object({ plan: z.enum(['basic', 'pro']) }).parse(req.body);
+  sendOk(res, await applyPlan(plan));
 });

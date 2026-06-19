@@ -22,6 +22,7 @@ export function CartPanel({
   title = "Order",
   submitLabel = "Place order",
   hint,
+  onClear,
 }: {
   lines: CartLine[];
   note: string;
@@ -35,6 +36,9 @@ export function CartPanel({
   title?: string;
   submitLabel?: string;
   hint?: ReactNode;
+  // When provided, shows a "Clear all" action in the header (the parent owns the
+  // confirmation + the actual clear).
+  onClear?: () => void;
 }) {
   const total = cartTotal(lines);
   const count = cartItemCount(lines);
@@ -44,9 +48,20 @@ export function CartPanel({
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
         <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-        <span className="text-sm font-medium text-slate-500">
-          {count} {count === 1 ? "item" : "items"}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-slate-500">
+            {count} {count === 1 ? "item" : "items"}
+          </span>
+          {onClear && !empty && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="text-sm font-semibold text-red-600 hover:text-red-700"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4">

@@ -52,6 +52,7 @@ const schema = z.object({
     .min(0, "Price must be 0 or more")
     .max(100000, "Price is too large"),
   isAvailable: z.boolean(),
+  posOnly: z.boolean(),
 });
 
 export type MenuItemFormValues = z.infer<typeof schema>;
@@ -158,10 +159,12 @@ export function MenuItemForm({
       description: initial?.description ?? "",
       price: initial?.price ?? 0,
       isAvailable: initial?.isAvailable ?? true,
+      posOnly: initial?.posOnly ?? false,
     },
   });
 
   const isAvailable = watch("isAvailable");
+  const posOnly = watch("posOnly");
   const atLimit = imageUrls.length >= MAX_IMAGES;
 
   // Standing menu discount preview (customer sale price).
@@ -245,6 +248,7 @@ export function MenuItemForm({
       discountType,
       discountValue: discountType ? Number(discountValue) || 0 : 0,
       isAvailable: v.isAvailable,
+      posOnly: v.posOnly,
       optionGroups,
     });
   };
@@ -621,6 +625,22 @@ export function MenuItemForm({
         />
         <span className="text-base font-medium text-slate-700">
           Available (uncheck to mark sold out)
+        </span>
+      </label>
+
+      <label className="flex cursor-pointer items-start gap-3">
+        <input
+          type="checkbox"
+          checked={!posOnly}
+          onChange={(e) => setValue("posOnly", !e.target.checked)}
+          className="mt-0.5 h-5 w-5 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+        />
+        <span className="text-base font-medium text-slate-700">
+          Visible to customers
+          <span className="mt-0.5 block text-sm font-normal text-slate-400">
+            Uncheck for a secret, POS-only item — staff can order it, but it won&apos;t appear on the
+            customer menu.
+          </span>
         </span>
       </label>
 

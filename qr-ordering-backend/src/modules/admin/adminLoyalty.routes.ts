@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { sendCreated, sendOk } from '../../lib/response';
 import { requireAdmin } from '../../middleware/auth';
 import { requireActiveSubscription } from '../../middleware/subscription';
+import { requireFeature } from '../../middleware/features';
 import {
   adjustPointsSchema,
   createMemberSchema,
@@ -30,7 +31,7 @@ import {
 
 // /api/admin/loyalty — program config + member management + reward catalog.
 export const adminLoyaltyRouter = Router();
-adminLoyaltyRouter.use(requireAdmin, requireActiveSubscription);
+adminLoyaltyRouter.use(requireAdmin, requireActiveSubscription, requireFeature('loyalty'));
 
 // --- Program config ---
 adminLoyaltyRouter.get('/config', async (_req, res) => {

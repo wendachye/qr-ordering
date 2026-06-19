@@ -4,6 +4,7 @@ import { config } from '../../config/env';
 import { logger } from '../../lib/logger';
 import { getDefaultStoreId } from '../../lib/store';
 import { stripe, PLANS, type PlanKey } from '../../lib/stripe';
+import { listPlanDefs } from '../../lib/entitlements';
 
 export type BillingStatus = 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED';
 
@@ -48,6 +49,20 @@ export async function getBillingState() {
     s.subscriptionStatus === 'TRIALING' && s.trialEndsAt
       ? Math.max(0, Math.ceil((s.trialEndsAt.getTime() - Date.now()) / 86_400_000))
       : null;
+  // Plan catalogue (price + entitlements): DB rows merged over the built-in
+  // defaults — the same canonical list the platform Plans console shows.
+  const plans = (await listPlanDefs())
+    .filter((p) => p.isActive)
+    .map((p) => ({
+      key: p.key,
+      name: p.name,
+      description: p.description,
+      monthlyPrice: p.monthlyPrice,
+      currency: p.currency,
+      features: p.features,
+      maxTables: p.maxTables,
+      maxMenuItems: p.maxMenuItems,
+    }));
   return {
     plan: s.plan,
     status: s.subscriptionStatus,
@@ -56,7 +71,7 @@ export async function getBillingState() {
     trialDaysLeft,
     currentPeriodEnd: s.currentPeriodEnd,
     billingEnabled: !!stripe,
-    plans: Object.values(PLANS).map((p) => ({ key: p.key, name: p.name })),
+    plans,
   };
 }
 
@@ -107,6 +122,24 @@ export async function createCheckout(planKey: PlanKey) {
     subscription_data: { metadata: { storeId } },
   });
   return { url: session.url };
+}
+
+/**
+ * Activate a plan directly, WITHOUT Stripe. Allowed only when Stripe billing is
+ * not configured (dev / self-hosted / manually-invoiced tenants). When Stripe is
+ * on, tenants must subscribe through checkout so payment is actually collected.
+ */
+export async function applyPlan(planKey: PlanKey) {
+  if (stripe) {
+    throw ApiError.badRequest('Stripe billing is enabled — subscribe via checkout instead.');
+  }
+  if (!PLANS[planKey]) throw ApiError.badRequest('Unknown plan');
+  const storeId = await getDefaultStoreId();
+  await prisma.store.update({
+    where: { id: storeId },
+    data: { plan: PLANS[planKey].key, subscriptionStatus: 'ACTIVE', trialEndsAt: null },
+  });
+  return getBillingState();
 }
 
 /** Stripe Billing Portal session to manage an existing subscription. */

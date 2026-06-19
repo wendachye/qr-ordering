@@ -95,6 +95,7 @@ export function MenuBuilder({
     });
   const collapseAll = () => setCollapsed(new Set(categories.map((c) => c.id)));
   const expandAll = () => setCollapsed(new Set());
+  const allCollapsed = categories.length > 0 && categories.every((c) => collapsed.has(c.id));
   const jumpTo = (id: string) => {
     setCollapsed((s) => {
       const n = new Set(s);
@@ -171,17 +172,15 @@ export function MenuBuilder({
               </button>
             )}
           </div>
-          {!searching && (
-            <>
-              <Button variant="secondary" size="sm" onClick={collapseAll}>
-                <ChevronsDownUp />
-                Collapse all
-              </Button>
-              <Button variant="secondary" size="sm" onClick={expandAll}>
-                <ChevronsUpDown />
-                Expand all
-              </Button>
-            </>
+          {!searching && categories.length > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => (allCollapsed ? expandAll() : collapseAll())}
+            >
+              {allCollapsed ? <ChevronsUpDown /> : <ChevronsDownUp />}
+              {allCollapsed ? "Expand all" : "Collapse all"}
+            </Button>
           )}
         </div>
 

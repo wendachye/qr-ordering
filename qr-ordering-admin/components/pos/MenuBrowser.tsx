@@ -254,6 +254,11 @@ function ItemCard({
             Sold out
           </span>
         )}
+        {item.posOnly && (
+          <span className="absolute right-2 top-2 rounded-full bg-violet-600 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">
+            Staff
+          </span>
+        )}
       </div>
       <div className="flex flex-1 flex-col p-3">
         {categoryName && (

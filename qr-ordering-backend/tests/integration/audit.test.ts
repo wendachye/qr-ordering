@@ -7,7 +7,7 @@ async function superAdmin() {
   const { data, body } = await registerTenant();
   await prisma.adminUser.update({ where: { id: data.user.id }, data: { isPlatformAdmin: true } });
   const res = await api()
-    .post('/api/admin/auth/login')
+    .post('/admin/auth/login')
     .send({ email: body.email, password: body.password });
   return { token: res.body.data.token as string, email: body.email as string };
 }
@@ -19,23 +19,22 @@ function decodeJwt(token: string): { iat: number; exp: number; imp?: string } {
 describe('operator audit log', () => {
   it('forbids a non-super-admin from reading the audit log', async () => {
     const { data } = await registerTenant();
-    expect((await api().get('/api/admin/platform/audit').set(auth(data.token))).status).toBe(403);
+    expect((await api().get('/admin/platform/audit').set(auth(data.token))).status).toBe(403);
   });
 
   it('records client.create and plan.update, attributed to the operator', async () => {
     const { token, email } = await superAdmin();
 
     const created = await api()
-      .post('/api/admin/platform/clients')
+      .post('/admin/platform/clients')
       .set(auth(token))
       .send({ clientName: `Audit Co ${uid()}`, outletName: 'Audit One', planKey: 'basic' });
     const clientId = created.body.data.id as string;
 
-    await api().patch('/api/admin/platform/plans/pro').set(auth(token)).send({ monthlyPrice: 99 });
+    await api().patch('/admin/platform/plans/pro').set(auth(token)).send({ monthlyPrice: 99 });
 
-    const list = (
-      await api().get('/api/admin/platform/audit?action=client.create').set(auth(token))
-    ).body.data;
+    const list = (await api().get('/admin/platform/audit?action=client.create').set(auth(token)))
+      .body.data;
     const entry = list.entries.find((e: { entityId: string }) => e.entityId === clientId);
     expect(entry).toBeTruthy();
     expect(entry.actorEmail).toBe(email);
@@ -51,14 +50,14 @@ describe('operator audit log', () => {
     const { token, email } = await superAdmin();
     const client = (
       await api()
-        .post('/api/admin/platform/clients')
+        .post('/admin/platform/clients')
         .set(auth(token))
         .send({ clientName: `Imp Audit ${uid()}`, outletName: 'Imp One', planKey: 'pro' })
     ).body.data;
     const outletId = client.outlets[0].id as string;
 
     const imp = await api()
-      .post(`/api/admin/platform/outlets/${outletId}/impersonate`)
+      .post(`/admin/platform/outlets/${outletId}/impersonate`)
       .set(auth(token));
     const impToken = imp.body.data.token as string;
 
@@ -68,7 +67,7 @@ describe('operator audit log', () => {
     expect(decoded.imp).toBe(email);
 
     // /me surfaces the impersonator so the UI can label the session.
-    const me = await api().get('/api/admin/auth/me').set(auth(impToken));
+    const me = await api().get('/admin/auth/me').set(auth(impToken));
     expect(me.body.data.imp).toBe(email);
     expect(me.body.data.isPlatformAdmin).toBe(false);
 

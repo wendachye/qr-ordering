@@ -5,7 +5,7 @@ import { api, auth, registerTenant } from '../helpers';
 async function ctx() {
   const { data } = await registerTenant();
   const token = data.token as string;
-  const cats = (await api().get('/api/admin/menu/categories').set(auth(token))).body.data;
+  const cats = (await api().get('/admin/menu/categories').set(auth(token))).body.data;
   return { token, categoryId: cats[0].id as string };
 }
 
@@ -13,7 +13,7 @@ describe('configurable menu item options', () => {
   it('creates an item with option groups + choices (ordered)', async () => {
     const { token, categoryId } = await ctx();
     const res = await api()
-      .post('/api/admin/menu/items')
+      .post('/admin/menu/items')
       .set(auth(token))
       .send({
         categoryId,
@@ -56,7 +56,7 @@ describe('configurable menu item options', () => {
     const { token, categoryId } = await ctx();
     const created = (
       await api()
-        .post('/api/admin/menu/items')
+        .post('/admin/menu/items')
         .set(auth(token))
         .send({
           categoryId,
@@ -74,15 +74,15 @@ describe('configurable menu item options', () => {
         })
     ).body.data;
 
-    const tables = (await api().get('/api/admin/tables').set(auth(token))).body.data;
+    const tables = (await api().get('/admin/tables').set(auth(token))).body.data;
     const code = tables[0].code as string;
-    const menu = (await api().get(`/api/public/menu?tableCode=${code}`)).body.data;
+    const menu = (await api().get(`/public/menu?tableCode=${code}`)).body.data;
     const pub = menu.categories.flatMap((c: any) => c.items).find((i: any) => i.id === created.id);
     expect(pub.optionGroups[0].choices[0].name).toBe('Extra egg');
     const choiceId = pub.optionGroups[0].choices[0].id as string;
 
     const order = await api()
-      .post('/api/admin/orders')
+      .post('/admin/orders')
       .set(auth(token))
       .send({
         tableCode: code,
@@ -96,7 +96,7 @@ describe('configurable menu item options', () => {
     const { token, categoryId } = await ctx();
     const created = (
       await api()
-        .post('/api/admin/menu/items')
+        .post('/admin/menu/items')
         .set(auth(token))
         .send({
           categoryId,
@@ -116,7 +116,7 @@ describe('configurable menu item options', () => {
 
     const updated = (
       await api()
-        .patch(`/api/admin/menu/items/${created.id}`)
+        .patch(`/admin/menu/items/${created.id}`)
         .set(auth(token))
         .send({
           optionGroups: [
@@ -139,7 +139,7 @@ describe('configurable menu item options', () => {
     const { token, categoryId } = await ctx();
     const created = (
       await api()
-        .post('/api/admin/menu/items')
+        .post('/admin/menu/items')
         .set(auth(token))
         .send({
           categoryId,
@@ -158,7 +158,7 @@ describe('configurable menu item options', () => {
     ).body.data;
     const updated = (
       await api()
-        .patch(`/api/admin/menu/items/${created.id}`)
+        .patch(`/admin/menu/items/${created.id}`)
         .set(auth(token))
         .send({ optionGroups: [] })
     ).body.data;
@@ -168,7 +168,7 @@ describe('configurable menu item options', () => {
   it('rejects an invalid group (min greater than max)', async () => {
     const { token, categoryId } = await ctx();
     const res = await api()
-      .post('/api/admin/menu/items')
+      .post('/admin/menu/items')
       .set(auth(token))
       .send({
         categoryId,

@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Lock,
   Printer,
 } from "lucide-react";
 import { AdminShell } from "@/components/layout/AdminShell";
@@ -18,6 +19,8 @@ import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { formatDateTime, formatPrice, formatTime } from "@/lib/format";
 import type { SalesReport } from "@/lib/types";
+import { useEntitlements } from "@/hooks/useEntitlements";
+import { UpgradeNotice } from "@/components/common/UpgradeNotice";
 
 // ---- date helpers (local business day, venue timezone) ----
 function ymd(y: number, mZero: number, d: number): string {
@@ -72,6 +75,11 @@ export default function ReportsPage() {
   const [month, setMonth] = useState<string>(monthStr);
   const [from, setFrom] = useState<string>(() => shiftDay(todayStr(), -6));
   const [to, setTo] = useState<string>(todayStr);
+
+  // "Advanced reports" (month + custom range) is a Pro feature; Basic keeps the
+  // single-day Z reading. The backend enforces this too (multi-day → 403).
+  const { locked } = useEntitlements();
+  const advLocked = locked("reports_advanced");
 
   const range = useMemo(() => {
     const t = todayStr();
@@ -129,19 +137,26 @@ export default function ReportsPage() {
       {/* Period selector */}
       <div className="mb-5 flex flex-wrap items-center gap-3 print:hidden">
         <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
-          {(["day", "month", "range"] as Mode[]).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-semibold capitalize transition-colors",
-                mode === m ? "bg-accent-600 text-white" : "text-slate-600 hover:bg-slate-100"
-              )}
-            >
-              {m}
-            </button>
-          ))}
+          {(["day", "month", "range"] as Mode[]).map((m) => {
+            const lockedMode = advLocked && m !== "day";
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => !lockedMode && setMode(m)}
+                disabled={lockedMode}
+                title={lockedMode ? "Upgrade to Pro for monthly & custom-range reports" : undefined}
+                className={cn(
+                  "flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-semibold capitalize transition-colors",
+                  mode === m ? "bg-accent-600 text-white" : "text-slate-600 hover:bg-slate-100",
+                  lockedMode && "cursor-not-allowed opacity-50 hover:bg-transparent"
+                )}
+              >
+                {m}
+                {lockedMode && <Lock className="h-3 w-3" />}
+              </button>
+            );
+          })}
         </div>
 
         {mode === "day" && (
@@ -234,6 +249,15 @@ export default function ReportsPage() {
           </div>
         )}
       </div>
+
+      {advLocked && (
+        <UpgradeNotice
+          className="mb-5 print:hidden"
+          title="Monthly & custom-range reports are a Pro feature"
+        >
+          Basic includes today&apos;s Z reading. Upgrade for month and custom date-range analytics.
+        </UpgradeNotice>
+      )}
 
       {query.isLoading ? (
         <LoadingState label="Loading report…" />

@@ -7,11 +7,11 @@ import { prisma } from '../../src/lib/prisma';
 describe('billing + subscription gating', () => {
   it('a fresh tenant is on a trial and can operate', async () => {
     const { data } = await registerTenant();
-    const billing = (await api().get('/api/admin/billing').set(auth(data.token))).body.data;
+    const billing = (await api().get('/admin/billing').set(auth(data.token))).body.data;
     expect(billing.status).toBe('TRIALING');
     expect(billing.active).toBe(true);
     expect(billing.trialDaysLeft).toBeGreaterThan(0);
-    expect((await api().get('/api/admin/floor').set(auth(data.token))).status).toBe(200);
+    expect((await api().get('/admin/floor').set(auth(data.token))).status).toBe(200);
   });
 
   it('blocks operational routes with 402 once the trial has expired', async () => {
@@ -21,11 +21,11 @@ describe('billing + subscription gating', () => {
       data: { trialEndsAt: new Date(Date.now() - 1000) },
     });
     // Operational route is gated…
-    expect((await api().get('/api/admin/floor').set(auth(data.token))).status).toBe(402);
+    expect((await api().get('/admin/floor').set(auth(data.token))).status).toBe(402);
     // …but the account area (auth + billing + settings) stays reachable.
-    expect((await api().get('/api/admin/auth/me').set(auth(data.token))).status).toBe(200);
-    expect((await api().get('/api/admin/billing').set(auth(data.token))).status).toBe(200);
-    expect((await api().get('/api/admin/settings').set(auth(data.token))).status).toBe(200);
+    expect((await api().get('/admin/auth/me').set(auth(data.token))).status).toBe(200);
+    expect((await api().get('/admin/billing').set(auth(data.token))).status).toBe(200);
+    expect((await api().get('/admin/settings').set(auth(data.token))).status).toBe(200);
   });
 
   it('an ACTIVE subscription restores access after the trial', async () => {
@@ -34,7 +34,7 @@ describe('billing + subscription gating', () => {
       where: { id: data.user.storeId },
       data: { trialEndsAt: new Date(Date.now() - 1000), subscriptionStatus: 'ACTIVE' },
     });
-    expect((await api().get('/api/admin/floor').set(auth(data.token))).status).toBe(200);
+    expect((await api().get('/admin/floor').set(auth(data.token))).status).toBe(200);
   });
 
   it('treats a never-paid (incomplete) subscription as inactive', async () => {
@@ -54,7 +54,7 @@ describe('billing + subscription gating', () => {
     });
     const store = await prisma.store.findUnique({ where: { id: data.user.storeId } });
     expect(store!.subscriptionStatus).toBe('CANCELED');
-    expect((await api().get('/api/admin/floor').set(auth(data.token))).status).toBe(402);
+    expect((await api().get('/admin/floor').set(auth(data.token))).status).toBe(402);
   });
 
   it('reads current_period_end from the subscription item (Stripe basil+ API)', async () => {
@@ -77,10 +77,24 @@ describe('billing + subscription gating', () => {
     expect(Math.floor(store!.currentPeriodEnd!.getTime() / 1000)).toBe(periodEnd);
   });
 
+  it('applies a plan directly + activates the subscription when Stripe is off', async () => {
+    const { data } = await registerTenant();
+    const res = await api()
+      .post('/admin/billing/apply')
+      .set(auth(data.token))
+      .send({ plan: 'pro' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.plan).toBe('pro');
+    expect(res.body.data.status).toBe('ACTIVE');
+    expect(res.body.data.active).toBe(true);
+    const store = await prisma.store.findUnique({ where: { id: data.user.storeId } });
+    expect(store!.subscriptionStatus).toBe('ACTIVE');
+  });
+
   it('checkout fails cleanly (503) when Stripe is not configured', async () => {
     const { data } = await registerTenant();
     const res = await api()
-      .post('/api/admin/billing/checkout')
+      .post('/admin/billing/checkout')
       .set(auth(data.token))
       .send({ plan: 'basic' });
     expect(res.status).toBe(503);

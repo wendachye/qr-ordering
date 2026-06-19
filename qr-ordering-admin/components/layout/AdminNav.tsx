@@ -10,6 +10,7 @@ import {
   Crown,
   LayoutGrid,
   LogOut,
+  Megaphone,
   ScrollText,
   Settings,
   Store,
@@ -30,9 +31,10 @@ import {
 
 // Top-level sections. "Menu" is now a single drag-and-drop builder page.
 const MAIN_NAV = [
-  { href: "/admin/floor", label: "Floor", icon: LayoutGrid },
+  { href: "/admin/floor", label: "Tables", icon: LayoutGrid },
   { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
+  { href: "/admin/promotions", label: "Promotions", icon: Megaphone },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

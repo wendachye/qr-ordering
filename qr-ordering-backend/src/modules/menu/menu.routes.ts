@@ -34,10 +34,18 @@ import {
   updateItem,
   updateMenuSettings,
 } from './menu.service';
+import { getPosMenuForTable } from '../public/public.service';
 
 export const menuRouter = Router();
 
 menuRouter.use(requireAdmin, requireActiveSubscription);
+
+// GET /api/admin/menu/pos-menu?tableCode=...  — the customer-shaped menu plus
+// POS-only ("secret") items, for the staff POS order screens.
+menuRouter.get('/pos-menu', async (req, res) => {
+  const { tableCode } = z.object({ tableCode: z.string().min(1) }).parse(req.query);
+  sendOk(res, await getPosMenuForTable(tableCode));
+});
 
 /* ----------------------------- Categories ----------------------------- */
 

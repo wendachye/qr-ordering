@@ -61,7 +61,7 @@ export default function TableHistoryPage() {
           className="inline-flex items-center gap-1 text-base font-semibold text-accent-700 hover:text-accent-800"
         >
           <ArrowLeft className="h-4 w-4" />
-          Floor
+          Tables
         </Link>
       </div>
 
@@ -72,7 +72,7 @@ export default function TableHistoryPage() {
         <p className="mt-1 text-slate-500">
           {table
             ? "Every order placed at this table, newest first"
-            : "Open a table from the Floor to see its orders"}
+            : "Open a table to see its orders"}
           {query.isFetching && !query.isLoading && " · updating…"}
         </p>
       </div>
@@ -80,7 +80,7 @@ export default function TableHistoryPage() {
       {!table ? (
         <EmptyState
           title="Pick a table"
-          description="Open a table's ⋯ menu on the Floor and choose History."
+          description="Open a table's ⋯ menu and choose History."
         />
       ) : query.isLoading ? (
         <LoadingState label="Loading order history…" />

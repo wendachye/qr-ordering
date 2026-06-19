@@ -9,7 +9,7 @@ async function superAdmin() {
   const { data, body } = await registerTenant();
   await prisma.adminUser.update({ where: { id: data.user.id }, data: { isPlatformAdmin: true } });
   const res = await api()
-    .post('/api/admin/auth/login')
+    .post('/admin/auth/login')
     .send({ email: body.email, password: body.password });
   return res.body.data.token as string;
 }
@@ -22,13 +22,13 @@ afterAll(async () => {
 describe('platform plans (super-admin)', () => {
   it('rejects a non-super-admin with 403', async () => {
     const { data } = await registerTenant();
-    const res = await api().get('/api/admin/platform/plans').set(auth(data.token));
+    const res = await api().get('/admin/platform/plans').set(auth(data.token));
     expect(res.status).toBe(403);
   });
 
   it('lists the two canonical plans for a super-admin', async () => {
     const token = await superAdmin();
-    const res = await api().get('/api/admin/platform/plans').set(auth(token));
+    const res = await api().get('/admin/platform/plans').set(auth(token));
     expect(res.status).toBe(200);
     expect(res.body.data.map((p: any) => p.key)).toEqual(['basic', 'pro']);
     const pro = res.body.data.find((p: any) => p.key === 'pro');
@@ -39,7 +39,7 @@ describe('platform plans (super-admin)', () => {
   it('edits a plan (name, price, features, limits) and round-trips', async () => {
     const token = await superAdmin();
     const res = await api()
-      .patch('/api/admin/platform/plans/basic')
+      .patch('/admin/platform/plans/basic')
       .set(auth(token))
       .send({
         name: 'Basic Plan',
@@ -58,14 +58,14 @@ describe('platform plans (super-admin)', () => {
 
     // A second super-admin sees the persisted edit.
     const token2 = await superAdmin();
-    const again = (await api().get('/api/admin/platform/plans').set(auth(token2))).body.data;
+    const again = (await api().get('/admin/platform/plans').set(auth(token2))).body.data;
     expect(again.find((p: any) => p.key === 'basic').name).toBe('Basic Plan');
   });
 
   it('rejects an unknown plan key with 404', async () => {
     const token = await superAdmin();
     const res = await api()
-      .patch('/api/admin/platform/plans/enterprise')
+      .patch('/admin/platform/plans/enterprise')
       .set(auth(token))
       .send({ name: 'Enterprise' });
     expect(res.status).toBe(404);

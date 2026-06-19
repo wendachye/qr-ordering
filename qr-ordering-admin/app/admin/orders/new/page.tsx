@@ -17,11 +17,13 @@ import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { useToast } from "@/components/common/Toast";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { MenuBrowser } from "@/components/pos/MenuBrowser";
 import { OptionPicker } from "@/components/pos/OptionPicker";
 import { CustomItemDialog } from "@/components/pos/CustomItemDialog";
 import { CartPanel } from "@/components/pos/CartPanel";
-import { ordersApi, tablesApi, publicApi, sessionsApi } from "@/lib/endpoints";
+import { ordersApi, tablesApi, posMenuApi, sessionsApi } from "@/lib/endpoints";
+import { useDraftCart } from "@/hooks/useDraftCart";
 import { ApiError, newIdempotencyKey } from "@/lib/api";
 import {
   cartItemCount,
@@ -61,16 +63,21 @@ export default function NewOrderPage() {
     setTableCode(preferred ? preferred.code : activeTables[0].code);
   }, [activeTables, tableCode]);
 
+  // POS menu (includes POS-only "secret" items) for the selected table.
   const menuQuery = useQuery({
-    queryKey: ["public-menu", tableCode],
-    queryFn: () => publicApi.menu(tableCode),
+    queryKey: ["pos-menu", tableCode],
+    queryFn: () => posMenuApi.get(tableCode),
     enabled: !!tableCode,
   });
 
-  const [cart, setCart] = useState<CartLine[]>([]);
-  const [orderNote, setOrderNote] = useState("");
+  // The in-progress cart is a per-table draft (localStorage, keyed by table
+  // code), so adding items then going back to the Floor keeps them safe and
+  // unsent — they only reach the kitchen when "Place order" is pressed.
+  const { cart, setCart, note: orderNote, setNote: setOrderNote, clearDraft } =
+    useDraftCart(tableCode ? `table:${tableCode}` : "");
   const [picking, setPicking] = useState<PublicMenuItem | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   // A cart line being edited (reopens the picker seeded from that line).
   const [editingLine, setEditingLine] = useState<CartLine | null>(null);
   const menuItems = useMemo(
@@ -128,8 +135,7 @@ export default function NewOrderPage() {
     onSuccess: (res: PlaceOrderResponse) => {
       idemKeyRef.current = null;
       toast(`Order #${res.orderNumber} sent to kitchen`, "success");
-      setCart([]);
-      setOrderNote("");
+      clearDraft();
       // Land on the table's running tab so staff sees the new round.
       router.push(`/admin/sessions/${res.sessionId}`);
     },
@@ -164,7 +170,7 @@ export default function NewOrderPage() {
             className="inline-flex items-center gap-1 text-base font-semibold text-accent-700 hover:text-accent-800"
           >
             <ArrowLeft className="h-4 w-4" />
-            Floor
+            Tables
           </Link>
           <h1 className="text-3xl font-black text-slate-900">New order</h1>
         </div>
@@ -252,6 +258,7 @@ export default function NewOrderPage() {
               onEdit={setEditingLine}
               onSubmit={() => placeOrder.mutate()}
               submitting={placeOrder.isPending}
+              onClear={() => setConfirmClear(true)}
             />
           </div>
         </div>
@@ -275,6 +282,20 @@ export default function NewOrderPage() {
         open={customOpen}
         onClose={() => setCustomOpen(false)}
         onConfirm={addLine}
+      />
+
+      <ConfirmDialog
+        open={confirmClear}
+        title="Discard all items?"
+        message="This removes every item from this order. It can't be undone."
+        confirmLabel="Discard all"
+        destructive
+        onConfirm={() => {
+          clearDraft();
+          setConfirmClear(false);
+          toast("Cleared all items.", "success");
+        }}
+        onCancel={() => setConfirmClear(false)}
       />
     </AdminShell>
   );

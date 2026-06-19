@@ -35,9 +35,10 @@ import { CartLineList } from "@/components/pos/CartLineList";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { useToast } from "@/components/common/Toast";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { useDraftCart } from "@/hooks/useDraftCart";
 import { useSessionMutations } from "@/hooks/useSessionMutations";
-import { ordersApi, sessionsApi, settingsApi, publicApi } from "@/lib/endpoints";
+import { ordersApi, sessionsApi, settingsApi, posMenuApi } from "@/lib/endpoints";
 import { ApiError, newIdempotencyKey } from "@/lib/api";
 import { ChargeBreakdown } from "@/components/orders/ChargeBreakdown";
 import { cn } from "@/lib/cn";
@@ -85,7 +86,7 @@ export default function SessionDetailPage({
           className="inline-flex items-center gap-1 text-base font-semibold text-accent-700 hover:text-accent-800"
         >
           <ArrowLeft className="h-4 w-4" />
-          Floor
+          Tables
         </Link>
       </div>
 
@@ -132,9 +133,10 @@ function TableWorkspace({ session }: { session: SessionDetail }) {
   const otherOpenTabs = floor.filter((e) => e.session && e.session.id !== session.id);
   const [tableOp, setTableOp] = useState<"move" | "combine" | null>(null);
 
+  // POS menu (includes POS-only "secret" items) for this table.
   const menuQuery = useQuery({
-    queryKey: ["public-menu", session.table.code],
-    queryFn: () => publicApi.menu(session.table.code),
+    queryKey: ["pos-menu", session.table.code],
+    queryFn: () => posMenuApi.get(session.table.code),
   });
   const menuItems = useMemo(
     () => menuQuery.data?.categories.flatMap((c) => c.items) ?? [],
@@ -152,6 +154,7 @@ function TableWorkspace({ session }: { session: SessionDetail }) {
   } = useDraftCart(session.id);
   const [picking, setPicking] = useState<PublicMenuItem | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   // A cart line being edited (reopens the picker seeded from that line).
   const [editingLine, setEditingLine] = useState<CartLine | null>(null);
   const editingItem = editingLine
@@ -307,9 +310,18 @@ function TableWorkspace({ session }: { session: SessionDetail }) {
                 New items
               </p>
               {cart.length > 0 && (
-                <span className="text-xs font-medium text-slate-400">
-                  {cartItemCount(cart)} to send
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-medium text-slate-400">
+                    {cartItemCount(cart)} to send
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClear(true)}
+                    className="text-xs font-semibold text-red-600 hover:text-red-700"
+                  >
+                    Clear all
+                  </button>
+                </div>
               )}
             </div>
             {cart.length === 0 ? (
@@ -392,6 +404,20 @@ function TableWorkspace({ session }: { session: SessionDetail }) {
         open={customOpen}
         onClose={() => setCustomOpen(false)}
         onConfirm={addLine}
+      />
+
+      <ConfirmDialog
+        open={confirmClear}
+        title="Discard new items?"
+        message="This removes every unsent item from this table. Items already sent to the kitchen are not affected."
+        confirmLabel="Discard all"
+        destructive
+        onConfirm={() => {
+          clearDraft();
+          setConfirmClear(false);
+          toast("Cleared unsent items.", "success");
+        }}
+        onCancel={() => setConfirmClear(false)}
       />
 
       <VoidDialog

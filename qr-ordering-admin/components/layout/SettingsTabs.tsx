@@ -10,7 +10,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // trigger is an actual <Link> (asChild) so navigation + prefetch stay native.
 const TABS = [
   { href: "/admin/settings", label: "General" },
-  { href: "/admin/settings/vouchers", label: "Vouchers" },
+  { href: "/admin/settings/charges", label: "Charges" },
+  { href: "/admin/settings/security", label: "Security" },
+  { href: "/admin/settings/tables", label: "Tables" },
   { href: "/admin/billing", label: "Billing" },
 ];
 

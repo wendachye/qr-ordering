@@ -73,7 +73,14 @@ export function SortableItemRow({
         <ItemThumb item={item} />
 
         <div className="min-w-[10rem] flex-1">
-          <p className="font-semibold text-slate-900">{item.name}</p>
+          <p className="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
+            {item.name}
+            {item.posOnly && (
+              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-bold text-violet-700">
+                Staff only
+              </span>
+            )}
+          </p>
           {item.description && (
             <p className="mt-0.5 line-clamp-1 text-sm text-slate-500">
               {item.description}

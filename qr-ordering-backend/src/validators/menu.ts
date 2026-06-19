@@ -57,6 +57,8 @@ export const createItemSchema = z
     discountType: z.enum(['PERCENT', 'FIXED']).nullable().optional(),
     discountValue: z.coerce.number().min(0).max(100000).optional(),
     isAvailable: z.boolean().default(true),
+    // POS-only ("secret") item: hidden from the customer menu, orderable in POS.
+    posOnly: z.boolean().default(false),
     imageUrls: z.array(z.string().trim().min(1).max(1000)).max(8).optional(),
     tags: z.array(z.string().trim().min(1).max(24)).max(8).optional(),
     optionGroups: z.array(optionGroupSchema).max(20).optional(),
@@ -79,6 +81,7 @@ export const updateItemSchema = z
     discountType: z.enum(['PERCENT', 'FIXED']).nullable(),
     discountValue: z.coerce.number().min(0).max(100000),
     isAvailable: z.boolean(),
+    posOnly: z.boolean(),
     sortOrder: z.coerce.number().int(),
     imageUrls: z.array(z.string().trim().min(1).max(1000)).max(8),
     tags: z.array(z.string().trim().min(1).max(24)).max(8),
@@ -111,6 +114,7 @@ export const featureSchema = z.object({
 // Both optional — a PATCH updates whatever fields are present.
 export const menuSettingsSchema = z.object({
   featuredTitle: z.string().trim().min(1, 'Title is required').max(40).optional(),
+  featuredEnabled: z.boolean().optional(),
   takeawayCharge: z.coerce.number().min(0).max(10000).optional(),
   // Customer-menu hero banner. An empty image list / blank title/subtitle are
   // treated as "use default"; multiple images rotate as a hero slideshow.

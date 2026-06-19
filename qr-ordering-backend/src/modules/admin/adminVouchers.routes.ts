@@ -3,6 +3,7 @@ import type { Request } from 'express';
 
 import { requireAdmin } from '../../middleware/auth';
 import { requireActiveSubscription } from '../../middleware/subscription';
+import { requireFeature } from '../../middleware/features';
 import { sendCreated, sendOk } from '../../lib/response';
 import { createVoucherSchema, updateVoucherSchema } from '../../validators/voucher';
 import { createVoucher, deleteVoucher, listVouchers, updateVoucher } from './vouchers.service';
@@ -10,7 +11,7 @@ import { createVoucher, deleteVoucher, listVouchers, updateVoucher } from './vou
 // /api/admin/vouchers — discount voucher management. Routes wire paths +
 // middleware to thin inline handlers that parse, validate, and call the service.
 export const adminVouchersRouter = Router();
-adminVouchersRouter.use(requireAdmin, requireActiveSubscription);
+adminVouchersRouter.use(requireAdmin, requireActiveSubscription, requireFeature('vouchers'));
 
 adminVouchersRouter.get('/', async (_req, res) => {
   sendOk(res, await listVouchers());

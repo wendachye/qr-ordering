@@ -18,14 +18,18 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { EmptyState } from "@/components/common/EmptyState";
+import { useToast } from "@/components/common/Toast";
 import { categoriesApi, itemsApi, menuSettingsApi } from "@/lib/endpoints";
 import {
   useCategoryMutations,
   useItemMutations,
   useRenameFeaturedTitle,
+  useToggleFeaturedEnabled,
 } from "@/hooks/useMenuMutations";
 import { ApiError } from "@/lib/api";
 import type { Category, MenuItem } from "@/lib/types";
+import { useEntitlements } from "@/hooks/useEntitlements";
+import { UpgradeNotice } from "@/components/common/UpgradeNotice";
 
 type CategoryDialog = { mode: "create" } | { mode: "edit"; category: Category } | null;
 type ItemDialog =
@@ -44,6 +48,8 @@ export default function MenuBuilderPage() {
 
   const categoryMut = useCategoryMutations();
   const itemMut = useItemMutations();
+  const { toast } = useToast();
+  const { limits } = useEntitlements();
 
   const [categoryDialog, setCategoryDialog] = useState<CategoryDialog>(null);
   const [itemDialog, setItemDialog] = useState<ItemDialog>(null);
@@ -53,9 +59,14 @@ export default function MenuBuilderPage() {
   const [renameValue, setRenameValue] = useState("");
   const [tab, setTab] = useState("menu");
   const renameTitle = useRenameFeaturedTitle();
+  const toggleFeatured = useToggleFeaturedEnabled();
 
   const categories = categoriesQuery.data ?? [];
   const featuredTitle = settingsQuery.data?.featuredTitle ?? "Popular";
+  const featuredEnabled = settingsQuery.data?.featuredEnabled ?? true;
+  // Plan menu-item cap (null = unlimited).
+  const itemCount = itemsQuery.data?.length ?? 0;
+  const atItemLimit = limits.maxMenuItems != null && itemCount >= limits.maxMenuItems;
 
   // Featured strip = items flagged featured, in featuredOrder.
   const featured = useMemo(
@@ -113,12 +124,19 @@ export default function MenuBuilderPage() {
             Your menu, the featured strip, and the customer-menu banner
           </p>
         </div>
-        {tab === "menu" && categories.length > 0 && (
-          <Button onClick={() => setCategoryDialog({ mode: "create" })}>
-            <Plus />
-            Add category
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          {tab === "menu" && limits.maxMenuItems != null && (
+            <span className="text-sm font-medium text-slate-500">
+              {itemCount} / {limits.maxMenuItems} items
+            </span>
+          )}
+          {tab === "menu" && categories.length > 0 && (
+            <Button onClick={() => setCategoryDialog({ mode: "create" })}>
+              <Plus />
+              Add category
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -140,6 +158,14 @@ export default function MenuBuilderPage() {
           </TabsList>
 
           <TabsContent value="menu">
+            {atItemLimit && (
+              <UpgradeNotice
+                className="mb-4"
+                title={`You've reached your plan's ${limits.maxMenuItems}-item limit`}
+              >
+                Upgrade to add more menu items, or remove some you no longer serve.
+              </UpgradeNotice>
+            )}
             {categories.length === 0 ? (
               <EmptyState
                 title="No categories yet"
@@ -155,7 +181,11 @@ export default function MenuBuilderPage() {
               <MenuBuilder
                 categories={categories}
                 itemsByCat={itemsByCat}
-                onAddItem={(categoryId) => setItemDialog({ mode: "create", categoryId })}
+                onAddItem={(categoryId) =>
+                  atItemLimit
+                    ? toast("Menu item limit reached — upgrade to add more.", "error")
+                    : setItemDialog({ mode: "create", categoryId })
+                }
                 onEditItem={(item) => setItemDialog({ mode: "edit", item })}
                 onDeleteItem={(item) => setDeleteTarget({ kind: "item", item })}
                 onMoveItem={(item) => setMoveTarget(item)}
@@ -174,7 +204,14 @@ export default function MenuBuilderPage() {
           </TabsContent>
 
           <TabsContent value="featured">
-            <FeaturedSection items={featured} title={featuredTitle} onRename={openRename} />
+            <FeaturedSection
+              items={featured}
+              title={featuredTitle}
+              enabled={featuredEnabled}
+              onRename={openRename}
+              onToggleEnabled={() => toggleFeatured.mutate(!featuredEnabled)}
+              toggling={toggleFeatured.isPending}
+            />
           </TabsContent>
 
           <TabsContent value="banner">

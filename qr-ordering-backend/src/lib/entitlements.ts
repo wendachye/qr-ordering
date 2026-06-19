@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { ApiError } from './response';
 
 // The single source of truth for what each subscription tier unlocks. Plan
 // definitions live in the DB (editable by a platform super-admin), but we keep
@@ -36,7 +37,7 @@ export const DEFAULT_PLANS: Record<PlanKey, PlanDef> = {
     key: 'basic',
     name: 'Basic',
     description: 'Everything to run a small restaurant — menu, tables, POS and daily totals.',
-    monthlyPrice: 0,
+    monthlyPrice: 49,
     currency: 'MYR',
     stripePriceId: null,
     features: [],
@@ -49,7 +50,7 @@ export const DEFAULT_PLANS: Record<PlanKey, PlanDef> = {
     key: 'pro',
     name: 'Pro',
     description: 'Loyalty, vouchers, full analytics, multi-tax and unlimited scale.',
-    monthlyPrice: 0,
+    monthlyPrice: 149,
     currency: 'MYR',
     stripePriceId: null,
     features: [...ALL_FEATURES],
@@ -173,4 +174,25 @@ export async function resolveEntitlementsForStore(storeId: string): Promise<Enti
 
 export function hasFeature(ent: Entitlements, f: string): boolean {
   return ent.features.has(f);
+}
+
+// A consistent 403 when the tenant's plan doesn't include a feature. The `code`
+// + `feature` detail let the admin UI show a targeted "upgrade to unlock" prompt
+// instead of a generic error.
+export function featureLockedError(feature: string): ApiError {
+  const label = FEATURE_LABELS[feature as FeatureKey] ?? feature;
+  return new ApiError(403, `${label} isn't included in your current plan.`, 'PLAN_FEATURE_LOCKED', {
+    feature,
+  });
+}
+
+// A consistent 403 when the tenant hits a plan limit (tables / menu items).
+export function limitReachedError(resource: 'tables' | 'menuItems', max: number): ApiError {
+  const noun = resource === 'tables' ? 'tables' : 'menu items';
+  return new ApiError(
+    403,
+    `Your plan is limited to ${max} ${noun}. Upgrade to add more.`,
+    'PLAN_LIMIT_REACHED',
+    { resource, max },
+  );
 }

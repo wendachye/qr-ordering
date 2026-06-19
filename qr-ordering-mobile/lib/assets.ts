@@ -3,9 +3,10 @@
 // URL without its trailing "/api"). Absolute http(s) urls pass through.
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api/v1";
 
-const BACKEND_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
+// Strip the trailing "/api" or "/api/v1" (any version) to get the backend origin.
+const BACKEND_ORIGIN = API_BASE_URL.replace(/\/api(\/v\d+)?\/?$/, "");
 
 export function assetUrl(url: string | null | undefined): string {
   if (!url) return "";

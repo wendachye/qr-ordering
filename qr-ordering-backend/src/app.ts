@@ -95,9 +95,10 @@ export function createApp() {
     swaggerUi.setup(openapiDocument, { customSiteTitle: 'QR Ordering API' }),
   );
 
-  // All feature APIs (public, orders, admin/*, print-agent) + their per-IP
-  // rate-limit backstop live in the central route table.
-  app.use(apiRouter);
+  // All feature APIs (public, orders, admin/*, print-agent) live under the
+  // versioned /api/v1 prefix. (Infra routes above — health, metrics, the Stripe
+  // webhook, /api/docs — stay unversioned.)
+  app.use('/api/v1', apiRouter);
 
   // 404 + central error handler (must be last)
   app.use(notFoundHandler);

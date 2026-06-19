@@ -21,9 +21,9 @@ function shift(date: string, delta: number): string {
 async function ctx() {
   const { data } = await registerTenant();
   const token = data.token as string;
-  const tables = (await api().get('/api/admin/tables').set(auth(token))).body.data;
+  const tables = (await api().get('/admin/tables').set(auth(token))).body.data;
   const code = tables[0].code as string;
-  const menu = (await api().get(`/api/public/menu?tableCode=${code}`)).body.data;
+  const menu = (await api().get(`/public/menu?tableCode=${code}`)).body.data;
   const line = firstOrderable(menu);
   const item = menu.categories
     .flatMap((c: any) => c.items)
@@ -32,13 +32,10 @@ async function ctx() {
 }
 
 async function settle(token: string, code: string, items: any[], paymentMethod = 'Cash') {
-  const order = await api()
-    .post('/api/admin/orders')
-    .set(auth(token))
-    .send({ tableCode: code, items });
+  const order = await api().post('/admin/orders').set(auth(token)).send({ tableCode: code, items });
   const sessionId = order.body.data.sessionId as string;
   const closed = await api()
-    .post(`/api/admin/sessions/${sessionId}/close`)
+    .post(`/admin/sessions/${sessionId}/close`)
     .set(auth(token))
     .send({ paymentMethod });
   return { sessionId, order, closed };
@@ -46,7 +43,7 @@ async function settle(token: string, code: string, items: any[], paymentMethod =
 
 const sales = (token: string, q = '') =>
   api()
-    .get(`/api/admin/reports/sales${q}`)
+    .get(`/admin/reports/sales${q}`)
     .set(auth(token))
     .then((r) => r.body.data);
 
@@ -54,7 +51,7 @@ describe('sales report — service charge & tax back-out (inclusive)', () => {
   it('decomposes the collected net into subtotal + service charge + tax', async () => {
     const { token, code, line, unit } = await ctx();
     await api()
-      .patch('/api/admin/settings')
+      .patch('/admin/settings')
       .set(auth(token))
       .send({ serviceChargeRate: 10, taxes: [{ name: 'SST', rate: 6 }] });
     await settle(token, code, [{ ...line, quantity: 2 }]);
@@ -80,7 +77,7 @@ describe('sales report — service charge & tax back-out (inclusive)', () => {
   it('supports multiple taxes (SST + GST) that sum correctly', async () => {
     const { token, code, line, unit } = await ctx();
     await api()
-      .patch('/api/admin/settings')
+      .patch('/admin/settings')
       .set(auth(token))
       .send({
         taxes: [
@@ -131,7 +128,7 @@ describe('sales report — channels, tender, dayparts', () => {
   it('channel revenue reconciles to net sales even with a bill discount', async () => {
     const { token, code, line, unit } = await ctx();
     const order = await api()
-      .post('/api/admin/orders')
+      .post('/admin/orders')
       .set(auth(token))
       .send({
         tableCode: code,
@@ -142,7 +139,7 @@ describe('sales report — channels, tender, dayparts', () => {
       });
     const sid = order.body.data.sessionId as string;
     await api()
-      .post(`/api/admin/sessions/${sid}/close`)
+      .post(`/admin/sessions/${sid}/close`)
       .set(auth(token))
       .send({ paymentMethod: 'Cash', discountType: 'FIXED', discountValue: 5 });
     const report = await sales(token);
@@ -219,12 +216,12 @@ describe('sales report — voids', () => {
   it('reports cancelled tabs separately and excludes them from sales', async () => {
     const { token, code, line, unit } = await ctx();
     const order = await api()
-      .post('/api/admin/orders')
+      .post('/admin/orders')
       .set(auth(token))
       .send({ tableCode: code, items: [{ ...line, quantity: 2 }] });
     const sessionId = order.body.data.sessionId as string;
     const cancelled = await api()
-      .post(`/api/admin/sessions/${sessionId}/cancel`)
+      .post(`/admin/sessions/${sessionId}/cancel`)
       .set(auth(token))
       .send({ reason: 'test void' });
     expect(cancelled.status).toBe(200);

@@ -3,6 +3,11 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../lib/response';
 import { getDefaultStoreId } from '../../lib/store';
+import {
+  featureLockedError,
+  hasFeature,
+  resolveEntitlementsForStore,
+} from '../../lib/entitlements';
 
 // Normalise the stored taxes JSON into a clean { name, rate }[] list.
 export function parseTaxes(raw: unknown): { name: string; rate: number }[] {
@@ -56,6 +61,16 @@ export async function updateSettings(input: {
   paymentMethods?: string[];
 }) {
   const storeId = await getDefaultStoreId();
+
+  // Multiple taxes + a service charge are the "tax_multi" feature. A single tax
+  // and no service charge are allowed on every plan, so only gate when the update
+  // would actually set more than one tax or a non-zero service charge.
+  const wantsMultiTax = (input.taxes?.length ?? 0) > 1;
+  const wantsServiceCharge = (input.serviceChargeRate ?? 0) > 0;
+  if (wantsMultiTax || wantsServiceCharge) {
+    const ent = await resolveEntitlementsForStore(storeId);
+    if (!hasFeature(ent, 'tax_multi')) throw featureLockedError('tax_multi');
+  }
 
   // Can't require a PIN for any action before a PIN exists.
   if (

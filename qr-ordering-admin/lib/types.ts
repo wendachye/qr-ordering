@@ -231,6 +231,8 @@ export interface MenuItem {
   discountValue: number;
   salePrice: number | null;
   isAvailable: boolean;
+  // POS-only ("secret") item: hidden from the customer menu, orderable in POS.
+  posOnly: boolean;
   sortOrder: number;
   isFeatured: boolean;
   featuredOrder: number;
@@ -242,6 +244,8 @@ export interface MenuItem {
 
 export interface MenuSettings {
   featuredTitle: string;
+  // Master switch for the customer-menu featured strip.
+  featuredEnabled: boolean;
   takeawayCharge: number;
   // Customer-menu hero banner. An empty image list = default gradient; multiple
   // images rotate as a slideshow. Null title/subtitle = default copy.
@@ -302,6 +306,7 @@ export interface MenuItemInput {
   discountType?: DiscountType | null;
   discountValue?: number;
   isAvailable: boolean;
+  posOnly?: boolean;
   sortOrder?: number;
   // Configurable option groups (full-replace on save). Omit to leave untouched.
   optionGroups?: OptionGroupInput[];
@@ -358,6 +363,9 @@ export interface PublicMenuItem {
   price: number;
   salePrice: number | null;
   isAvailable: boolean;
+  // POS-only ("secret") item — only present in the staff POS menu, never the
+  // customer menu (the public API always sends false).
+  posOnly: boolean;
   sortOrder: number;
   categoryId: string;
   optionGroups: OptionGroup[];
@@ -682,7 +690,25 @@ export interface Billing {
   trialDaysLeft: number | null;
   currentPeriodEnd: string | null;
   billingEnabled: boolean;
-  plans: { key: string; name: string }[];
+  plans: {
+    key: string;
+    name: string;
+    description: string | null;
+    monthlyPrice: number;
+    currency: string;
+    features: string[];
+    maxTables: number | null;
+    maxMenuItems: number | null;
+  }[];
+}
+
+// GET /admin/entitlements — the tenant's effective plan features + limits + live usage.
+export interface Entitlements {
+  tier: "basic" | "pro";
+  isTrial: boolean;
+  features: string[];
+  limits: { maxTables: number | null; maxMenuItems: number | null };
+  usage: { tables: number; menuItems: number };
 }
 
 // GET /admin/orders/print-health — kitchen-printing health for this tenant.

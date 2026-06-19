@@ -3,32 +3,31 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Settings2 } from "lucide-react";
 import { AdminShell } from "@/components/layout/AdminShell";
 import { Button } from "@/components/ui/button";
-import { ModalDialog } from "@/components/ui/modal-dialog";
 import { FloorTile } from "@/components/floor/FloorTile";
-import { TableForm } from "@/components/tables/TableForm";
 import { TableQrDialog } from "@/components/tables/TableQrDialog";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useToast } from "@/components/common/Toast";
 import { ordersApi, sessionsApi } from "@/lib/endpoints";
-import { useTableMutations } from "@/hooks/useTableMutations";
 import { ApiError } from "@/lib/api";
 import { customerOrderLink } from "@/lib/customer";
 import { copyToClipboard } from "@/lib/clipboard";
 import type { FloorEntry, FloorTable } from "@/lib/types";
 
-export default function FloorPage() {
+// The live operational "Tables" view: a grid of tiles (free / occupied). Tap a
+// free table to start an order, or an open tab to manage it. Table *setup*
+// (add / edit / activate / delete) lives in Settings → Tables.
+export default function TablesPage() {
   const router = useRouter();
   const { toast } = useToast();
   const query = useQuery({
     queryKey: ["floor"],
     queryFn: sessionsApi.floor,
-    refetchInterval: 5000, // live floor; poll like the old orders list
+    refetchInterval: 5000, // live; poll like the old orders list
   });
   // Kitchen-printing health — surfaces tickets that failed to print.
   const printHealth = useQuery({
@@ -36,24 +35,10 @@ export default function FloorPage() {
     queryFn: ordersApi.printHealth,
     refetchInterval: 20000,
   });
-  const { create, update, remove } = useTableMutations();
 
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<FloorTable | null>(null);
-  const [deleting, setDeleting] = useState<FloorTable | null>(null);
   const [qrTable, setQrTable] = useState<FloorTable | null>(null);
 
   const entries = useMemo(() => query.data ?? [], [query.data]);
-
-  const openCreate = () => {
-    setEditing(null);
-    setFormOpen(true);
-  };
-  const openEdit = (t: FloorTable) => {
-    setEditing(t);
-    setFormOpen(true);
-  };
-  const closeForm = () => setFormOpen(false);
 
   // Occupied → open the running tab; free + active → start an order.
   const openEntry = (entry: FloorEntry) => {
@@ -76,15 +61,15 @@ export default function FloorPage() {
     <AdminShell>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900">Floor</h1>
+          <h1 className="text-3xl font-black text-slate-900">Tables</h1>
           <p className="mt-1 text-slate-500">
             Tap a free table to start an order, or an open tab to manage it
             {query.isFetching && !query.isLoading && " · updating…"}
           </p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus />
-          Add table
+        <Button variant="secondary" onClick={() => router.push("/admin/settings/tables")}>
+          <Settings2 />
+          Manage tables
         </Button>
       </div>
 
@@ -100,11 +85,11 @@ export default function FloorPage() {
       )}
 
       {query.isLoading ? (
-        <LoadingState label="Loading floor…" />
+        <LoadingState label="Loading tables…" />
       ) : query.isError ? (
         <ErrorState
           message={
-            query.error instanceof ApiError ? query.error.message : "Could not load the floor."
+            query.error instanceof ApiError ? query.error.message : "Could not load the tables."
           }
           onRetry={() => query.refetch()}
         />
@@ -117,14 +102,6 @@ export default function FloorPage() {
               onOpen={() => openEntry(entry)}
               onQr={() => setQrTable(entry.table)}
               onCopy={() => copyLink(entry.table)}
-              onEdit={() => openEdit(entry.table)}
-              onToggle={() =>
-                update.mutate({
-                  id: entry.table.id,
-                  input: { isActive: !entry.table.isActive },
-                })
-              }
-              onDelete={() => setDeleting(entry.table)}
               onHistory={() =>
                 router.push(
                   `/admin/history?tableId=${entry.table.id}&table=${encodeURIComponent(entry.table.name)}`
@@ -136,61 +113,18 @@ export default function FloorPage() {
       ) : (
         <EmptyState
           title="No tables yet"
-          description="Add your first table to generate its customer ordering link and QR."
+          description="Add tables in Settings to generate their customer ordering links and QR codes."
           action={
-            <Button onClick={openCreate}>
-              <Plus />
-              Add table
+            <Button onClick={() => router.push("/admin/settings/tables")}>
+              <Settings2 />
+              Manage tables
             </Button>
           }
         />
       )}
 
-      {/* Add / edit dialog */}
-      <ModalDialog
-        open={formOpen}
-        onClose={closeForm}
-        title={editing ? "Edit table" : "Add table"}
-      >
-        <TableForm
-          key={editing?.code ?? "new"}
-          initial={editing ?? undefined}
-          submitting={create.isPending || update.isPending}
-          onCancel={closeForm}
-          onSubmit={(values) => {
-            if (editing) {
-              update.mutate(
-                { id: editing.id, input: values },
-                { onSuccess: closeForm }
-              );
-            } else {
-              create.mutate(values, { onSuccess: closeForm });
-            }
-          }}
-        />
-      </ModalDialog>
-
       {/* QR dialog */}
       <TableQrDialog table={qrTable} open={!!qrTable} onClose={() => setQrTable(null)} />
-
-      {/* Delete confirm — surfaces the 409 (table has history) via the toast on error */}
-      <ConfirmDialog
-        open={!!deleting}
-        title="Delete table?"
-        message={
-          deleting
-            ? `Delete "${deleting.name}" (${deleting.code})? A table that already has orders or sessions cannot be deleted — deactivate it instead.`
-            : ""
-        }
-        confirmLabel="Delete"
-        destructive
-        busy={remove.isPending}
-        onCancel={() => setDeleting(null)}
-        onConfirm={() => {
-          if (!deleting) return;
-          remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) });
-        }}
-      />
     </AdminShell>
   );
 }

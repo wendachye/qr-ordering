@@ -4,6 +4,7 @@ import { apiRequest } from "./api";
 import type {
   AuthUser,
   Billing,
+  Entitlements,
   Category,
   CategoryInput,
   SalesReport,
@@ -50,6 +51,13 @@ export const billingApi = {
   checkout: (plan: string) =>
     apiRequest<{ url: string | null }>("/admin/billing/checkout", { method: "POST", body: { plan } }),
   portal: () => apiRequest<{ url: string | null }>("/admin/billing/portal", { method: "POST" }),
+  apply: (plan: string) =>
+    apiRequest<Billing>("/admin/billing/apply", { method: "POST", body: { plan } }),
+};
+
+// --- Entitlements (resolved plan features + limits + usage for the current tenant) ---
+export const entitlementsApi = {
+  get: () => apiRequest<Entitlements>("/admin/entitlements"),
 };
 
 // --- Platform plans (super-admin: configure Basic/Pro) ---
@@ -220,6 +228,13 @@ export const sessionsApi = {
 // --- Public menu + placing an order (staff POS) ---
 // These hit the PUBLIC endpoints; apiRequest still attaches the bearer token
 // (harmless for public routes) and unwraps the envelope the same way.
+// Staff POS menu — same shape as the customer menu, but includes POS-only
+// ("secret") items. Used by the admin order screens instead of publicApi.menu.
+export const posMenuApi = {
+  get: (tableCode: string) =>
+    apiRequest<PublicMenu>(`/admin/menu/pos-menu?tableCode=${encodeURIComponent(tableCode)}`),
+};
+
 export const publicApi = {
   menu: (tableCode: string) =>
     apiRequest<PublicMenu>(
@@ -307,6 +322,11 @@ export const menuSettingsApi = {
     apiRequest<MenuSettings>("/admin/menu/settings", {
       method: "PATCH",
       body: { featuredTitle },
+    }),
+  setFeaturedEnabled: (featuredEnabled: boolean) =>
+    apiRequest<MenuSettings>("/admin/menu/settings", {
+      method: "PATCH",
+      body: { featuredEnabled },
     }),
   // Customer-menu hero banner (image list / title / subtitle). Pass [] / null to clear.
   updateBanner: (input: {

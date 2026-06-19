@@ -50,17 +50,17 @@ async function request<T>(method: string, pathname: string, body?: unknown): Pro
 }
 
 export function fetchPendingJobs(): Promise<PrintJob[]> {
-  return request<PrintJob[]>('GET', '/api/print-agent/jobs/pending');
+  return request<PrintJob[]>('GET', '/api/v1/print-agent/jobs/pending');
 }
 
 export function markPrinting(id: string): Promise<{ claimed: boolean }> {
-  return request<{ claimed: boolean }>('POST', `/api/print-agent/jobs/${id}/mark-printing`);
+  return request<{ claimed: boolean }>('POST', `/api/v1/print-agent/jobs/${id}/mark-printing`);
 }
 
 export function markPrinted(id: string): Promise<unknown> {
-  return request('POST', `/api/print-agent/jobs/${id}/mark-printed`);
+  return request('POST', `/api/v1/print-agent/jobs/${id}/mark-printed`);
 }
 
 export function markFailed(id: string, error: string): Promise<unknown> {
-  return request('POST', `/api/print-agent/jobs/${id}/mark-failed`, { error });
+  return request('POST', `/api/v1/print-agent/jobs/${id}/mark-failed`, { error });
 }

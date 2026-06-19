@@ -15,23 +15,32 @@ import {
 // The component that uses this is gated behind a resolved query (never rendered
 // during SSR), so reading storage in a lazy initializer can't cause a
 // hydration mismatch.
-export function useDraftCart(sessionId: string) {
-  const init = useRef<{ lines: CartLine[]; note: string } | null>(null);
-  if (init.current === null) init.current = loadDraft(sessionId);
+export function useDraftCart(key: string) {
+  const [cart, setCart] = useState<CartLine[]>(() => loadDraft(key).lines);
+  const [note, setNote] = useState<string>(() => loadDraft(key).note);
 
-  const [cart, setCart] = useState<CartLine[]>(init.current.lines);
-  const [note, setNote] = useState<string>(init.current.note);
+  // When the key changes — switching tables on the New order screen, or a free
+  // table becoming a session — load that key's stored draft. Setting state during
+  // render is React's "adjust state when a prop changes" pattern: it re-renders
+  // before paint, with no flash and no effect race.
+  const loadedKey = useRef(key);
+  if (loadedKey.current !== key) {
+    loadedKey.current = key;
+    const d = loadDraft(key);
+    setCart(d.lines);
+    setNote(d.note);
+  }
 
-  // Persist on every change (keyed by session). saveDraft removes the key when
-  // the draft is empty, so a cleared cart leaves no orphan.
+  // Persist on every change, keyed. saveDraft removes the key when the draft is
+  // empty, so a cleared cart leaves no orphan.
   useEffect(() => {
-    saveDraft(sessionId, { lines: cart, note });
-  }, [sessionId, cart, note]);
+    saveDraft(key, { lines: cart, note });
+  }, [key, cart, note]);
 
   const clearDraft = () => {
     setCart([]);
     setNote("");
-    clearStoredDraft(sessionId);
+    clearStoredDraft(key);
   };
 
   return { cart, setCart, note, setNote, clearDraft };
