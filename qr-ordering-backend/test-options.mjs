@@ -1,6 +1,6 @@
 // Verifies item options end-to-end: menu exposes option groups, order validates
 // + prices them, snapshot persists, and the kitchen ticket payload carries them.
-//   node test-options.mjs   (after npm run dev + reseed)
+//   node test-options.mjs   (after pnpm dev + reseed)
 import process from 'node:process';
 
 const BASE = process.env.SMOKE_BASE_URL ?? 'http://localhost:4000';

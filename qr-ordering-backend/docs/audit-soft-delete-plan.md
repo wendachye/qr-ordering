@@ -16,7 +16,7 @@ fitted to this codebase's existing AsyncLocalStorage tenant context, JWT
    references; deleted rows are hidden from normal reads by default, with an
    explicit escape hatch for "trash"/restore and reporting.
 
-> **Synergy with a bug we just found.** `npm run db:migrate:create` surfaced drift:
+> **Synergy with a bug we just found.** `pnpm db:migrate:create` surfaced drift:
 > the live dev DB is missing the `OrderItem.menuItemId → MenuItem (ON DELETE SET NULL)`
 > FK. That FK exists _because_ a menu item can be removed while old order lines still
 > point at it. Soft delete is the cleaner answer: menu items are never hard-deleted,

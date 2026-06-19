@@ -27,7 +27,7 @@ export default function ClientsPage() {
             <p className="text-slate-500">Every restaurant account on the platform and its outlets.</p>
           </div>
         </div>
-        <Link href="/admin/platform/clients/new">
+        <Link href="/platform/clients/new">
           <Button>
             <Plus />
             New client
@@ -63,7 +63,7 @@ function planSummary(c: Client): string {
 
 function ClientRow({ client }: { client: Client }) {
   return (
-    <Link href={`/admin/platform/clients/${client.id}`} className="block">
+    <Link href={`/platform/clients/${client.id}`} className="block">
       <Card className="transition-shadow hover:shadow-md">
         <CardContent className="flex items-center justify-between gap-4">
           <div className="min-w-0">

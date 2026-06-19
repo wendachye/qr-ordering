@@ -1,5 +1,5 @@
 // Tests the image upload endpoint + that menu items expose imageUrls.
-// Run after `npm run dev` + `npm run db:seed`:  node test-upload.mjs
+// Run after `pnpm dev` + `pnpm db:seed`:  node test-upload.mjs
 import process from 'node:process';
 
 const BASE = process.env.SMOKE_BASE_URL ?? 'http://localhost:4000';

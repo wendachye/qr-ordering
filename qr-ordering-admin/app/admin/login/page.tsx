@@ -30,7 +30,7 @@ export default function LoginPage() {
   // the Clients console instead of a restaurant floor.
   useEffect(() => {
     if (status === "authenticated") {
-      router.replace(user?.isPlatformAdmin ? "/admin/platform/clients" : "/admin/floor");
+      router.replace(user?.isPlatformAdmin ? "/platform/clients" : "/admin/floor");
     }
   }, [status, user, router]);
 
@@ -47,7 +47,7 @@ export default function LoginPage() {
     setFormError(null);
     try {
       const u = await login(values.email, values.password);
-      router.replace(u.isPlatformAdmin ? "/admin/platform/clients" : "/admin/floor");
+      router.replace(u.isPlatformAdmin ? "/platform/clients" : "/admin/floor");
     } catch (err) {
       setFormError(
         err instanceof ApiError

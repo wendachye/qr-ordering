@@ -6,8 +6,8 @@
  * seeded store is KEPT; every other store/client (leftover test data) is DELETED.
  *
  * DESTRUCTIVE + idempotent (safe to re-run — it rebuilds from scratch each time).
- * Refuses to run with NODE_ENV=production. Run after `npm run db:seed`.
- *   npm run db:demo
+ * Refuses to run with NODE_ENV=production. Run after `pnpm db:seed`.
+ *   pnpm db:demo
  */
 import { prisma } from '../src/lib/prisma';
 import { addOutlet, createClient } from '../src/modules/admin/clients.service';
@@ -45,7 +45,7 @@ async function main() {
     where: { isPlatformAdmin: true },
     select: { storeId: true, email: true },
   });
-  if (!superAdmin) throw new Error('No platform super-admin found — run `npm run db:seed` first.');
+  if (!superAdmin) throw new Error('No platform super-admin found — run `pnpm db:seed` first.');
 
   const keptStore = await prisma.store.findUnique({
     where: { id: superAdmin.storeId },

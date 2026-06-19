@@ -1,5 +1,5 @@
 // End-to-end smoke test for the backend API.
-// Run AFTER `npm run dev` (API on :4000) and `npm run db:seed`.
+// Run AFTER `pnpm dev` (API on :4000) and `pnpm db:seed`.
 //   node smoke-test.mjs
 import process from 'node:process';
 

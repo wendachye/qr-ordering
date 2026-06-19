@@ -1,5 +1,8 @@
 # ---- Dependencies ----
 **/node_modules/
+# pnpm is the package manager — keep stray npm/yarn lockfiles out of the repo.
+**/package-lock.json
+**/yarn.lock
 
 # ---- Build output ----
 **/.next/

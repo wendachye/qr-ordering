@@ -37,7 +37,7 @@ export default function NewClientPage() {
     onSuccess: (client) => {
       qc.invalidateQueries({ queryKey: ["platform-clients"] });
       toast("Client created.", "success");
-      router.replace(`/admin/platform/clients/${client.id}`);
+      router.replace(`/platform/clients/${client.id}`);
     },
     onError: (e) =>
       toast(e instanceof ApiError ? e.message : "Could not create the client.", "error"),
@@ -67,7 +67,7 @@ export default function NewClientPage() {
     <AdminShell>
       <div className="mx-auto max-w-2xl">
         <Link
-          href="/admin/platform/clients"
+          href="/platform/clients"
           className="mb-4 inline-flex items-center gap-1 text-base font-semibold text-accent-700 hover:text-accent-800"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -145,7 +145,7 @@ export default function NewClientPage() {
             </div>
 
             <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-              <Link href="/admin/platform/clients">
+              <Link href="/platform/clients">
                 <Button variant="secondary">Cancel</Button>
               </Link>
               <Button onClick={submit} disabled={!valid || create.isPending}>

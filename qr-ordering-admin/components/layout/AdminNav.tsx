@@ -39,9 +39,9 @@ const MAIN_NAV = [
 // Platform operator (super-admin) sees a distinct console instead of a single
 // restaurant's nav. (While impersonating, isPlatformAdmin is false → MAIN_NAV.)
 const PLATFORM_NAV = [
-  { href: "/admin/platform/clients", label: "Clients", icon: Building2 },
-  { href: "/admin/platform/plans", label: "Plans", icon: Crown },
-  { href: "/admin/platform/audit", label: "Audit", icon: ScrollText },
+  { href: "/platform/clients", label: "Clients", icon: Building2 },
+  { href: "/platform/plans", label: "Plans", icon: Crown },
+  { href: "/platform/audit", label: "Audit", icon: ScrollText },
 ];
 
 // Paths in the live floor flow (tiles, a session, per-table history, the POS) —
@@ -115,7 +115,10 @@ export function AdminNav() {
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white print:hidden">
       {/* Top-level nav */}
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
-        <Link href="/admin/floor" className="flex items-center gap-2">
+        <Link
+          href={user?.isPlatformAdmin ? "/platform/clients" : "/admin/floor"}
+          className="flex items-center gap-2"
+        >
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-600 text-lg font-black text-white">
             Q
           </span>

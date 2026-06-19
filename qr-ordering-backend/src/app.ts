@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'node:crypto';
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import swaggerUi from 'swagger-ui-express';
 
 import { config } from './config/env';
 import { requestLogger } from './middleware/requestLogger';
@@ -11,6 +12,7 @@ import { registry } from './lib/metrics';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import { UPLOADS_DIR, UPLOADS_ROUTE, ensureUploadsDir } from './lib/uploads';
 import { apiRouter } from './routes';
+import { openapiDocument } from './lib/openapi';
 import { stripeWebhook } from './modules/billing/billing.webhook';
 
 export function createApp() {
@@ -79,6 +81,19 @@ export function createApp() {
     res.setHeader('Content-Type', registry.contentType);
     res.end(await registry.metrics());
   });
+
+  // API docs — OpenAPI 3.1 spec generated from the Zod validators, plus Swagger
+  // UI. CSP is relaxed only for the UI mount so swagger-ui-dist's inline assets
+  // load (the base helmet() ships a strict default CSP).
+  app.get('/api/openapi.json', (_req, res) => {
+    res.json(openapiDocument);
+  });
+  app.use(
+    '/api/docs',
+    helmet({ contentSecurityPolicy: false }),
+    swaggerUi.serve,
+    swaggerUi.setup(openapiDocument, { customSiteTitle: 'QR Ordering API' }),
+  );
 
   // All feature APIs (public, orders, admin/*, print-agent) + their per-IP
   // rate-limit backstop live in the central route table.

@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import { makePrismaClient } from '../src/lib/makePrisma';
 
 // Prisma 7 no longer auto-loads .env; load it so DATABASE_URL is set when the
-// seed runs directly (`npm run db:seed`).
+// seed runs directly (`pnpm db:seed`).
 dotenv.config({ quiet: true });
 
 const prisma = makePrismaClient();

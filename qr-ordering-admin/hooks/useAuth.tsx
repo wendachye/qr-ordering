@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setStatus("unauthenticated");
     }
-    router.replace("/admin/platform/clients");
+    router.replace("/platform/clients");
   }, [router]);
 
   // Client owner switches to a sibling outlet: swap in the new scoped token and

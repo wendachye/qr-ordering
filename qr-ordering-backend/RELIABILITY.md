@@ -34,7 +34,7 @@ listening, so a slow-waking managed PG doesn't crash-loop the container.
   Prisma 7 pg driver adapter, cap per-instance connections with **`DB_POOL_MAX`**
   (the old `?connection_limit=N` URL param is no longer honored) and bound waits
   with `DB_CONNECTION_TIMEOUT_MS` / `DB_STATEMENT_TIMEOUT_MS`.
-- Run migrations on deploy with `npx prisma migrate deploy` (never `migrate dev`
+- Run migrations on deploy with `pnpm exec prisma migrate deploy` (never `migrate dev`
   in production).
 
 ## Backups
@@ -78,11 +78,11 @@ exhaustion). Payload: `{ level, event, message, context, ts }`.
 
 ## Tests & CI
 
-- **Run:** `npm test` (Vitest). Unit tests cover pure helpers; integration +
+- **Run:** `pnpm test` (Vitest). Unit tests cover pure helpers; integration +
   e2e tests run the real app in-process (supertest) against a **test database**.
 - **Test DB:** `.env.test` points at `qr_ordering_test`. Create it once locally:
-  `createdb qr_ordering_test && DATABASE_URL=...test npx prisma migrate deploy &&
-... npx tsx prisma/seed.ts`. CI provisions a fresh Postgres service and sets
+  `createdb qr_ordering_test && DATABASE_URL=...test pnpm exec prisma migrate deploy &&
+... pnpm exec tsx prisma/seed.ts`. CI provisions a fresh Postgres service and sets
   `DATABASE_URL` (which overrides `.env.test`).
 - **CI:** GitHub Actions (`.github/workflows/ci.yml`) per app — backend runs
   generate → migrate → seed → typecheck → test → build against a Postgres
@@ -91,7 +91,7 @@ exhaustion). Payload: `{ level, event, message, context, ts }`.
 ## Deploy (containers)
 
 - **Backend image:** multi-stage [`Dockerfile`](Dockerfile) (build → slim
-  runtime, non-root). Run **migrations as a release step** (`npx prisma migrate
+  runtime, non-root). Run **migrations as a release step** (`pnpm exec prisma migrate
 deploy`) before rolling the new image — never inside the request path.
 - **Staging:** a parallel environment with its own managed PG + secrets; deploy
   every main build there, run smoke checks (`/health/ready`), then promote.

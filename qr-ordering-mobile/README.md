@@ -17,15 +17,15 @@ Scan QR → /order/[tableCode] → table validated + menu loaded
 
 ## Prerequisites
 
-- **Node.js 20+** (developed on Node 24) and npm 10+.
+- **Node.js 20+** (developed on Node 24) and pnpm.
 - The **backend API** running on `http://localhost:4000` and seeded
-  (`npm run db:seed` in the backend). See the seed data below for valid table
+  (`pnpm db:seed` in the backend). See the seed data below for valid table
   codes. The mobile app does not work without the backend.
 
 ## Setup
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### Environment
@@ -47,7 +47,7 @@ The code falls back to `http://localhost:4000/api` if the variable is unset.
 ## Run (development)
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Then, with the backend running and seeded, open:
@@ -63,8 +63,8 @@ route.
 ## Build (production)
 
 ```bash
-npm run build
-npm run start
+pnpm build
+pnpm start
 ```
 
 ## Routes

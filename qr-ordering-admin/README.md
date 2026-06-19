@@ -11,14 +11,14 @@ Built with **Next.js 15** (App Router), **React 19**, **TypeScript**,
 ## Prerequisites
 
 - Node.js 18+ (built and tested on Node 24)
-- npm
+- pnpm
 - The **backend API must be running on `http://localhost:4000`** and **seeded**
-  (run `npm run db:seed` on the backend). Without it, login and all data requests fail.
+  (run `pnpm db:seed` on the backend). Without it, login and all data requests fail.
 
 ## Setup
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### Environment
@@ -34,7 +34,7 @@ The code falls back to `http://localhost:4000/api` if the variable is unset.
 ## Run (development)
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 The app runs on **http://localhost:3001** (a different port from the customer app).
@@ -50,8 +50,8 @@ Use the seeded admin credentials:
 ## Production build
 
 ```bash
-npm run build
-npm run start   # serves on http://localhost:3001
+pnpm build
+pnpm start   # serves on http://localhost:3001
 ```
 
 ## What you can do
@@ -92,7 +92,7 @@ pages except the login page are protected.
 
 | Script          | Description                              |
 | --------------- | ---------------------------------------- |
-| `npm run dev`   | Dev server on port 3001                  |
-| `npm run build` | Production build                         |
-| `npm run start` | Serve the production build on port 3001  |
-| `npm run lint`  | Next.js lint                             |
+| `pnpm dev`   | Dev server on port 3001                  |
+| `pnpm build` | Production build                         |
+| `pnpm start` | Serve the production build on port 3001  |
+| `pnpm lint`  | Next.js lint                             |

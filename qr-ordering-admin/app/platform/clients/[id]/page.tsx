@@ -38,7 +38,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   return (
     <AdminShell>
       <Link
-        href="/admin/platform/clients"
+        href="/platform/clients"
         className="mb-4 inline-flex items-center gap-1 text-base font-semibold text-accent-700 hover:text-accent-800"
       >
         <ArrowLeft className="h-4 w-4" />

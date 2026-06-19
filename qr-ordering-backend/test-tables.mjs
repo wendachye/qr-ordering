@@ -1,4 +1,4 @@
-// Tests the admin table CRUD endpoints. Run after `npm run dev`:
+// Tests the admin table CRUD endpoints. Run after `pnpm dev`:
 //   node test-tables.mjs
 const API = 'http://localhost:4000/api';
 let pass = 0,

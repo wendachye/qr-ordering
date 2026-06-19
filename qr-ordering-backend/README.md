@@ -16,24 +16,24 @@ Backend API + local print agent for the QR ordering MVP.
 
 ```bash
 # 1. Install dependencies
-npm install
+pnpm install
 
 # 2. Start PostgreSQL (Docker). Skip if you use your own Postgres.
 docker compose up -d
 
 # 3. Apply the database schema
-npm run prisma:migrate      # creates tables + a migration history
+pnpm prisma:migrate      # creates tables + a migration history
 #   (or, for a quick throwaway DB without migration files:)
-# npm run prisma:push
+# pnpm prisma:push
 
 # 4. Seed demo data (store, tables, menu, admin user)
-npm run db:seed
+pnpm db:seed
 
 # 5. Run the API (http://localhost:4000)
-npm run dev
+pnpm dev
 
 # 6. In a SECOND terminal, run the print agent
-npm run print-agent
+pnpm print-agent
 ```
 
 Health check: <http://localhost:4000/health>
@@ -109,29 +109,29 @@ Response envelope: `{ "success": true, "data": ... }` or `{ "success": false, "e
 - `POST /api/print-agent/jobs/:id/mark-printed`
 - `POST /api/print-agent/jobs/:id/mark-failed`
 
-See `../API_CONTRACT.md` for full request/response shapes.
+See the OpenAPI spec at `/api/openapi.json` (Swagger UI at `/api/docs`).
 
 ## Scripts
 
 | Script                        | What                                    |
 | ----------------------------- | --------------------------------------- |
-| `npm run dev`                 | Run the API with hot reload (tsx watch) |
-| `npm run build` / `npm start` | Compile to `dist/` and run with Node    |
-| `npm run print-agent`         | Run the local print agent               |
-| `npm run print-agent:watch`   | Print agent with hot reload             |
-| `npm run prisma:migrate`      | Create/apply a migration                |
-| `npm run prisma:push`         | Push schema without migration files     |
-| `npm run prisma:studio`       | Open Prisma Studio                      |
-| `npm run db:seed`             | Seed demo data                          |
-| `npm run db:reset`            | Drop, re-migrate, and re-seed           |
-| `npm run lint` / `lint:fix`   | ESLint (flat config); `--fix` autofixes |
-| `npm run format` / `:check`   | Prettier write / check-only             |
-| `npm run typecheck`           | `tsc --noEmit` (no build output)        |
-| `npm run verify`              | `typecheck` + full test suite           |
-| `npm run db:migrate:create`   | Generate a migration's SQL for review   |
-| `npm run db:migrate:deploy`   | Apply pending migrations                |
-| `npm run db:migrate:status`   | Show applied vs pending migrations      |
-| `npm run hooks:install`       | Enable the local git pre-push hook      |
+| `pnpm dev`                 | Run the API with hot reload (tsx watch) |
+| `pnpm build` / `pnpm start` | Compile to `dist/` and run with Node    |
+| `pnpm print-agent`         | Run the local print agent               |
+| `pnpm print-agent:watch`   | Print agent with hot reload             |
+| `pnpm prisma:migrate`      | Create/apply a migration                |
+| `pnpm prisma:push`         | Push schema without migration files     |
+| `pnpm prisma:studio`       | Open Prisma Studio                      |
+| `pnpm db:seed`             | Seed demo data                          |
+| `pnpm db:reset`            | Drop, re-migrate, and re-seed           |
+| `pnpm lint` / `lint:fix`   | ESLint (flat config); `--fix` autofixes |
+| `pnpm format` / `:check`   | Prettier write / check-only             |
+| `pnpm typecheck`           | `tsc --noEmit` (no build output)        |
+| `pnpm verify`              | `typecheck` + full test suite           |
+| `pnpm db:migrate:create`   | Generate a migration's SQL for review   |
+| `pnpm db:migrate:deploy`   | Apply pending migrations                |
+| `pnpm db:migrate:status`   | Show applied vs pending migrations      |
+| `pnpm hooks:install`       | Enable the local git pre-push hook      |
 
 ### Code quality & git hooks
 
@@ -139,7 +139,7 @@ Lint + format are configured via `eslint.config.mjs` and `.prettierrc`. After cl
 run the one-time hook install:
 
 ```bash
-npm run hooks:install   # git config core.hooksPath .githooks
+pnpm hooks:install   # git config core.hooksPath .githooks
 ```
 
 The `.githooks/pre-push` hook then runs `lint`, `format:check`, and `verify`
@@ -154,13 +154,13 @@ never auto-apply schema changes to a database.
 ```bash
 # 1. Edit prisma/schema.prisma
 # 2. Generate the SQL (diffs the live dev DB against the schema; writes a file, applies nothing)
-npm run db:migrate:create -- add_member_birthday
+pnpm db:migrate:create add_member_birthday
 # 3. Review prisma/migrations/<ts>_add_member_birthday/migration.sql
 #    (add any data backfill by hand)
 # 4. Apply it
-npm run db:migrate:deploy
+pnpm db:migrate:deploy
 # 5. Refresh the Prisma client
-npm run prisma:generate
+pnpm prisma:generate
 ```
 
 > Prisma config lives in `prisma.config.ts` (schema path + seed command), replacing

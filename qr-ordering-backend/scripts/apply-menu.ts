@@ -5,7 +5,7 @@
  * choices are deep-copied with fresh ids. The SOURCE store is left untouched.
  *
  * DESTRUCTIVE to the target outlets' existing menus + idempotent (re-runnable).
- * Dev only.  npx tsx scripts/apply-menu.ts
+ * Dev only.  pnpm exec tsx scripts/apply-menu.ts
  */
 import { prisma } from '../src/lib/prisma';
 
