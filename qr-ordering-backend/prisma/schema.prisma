@@ -1,0 +1,594 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Prisma 7: the connection URL lives in prisma.config.ts (CLI/Migrate) and is
+  // passed to PrismaClient at runtime via the PrismaPg driver adapter.
+}
+
+model Store {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  // The platform client (account/brand) that owns this outlet. Nullable for
+  // back-compat; backfilled 1:1 for existing stores.
+  clientId      String?
+  featuredTitle String   @default("Popular")
+  // Customer-menu hero banner (configurable in admin). An empty image list /
+  // null copy = use the default gradient / copy. Multiple images rotate as a
+  // slideshow in the customer hero.
+  bannerImageUrls String[] @default([])
+  bannerTitle     String?
+  bannerSubtitle  String?
+  takeawayCharge Decimal @default(0) @db.Decimal(10, 2)
+  // Service charge + tax (e.g. SST) as percentages, e.g. 10.00 / 6.00. Menu
+  // prices are treated as tax-inclusive: reports back out these portions from
+  // the collected total. 0 = not applied (hidden in reports).
+  serviceChargeRate Decimal @default(0) @db.Decimal(5, 2)
+  // Multiple named taxes (e.g. SST / GST), each a percentage applied on
+  // (subtotal + service charge). JSON list of { name, rate }. Tax-inclusive:
+  // reports back these portions out of the collected total.
+  taxes             Json    @default("[]")
+  // Legacy single-tax fields, superseded by `taxes` (kept for back-compat).
+  taxRate           Decimal @default(0) @db.Decimal(5, 2)
+  taxLabel          String  @default("SST")
+  overridePinHash String?
+  voidPinRequired Boolean @default(false)
+  // Whether discounts / price overrides require the override PIN. Both default
+  // true to preserve the original always-gated behaviour. (Voids default false.)
+  discountPinRequired Boolean @default(true)
+  overridePinRequired Boolean @default(true)
+  paymentMethods String[] @default(["Cash", "Visa", "Mastercard", "GrabPay", "Touch 'n Go"])
+  // --- Loyalty program (per store). Members earn points-per-spend and/or
+  // stamps; redeem as a bill discount or from a reward catalog. ---
+  loyaltyEnabled      Boolean @default(false)
+  pointsEnabled       Boolean @default(true)
+  stampsEnabled       Boolean @default(false)
+  // Points earned per RM1 of net paid (× the member's tier multiplier).
+  earnRatePoints      Decimal @default(1) @db.Decimal(10, 4)
+  // Points needed for RM1 of bill discount (e.g. 100 → 100 pts = RM1).
+  redeemRatePoints    Int     @default(100)
+  minRedeemPoints     Int     @default(100)
+  // Cap a points redemption at this % of the bill (after other discounts).
+  maxRedeemPercent    Decimal @default(100) @db.Decimal(5, 2)
+  // Points expire after this many months of inactivity (null = never).
+  pointsExpiryMonths  Int?
+  welcomeBonusPoints  Int     @default(0)
+  birthdayBonusPoints Int     @default(0)
+  // Stamp card: a qualifying visit (net >= stampMinSpend) earns a stamp; at
+  // stampThreshold stamps a reward is minted from the stampReward* config.
+  stampThreshold      Int     @default(10)
+  stampMinSpend       Decimal @default(0) @db.Decimal(10, 2)
+  stampRewardType     String? // FREE_ITEM | FIXED_VOUCHER
+  stampRewardValue    Decimal @default(0) @db.Decimal(10, 2)
+  stampRewardItemId   String?
+  // Tier ladder: JSON [{ tier, minLifetimePoints, earnMultiplier }].
+  tierThresholds      Json    @default("[]")
+  tierBasis           String  @default("LIFETIME_POINTS")
+  isActive      Boolean  @default(true)
+  // Billing (Stripe). A null trialEndsAt = grandfathered/unlimited.
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  plan                 String?
+  subscriptionStatus   BillingStatus @default(TRIALING)
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tables     Table[]
+  categories MenuCategory[]
+  items      MenuItem[]
+  orders     Order[]
+  sessions   TableSession[]
+  adminUsers AdminUser[]
+  vouchers   Voucher[]
+  members    Member[]
+  rewards    RewardCatalog[]
+  client     Client?         @relation(fields: [clientId], references: [id])
+
+  @@index([clientId])
+}
+
+// A platform client (the paying account / brand) that owns one or more outlets.
+// Each outlet is a Store with its own menu, floor, staff and billing.
+model Client {
+  id           String   @id @default(cuid())
+  name         String
+  contactEmail String?
+  contactPhone String?
+  notes        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  outlets Store[]
+}
+
+model Table {
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String
+  code      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store    Store          @relation(fields: [storeId], references: [id])
+  orders   Order[]
+  sessions TableSession[]
+
+  @@index([storeId])
+}
+
+model MenuCategory {
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store      @relation(fields: [storeId], references: [id])
+  items MenuItem[]
+
+  @@index([storeId])
+}
+
+model MenuItem {
+  id          String   @id @default(cuid())
+  storeId     String
+  categoryId  String
+  name        String
+  description String?
+  imageUrls   String[] @default([])
+  // `tag` is the single promotional highlight badge (Popular / Chef's), set via
+  // the seed. `tags` are admin-editable attribute labels (Spicy, Vegetarian, …).
+  tag         String?
+  tags        String[] @default([])
+  price       Decimal  @db.Decimal(10, 2)
+  // Standing promotional discount shown on the customer menu and charged on
+  // order. discountType PERCENT/FIXED (null = none); discountValue is % or RM.
+  discountType  String?
+  discountValue Decimal @default(0) @db.Decimal(10, 2)
+  isAvailable Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  isFeatured  Boolean  @default(false)
+  featuredOrder Int    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store        Store         @relation(fields: [storeId], references: [id])
+  category     MenuCategory  @relation(fields: [categoryId], references: [id])
+  orderItems   OrderItem[]
+  optionGroups OptionGroup[]
+
+  @@index([storeId])
+  @@index([categoryId])
+  @@index([storeId, isFeatured])
+}
+
+model OptionGroup {
+  id         String   @id @default(cuid())
+  menuItemId String
+  name       String
+  required   Boolean  @default(true)
+  minSelect  Int      @default(1)
+  maxSelect  Int      @default(1)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  menuItem MenuItem       @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  choices  OptionChoice[]
+
+  @@index([menuItemId])
+}
+
+model OptionChoice {
+  id            String  @id @default(cuid())
+  optionGroupId String
+  name          String
+  priceDelta    Decimal @default(0) @db.Decimal(10, 2)
+  sortOrder     Int     @default(0)
+
+  group OptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+
+  @@index([optionGroupId])
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  storeId     String
+  tableId     String
+  sessionId   String?
+  orderNumber Int
+  roundNumber Int?
+  status      OrderStatus @default(NEW)
+  subtotal    Decimal     @db.Decimal(10, 2)
+  total       Decimal     @db.Decimal(10, 2)
+  note        String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  store     Store         @relation(fields: [storeId], references: [id])
+  table     Table         @relation(fields: [tableId], references: [id])
+  session   TableSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  items     OrderItem[]
+  printJobs PrintJob[]
+
+  @@unique([storeId, orderNumber])
+  @@index([storeId])
+  @@index([status])
+  @@index([sessionId])
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  // Null for a custom (open) line added by staff — the name/price are stored
+  // directly below and there's no backing menu item.
+  menuItemId String?
+  name       String
+  quantity   Int
+  unitPrice  Decimal  @db.Decimal(10, 2)
+  totalPrice Decimal  @db.Decimal(10, 2)
+  note       String?
+  selectedOptions Json?
+  isTakeaway      Boolean @default(false)
+  takeawayCharge  Decimal @default(0) @db.Decimal(10, 2)
+  priceOverridden Boolean @default(false)
+  // Manual line discount (admin order entry): PERCENT or FIXED off the line.
+  // discountAmount is the computed RM reduction already baked into totalPrice.
+  discountType    String?
+  discountValue   Decimal @default(0) @db.Decimal(10, 2)
+  discountAmount  Decimal @default(0) @db.Decimal(10, 2)
+  voided          Boolean @default(false)
+  voidReason      String?
+  voidedAt        DateTime?
+  createdAt  DateTime @default(now())
+
+  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem? @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+}
+
+model PrintJob {
+  id         String         @id @default(cuid())
+  orderId    String
+  status     PrintJobStatus @default(PENDING)
+  payload    Json
+  error      String?
+  retryCount Int            @default(0)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  printedAt  DateTime?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([status, updatedAt])
+  @@index([orderId])
+}
+
+model TableSession {
+  id            String        @id @default(cuid())
+  storeId       String
+  tableId       String
+  sessionNumber Int
+  status        SessionStatus @default(OPEN)
+  pax           Int?
+  paymentMethod String?
+  // Bill-level discount applied at settlement: PERCENT or FIXED off the tab's
+  // net total. discountAmount is the computed RM reduction.
+  discountType   String?
+  discountValue  Decimal      @default(0) @db.Decimal(10, 2)
+  discountAmount Decimal      @default(0) @db.Decimal(10, 2)
+  // Voucher applied to this tab: the code snapshot + computed RM reduction.
+  voucherCode     String?
+  voucherDiscount Decimal     @default(0) @db.Decimal(10, 2)
+  // Loyalty: the member attached to this tab + what they earned/redeemed here.
+  memberId           String?
+  pointsEarned       Int      @default(0)
+  pointsRedeemed     Int      @default(0)
+  loyaltyDiscount    Decimal  @default(0) @db.Decimal(10, 2)
+  rewardRedemptionId String?
+  openedAt      DateTime      @default(now())
+  closedAt      DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  store  Store   @relation(fields: [storeId], references: [id])
+  table  Table   @relation(fields: [tableId], references: [id])
+  orders Order[]
+  member Member? @relation(fields: [memberId], references: [id])
+
+  @@unique([storeId, sessionNumber])
+  @@index([storeId])
+  @@index([tableId])
+  @@index([status])
+  @@index([memberId])
+}
+
+model AdminUser {
+  id        String   @id @default(cuid())
+  storeId   String
+  email     String   @unique
+  password  String
+  name      String?
+  // Platform operator who can edit the global Plan definitions (super-admin).
+  isPlatformAdmin Boolean @default(false)
+  // Brute-force lockout: failed attempts counter + a temporary lock window.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  createdAt DateTime @default(now())
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@index([storeId])
+}
+
+// Global subscription plan definitions (one row per tier, e.g. basic | pro),
+// edited by a platform super-admin. Drives feature gating + usage limits + the
+// checkout price. NOT per-tenant — the store's `plan` key points at one of these.
+model Plan {
+  id            String   @id @default(cuid())
+  key           String   @unique // basic | pro
+  name          String
+  description   String?
+  monthlyPrice  Decimal  @default(0) @db.Decimal(10, 2)
+  currency      String   @default("MYR")
+  stripePriceId String?
+  // Feature keys this plan unlocks, e.g.
+  // ["loyalty","vouchers","reports_advanced","tax_multi"]. JSON so new features
+  // need no migration.
+  features      Json     @default("[]")
+  maxTables     Int? // null = unlimited
+  maxMenuItems  Int? // null = unlimited
+  sortOrder     Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// A discount voucher / promo code. Worth a PERCENT or FIXED amount off a bill,
+// with optional expiry, usage limit, and minimum spend.
+model Voucher {
+  id             String    @id @default(cuid())
+  storeId        String
+  code           String // stored uppercased; unique per store
+  description    String?
+  discountType   String // PERCENT | FIXED
+  discountValue  Decimal   @db.Decimal(10, 2)
+  minSpend       Decimal   @default(0) @db.Decimal(10, 2)
+  maxRedemptions Int? // null = unlimited
+  redeemedCount  Int       @default(0)
+  expiresAt      DateTime?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  store       Store               @relation(fields: [storeId], references: [id])
+  redemptions VoucherRedemption[]
+
+  @@unique([storeId, code])
+  @@index([storeId])
+}
+
+// One realised redemption of a voucher against a settled tab.
+model VoucherRedemption {
+  id        String   @id @default(cuid())
+  voucherId String
+  storeId   String
+  sessionId String?
+  code      String
+  amount    Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+
+  voucher Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+
+  @@index([voucherId])
+  @@index([storeId])
+  @@index([sessionId])
+}
+
+/* ------------------------------- Loyalty ------------------------------- */
+
+// A loyalty member, identified by phone within a store. Hot counters
+// (pointsBalance / stampCount / tier) are denormalised; the ledgers are truth.
+model Member {
+  id               String    @id @default(cuid())
+  storeId          String
+  phone            String // E.164, unique per store
+  name             String?
+  birthday         DateTime? @db.Date
+  pointsBalance    Int       @default(0)
+  lifetimePoints   Int       @default(0) // tier basis; never reduced by redeem
+  lifetimeSpend    Decimal   @default(0) @db.Decimal(12, 2)
+  tier             String    @default("BRONZE")
+  stampCount       Int       @default(0)
+  consentMarketing Boolean   @default(false)
+  joinedAt         DateTime  @default(now())
+  lastActivityAt   DateTime  @default(now())
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  store        Store              @relation(fields: [storeId], references: [id])
+  pointsLedger PointsLedger[]
+  stampLedger  StampLedger[]
+  rewards      RewardRedemption[]
+  sessions     TableSession[]
+
+  @@unique([storeId, phone])
+  @@index([storeId])
+  @@index([storeId, lastActivityAt])
+}
+
+// Immutable points ledger. `points` is SIGNED (+EARN/+BONUS, −REDEEM/−EXPIRE).
+model PointsLedger {
+  id        String    @id @default(cuid())
+  memberId  String
+  storeId   String
+  type      String // EARN | REDEEM | ADJUST | EXPIRE | BONUS
+  points    Int
+  reason    String?
+  sessionId String?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, createdAt])
+  @@index([storeId, type, createdAt])
+  @@index([sessionId])
+}
+
+// Immutable stamp ledger (a parallel currency to points).
+model StampLedger {
+  id        String   @id @default(cuid())
+  memberId  String
+  storeId   String
+  delta     Int
+  reason    String?
+  sessionId String?
+  createdAt DateTime @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, createdAt])
+  @@index([sessionId])
+}
+
+// An admin-defined reward a member can buy with points.
+model RewardCatalog {
+  id          String   @id @default(cuid())
+  storeId     String
+  name        String
+  description String?
+  pointsCost  Int
+  type        String // FREE_ITEM | FIXED_VOUCHER
+  value       Decimal  @default(0) @db.Decimal(10, 2)
+  menuItemId  String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store       Store              @relation(fields: [storeId], references: [id])
+  redemptions RewardRedemption[]
+
+  @@index([storeId])
+}
+
+// A reward instance issued to a member (from the catalog or a stamp card),
+// burned at settlement. Lifecycle: ISSUED → USED (or EXPIRED).
+model RewardRedemption {
+  id          String    @id @default(cuid())
+  storeId     String
+  memberId    String
+  catalogId   String?
+  type        String // FREE_ITEM | FIXED_VOUCHER
+  name        String // snapshot of the reward name
+  value       Decimal   @default(0) @db.Decimal(10, 2)
+  menuItemId  String?
+  pointsSpent Int       @default(0)
+  source      String // CATALOG | STAMP
+  status      String    @default("ISSUED") // ISSUED | USED | EXPIRED
+  expiresAt   DateTime?
+  sessionId   String?
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  member  Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  catalog RewardCatalog? @relation(fields: [catalogId], references: [id])
+
+  @@index([storeId])
+  @@index([memberId, status])
+  @@index([sessionId])
+}
+
+// A phone OTP challenge for customer self-serve verification.
+model OtpChallenge {
+  id        String   @id @default(cuid())
+  storeId   String
+  phone     String
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([storeId, phone])
+}
+
+// Single-instance guard for daily loyalty jobs (expiry sweep, birthday bonus).
+model LoyaltyJobRun {
+  id        String   @id @default(cuid())
+  job       String
+  runDate   String // YYYY-MM-DD (venue-local)
+  createdAt DateTime @default(now())
+
+  @@unique([job, runDate])
+}
+
+// De-duplicates order submissions: a client sends an Idempotency-Key header and
+// a replayed request returns the original response instead of creating a 2nd order.
+model IdempotencyKey {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  response    Json?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+}
+
+// Operator/platform audit trail (cross-tenant, NOT store-scoped). Append-only
+// record of who did what on the platform console, including impersonation.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String? // AdminUser id (null = system)
+  actorEmail String // snapshot, survives admin deletion
+  actorImp   String? // operator email when done under impersonation
+  action     String // 'client.create' | 'plan.update' | 'outlet.impersonate' | ...
+  entity     String // 'Client' | 'Plan' | 'Store'
+  entityId   String?
+  storeId    String? // affected outlet, when applicable
+  summary    String?
+  metadata   Json?
+  requestId  String?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entity, entityId])
+  @@index([actorId])
+}
+
+enum OrderStatus {
+  NEW
+  COMPLETED
+  CANCELLED
+}
+
+enum SessionStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+  MERGED
+}
+
+enum PrintJobStatus {
+  PENDING
+  PRINTING
+  PRINTED
+  FAILED
+}
+
+enum BillingStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}

@@ -1,0 +1,19 @@
+node_modules/
+dist/
+*.log
+.env
+print-agent/.env
+
+# Prisma
+prisma/*.db
+
+# Uploaded item images (runtime content)
+uploads/
+
+# Test coverage + local DB backups
+coverage/
+backups/
+
+# OS
+.DS_Store
+Thumbs.db

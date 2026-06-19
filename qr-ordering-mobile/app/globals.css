@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background-color: #f3f4f6;
+  color: #000000;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prefer dynamic viewport height where supported. */
+@supports (min-height: 100dvh) {
+  .min-h-dvh {
+    min-height: 100dvh;
+  }
+}

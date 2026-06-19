@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    // node10 ("Node") resolution is deprecated in TS 6 and removed in TS 7.
+    // Silenced here; modernizing to node16/nodenext is a separate task (it
+    // requires extensionful relative imports across the codebase).
+    "ignoreDeprecations": "6.0",
+    "lib": ["ES2022"],
+    "rootDir": ".",
+    "outDir": "dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "sourceMap": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "prisma/**/*.ts", "print-agent/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
