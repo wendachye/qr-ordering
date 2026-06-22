@@ -27,17 +27,36 @@ export function refineDiscount(
   }
 }
 
+// One pick within a combo line: a group + the chosen option.
+const comboSelectionSchema = z.object({
+  groupId: z.string().min(1),
+  optionId: z.string().min(1),
+});
+
 export const createOrderSchema = z.object({
   tableCode: z.string().min(1, 'tableCode is required'),
   note: z.string().trim().max(500).optional(),
   items: z
     .array(
-      z.object({
-        menuItemId: z.string().min(1, 'menuItemId is required'),
-        quantity: z.coerce.number().int().min(1, 'quantity must be at least 1').max(99),
-        note: z.string().trim().max(255).optional(),
-        optionChoiceIds: z.array(z.string().min(1)).max(20).optional(),
-      }),
+      z
+        .object({
+          // Either a menu item OR a combo (one pick per group).
+          menuItemId: z.string().min(1).optional(),
+          comboId: z.string().min(1).optional(),
+          comboSelections: z.array(comboSelectionSchema).max(20).optional(),
+          quantity: z.coerce.number().int().min(1, 'quantity must be at least 1').max(99),
+          note: z.string().trim().max(255).optional(),
+          optionChoiceIds: z.array(z.string().min(1)).max(20).optional(),
+        })
+        .superRefine((v, ctx) => {
+          if (!!v.menuItemId === !!v.comboId) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: 'Provide either a menu item or a combo',
+              path: ['menuItemId'],
+            });
+          }
+        }),
     )
     .min(1, 'At least one item is required'),
 });
@@ -54,10 +73,12 @@ export const createAdminOrderSchema = z.object({
     .array(
       z
         .object({
-          // Either a menu item OR a custom (open) line with name + price.
+          // A menu item, a custom (open) line with name + price, or a combo.
           menuItemId: z.string().min(1).optional(),
           customName: z.string().trim().min(1).max(120).optional(),
           customPrice: z.coerce.number().min(0).max(100000).optional(),
+          comboId: z.string().min(1).optional(),
+          comboSelections: z.array(comboSelectionSchema).max(20).optional(),
           quantity: z.coerce.number().int().min(1).max(99),
           note: z.string().trim().max(255).optional(),
           optionChoiceIds: z.array(z.string().min(1)).max(20).optional(),
@@ -81,15 +102,14 @@ export const createAdminOrderSchema = z.object({
         })
         .superRefine(refineDiscount)
         .superRefine((v, ctx) => {
-          const hasMenu = !!v.menuItemId;
-          const hasCustom = !!v.customName;
-          if (hasMenu === hasCustom) {
+          const kinds = [!!v.menuItemId, !!v.customName, !!v.comboId].filter(Boolean).length;
+          if (kinds !== 1) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: 'Provide either a menu item or a custom item (name + price)',
+              message: 'Provide exactly one of: a menu item, a custom item, or a combo',
               path: ['menuItemId'],
             });
-          } else if (hasCustom && v.customPrice == null) {
+          } else if (!!v.customName && v.customPrice == null) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
               message: 'A custom item needs a price',

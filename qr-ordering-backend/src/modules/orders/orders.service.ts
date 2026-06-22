@@ -89,8 +89,72 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
   });
   const byId = new Map(menuItems.map((m) => [m.id, m]));
 
+  // Combos referenced in the order, with their groups + options (scoped to store).
+  const comboIds = [
+    ...new Set(input.items.map((i) => i.comboId).filter((id): id is string => !!id)),
+  ];
+  const combos = comboIds.length
+    ? await prisma.combo.findMany({
+        where: { id: { in: comboIds }, storeId: table.storeId },
+        include: {
+          groups: {
+            orderBy: { sortOrder: 'asc' },
+            include: {
+              options: {
+                orderBy: { sortOrder: 'asc' },
+                include: { menuItem: { select: { name: true, isAvailable: true } } },
+              },
+            },
+          },
+        },
+      })
+    : [];
+  const comboById = new Map(combos.map((c) => [c.id, c]));
+
   // 3. Validate each line + options; recompute price server-side
   const lines = input.items.map((line) => {
+    // Combo / set meal: a fixed base price + one pick per group (premium picks add
+    // a delta). The chosen components are snapshotted onto the line.
+    if (line.comboId) {
+      const combo = comboById.get(line.comboId);
+      if (!combo || !combo.isAvailable) throw ApiError.badRequest('That combo is not on this menu');
+      if (!ctx.admin && combo.posOnly) throw ApiError.badRequest('That combo is not on this menu');
+      const picks = new Map((line.comboSelections ?? []).map((s) => [s.groupId, s.optionId]));
+      let unit = new Prisma.Decimal(combo.price);
+      const selectedOptions: { group: string; choice: string; priceDelta: number }[] = [];
+      const optionStrings: string[] = [];
+      for (const g of combo.groups) {
+        const opt = g.options.find((o) => o.id === picks.get(g.id));
+        if (!opt) throw ApiError.badRequest(`Choose a "${g.name}" for "${combo.name}"`);
+        if (!opt.menuItem.isAvailable) throw ApiError.badRequest(`"${opt.menuItem.name}" is sold out`);
+        const delta = new Prisma.Decimal(opt.priceDelta);
+        unit = unit.add(delta);
+        selectedOptions.push({ group: g.name, choice: opt.menuItem.name, priceDelta: Number(delta) });
+        optionStrings.push(
+          delta.greaterThan(0)
+            ? `${g.name}: ${opt.menuItem.name} (+${delta.toFixed(2)})`
+            : `${g.name}: ${opt.menuItem.name}`,
+        );
+      }
+      unit = unit.toDecimalPlaces(2);
+      return {
+        menuItemId: null as string | null,
+        name: combo.name,
+        quantity: line.quantity,
+        unitPrice: unit,
+        takeawayCharge: new Prisma.Decimal(0),
+        isTakeaway: false,
+        priceOverridden: false,
+        discountType: null as string | null,
+        discountValue: new Prisma.Decimal(0),
+        discountAmount: new Prisma.Decimal(0),
+        totalPrice: unit.mul(line.quantity).toDecimalPlaces(2),
+        note: line.note?.trim() ? line.note.trim() : null,
+        selectedOptions,
+        optionStrings,
+      };
+    }
+
     // Custom (open) item — admin only: an ad-hoc line with a name + price, no
     // menu lookup or options.
     if (ctx.admin && !line.menuItemId && line.customName) {

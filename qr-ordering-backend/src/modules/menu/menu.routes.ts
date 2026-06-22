@@ -35,6 +35,8 @@ import {
   updateMenuSettings,
 } from './menu.service';
 import { getPosMenuForTable } from '../public/public.service';
+import { createComboSchema, updateComboSchema } from '../../validators/combo';
+import { createCombo, deleteCombo, listCombos, updateCombo } from './combo.service';
 
 export const menuRouter = Router();
 
@@ -118,6 +120,20 @@ menuRouter.patch('/items/featured/reorder', async (req, res) => {
 menuRouter.patch('/items/:id/feature', async (req: Request<{ id: string }>, res) => {
   const { isFeatured } = featureSchema.parse(req.body);
   sendOk(res, await setItemFeatured(req.params.id, isFeatured));
+});
+
+// --- Combos / set meals ---
+menuRouter.get('/combos', async (_req, res) => {
+  sendOk(res, await listCombos());
+});
+menuRouter.post('/combos', async (req, res) => {
+  sendCreated(res, await createCombo(createComboSchema.parse(req.body)));
+});
+menuRouter.patch('/combos/:id', async (req: Request<{ id: string }>, res) => {
+  sendOk(res, await updateCombo(req.params.id, updateComboSchema.parse(req.body)));
+});
+menuRouter.delete('/combos/:id', async (req: Request<{ id: string }>, res) => {
+  sendOk(res, await deleteCombo(req.params.id));
 });
 
 // GET/PATCH /api/admin/menu/settings  { featuredTitle }

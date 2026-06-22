@@ -86,6 +86,7 @@ model Store {
   orders     Order[]
   sessions   TableSession[]
   payments   Payment[]
+  combos     Combo[]
   adminUsers AdminUser[]
   vouchers   Voucher[]
   members    Member[]
@@ -178,10 +179,61 @@ model MenuItem {
   category     MenuCategory  @relation(fields: [categoryId], references: [id])
   orderItems   OrderItem[]
   optionGroups OptionGroup[]
+  comboOptions ComboOption[]
 
   @@index([storeId])
   @@index([categoryId])
   @@index([storeId, isFeatured])
+}
+
+// A combo / set meal: a fixed-price product that bundles one pick from each of
+// its groups (e.g. "Bento set = 1 main + 1 side + 1 drink"). Each option maps to
+// a menu item; a premium pick can carry a priceDelta on top of the base price.
+// Orders snapshot the chosen components onto the line, so editing a combo later
+// never rewrites history.
+model Combo {
+  id          String   @id @default(cuid())
+  storeId     String
+  name        String
+  description String?
+  imageUrls   String[] @default([])
+  price       Decimal  @db.Decimal(10, 2)
+  isAvailable Boolean  @default(true)
+  posOnly     Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store  Store        @relation(fields: [storeId], references: [id])
+  groups ComboGroup[]
+
+  @@index([storeId])
+}
+
+model ComboGroup {
+  id        String        @id @default(cuid())
+  comboId   String
+  name      String // e.g. "Main", "Side", "Drink"
+  sortOrder Int           @default(0)
+  combo     Combo         @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  options   ComboOption[]
+
+  @@index([comboId])
+}
+
+model ComboOption {
+  id         String  @id @default(cuid())
+  groupId    String
+  menuItemId String
+  // Upcharge for a premium pick (on top of the combo's base price).
+  priceDelta Decimal @default(0) @db.Decimal(10, 2)
+  sortOrder  Int     @default(0)
+
+  group    ComboGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  menuItem MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+  @@index([menuItemId])
 }
 
 model OptionGroup {

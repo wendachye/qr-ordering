@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../lib/response';
 import { salePriceOf } from '../../lib/pricing';
 import { isItemAvailableNow } from '../../lib/availability';
+import { buildCombosForMenu } from '../menu/combo.service';
 import { currentStoreId } from '../../lib/tenant';
 
 /** Loads an active table by its public code, together with its store. */
@@ -119,9 +120,12 @@ async function buildStoreMenu(storeId: string, opts: { includePosOnly: boolean }
     })),
   });
 
+  const combos = await buildCombosForMenu(storeId, opts);
+
   return {
     featuredTitle: settings?.featuredTitle ?? 'Popular',
     takeawayCharge: Number(settings?.takeawayCharge ?? 0),
+    combos,
     // Customer-menu hero banner. An empty image list / null copy falls back to
     // the default gradient/copy on the client; multiple images rotate.
     banner: {
