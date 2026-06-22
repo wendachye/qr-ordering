@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ModalDialog } from "@/components/ui/modal-dialog";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
@@ -24,6 +25,14 @@ const ROLE_HINT: Record<Role, string> = {
   CASHIER: "POS, payments + reports",
   WAITER: "Order entry only",
 };
+
+// 1–2 letter initials for the avatar fallback: "Test Waiter" → "TW", an email
+// with no name → its first two letters.
+function initials(label: string): string {
+  const parts = label.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (parts[0]?.slice(0, 2) || "?").toUpperCase();
+}
 
 function RoleBadge({ role }: { role: Role }) {
   const tone = role === "OWNER" ? "accent" : role === "MANAGER" ? "green" : "gray";
@@ -84,12 +93,19 @@ export function StaffManager() {
           return (
             <Card key={m.id} className={m.isActive ? "" : "opacity-60"}>
               <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-                <div className="min-w-0">
-                  <p className="font-semibold text-slate-900">
-                    {m.name || m.email}
-                    {isSelf && <span className="ml-2 text-xs font-medium text-slate-400">(you)</span>}
-                  </p>
-                  <p className="truncate text-sm text-slate-500">{m.email}</p>
+                <div className="flex min-w-0 items-center gap-3">
+                  <Avatar>
+                    <AvatarFallback>{initials(m.name || m.email)}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-slate-900">
+                      {m.name || m.email}
+                      {isSelf && (
+                        <span className="ml-2 text-xs font-medium text-slate-400">(you)</span>
+                      )}
+                    </p>
+                    <p className="truncate text-sm text-slate-500">{m.email}</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {!m.isActive && <Badge tone="gray">Disabled</Badge>}
