@@ -21,7 +21,7 @@ export function TabRound({
   return (
     <li
       className={cn(
-        "rounded-xl border border-slate-100 bg-slate-50/60 p-3",
+        "rounded-xl border border-slate-100 bg-slate-50/60 p-2.5",
         cancelled && "opacity-50"
       )}
     >

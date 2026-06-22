@@ -16,7 +16,7 @@ export async function getReceipt(sessionId: string) {
     where: { id: sessionId },
     include: {
       table: { select: { name: true } },
-      store: { select: { name: true, serviceChargeRate: true, taxes: true } },
+      store: { select: { name: true, logoUrl: true, serviceChargeRate: true, taxes: true } },
       orders: {
         where: { status: { not: 'CANCELLED' } },
         orderBy: { createdAt: 'asc' },
@@ -87,6 +87,7 @@ export async function getReceipt(sessionId: string) {
   return {
     receiptNumber: session.sessionNumber,
     storeName: session.store.name,
+    logoUrl: session.store.logoUrl,
     tableName: session.table.name,
     pax: session.pax,
     openedAt: session.openedAt,

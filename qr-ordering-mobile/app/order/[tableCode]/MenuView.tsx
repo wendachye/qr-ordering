@@ -144,6 +144,7 @@ export function MenuView({ tableCode }: { tableCode: string }) {
         imageUrls={banner?.imageUrls ?? []}
         title={banner?.title}
         subtitle={banner?.subtitle}
+        logoUrl={store.logoUrl}
       />
 
       {/* Category selector — "Popular" is the first tab. Sticks to the top. */}

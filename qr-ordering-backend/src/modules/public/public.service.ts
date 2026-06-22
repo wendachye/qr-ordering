@@ -30,6 +30,7 @@ export async function getTableByCode(tableCode: string) {
       id: table.store.id,
       name: table.store.name,
       slug: table.store.slug,
+      logoUrl: table.store.logoUrl,
     },
   };
 }

@@ -7,6 +7,7 @@ import { ErrorState } from "@/components/common/ErrorState";
 import { ApiError } from "@/lib/api";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { InlineText } from "@/components/settings/InlineText";
+import { LogoCard } from "@/components/settings/LogoCard";
 import { PaymentMethodsCard } from "@/components/settings/PaymentMethodsCard";
 
 // General settings: store identity + payment methods. Charges/tax live under the
@@ -34,6 +35,11 @@ export default function GeneralSettingsPage() {
             value={query.data.storeName}
             saving={update.isPending}
             onSave={(v) => update.mutate({ storeName: v })}
+          />
+          <LogoCard
+            logoUrl={query.data.logoUrl}
+            saving={update.isPending}
+            onSave={(logoUrl) => update.mutate({ logoUrl })}
           />
           <PaymentMethodsCard
             methods={query.data.paymentMethods}

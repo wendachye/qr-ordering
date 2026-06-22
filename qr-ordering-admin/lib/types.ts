@@ -262,6 +262,7 @@ export interface MenuSettings {
 // GET /admin/settings — store-level settings module.
 export interface Settings {
   storeName: string;
+  logoUrl: string | null;
   featuredTitle: string;
   takeawayCharge: number;
   // Service charge as a percentage; 0 = not applied. Plus a list of named taxes.

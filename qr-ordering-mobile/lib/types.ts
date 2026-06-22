@@ -4,6 +4,7 @@ export type Store = {
   id: string;
   name: string;
   slug: string;
+  logoUrl?: string | null;
 };
 
 export type Table = {

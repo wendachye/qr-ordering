@@ -20,15 +20,15 @@ export function CartLineList({
   onEdit?: (line: CartLine) => void;
 }) {
   return (
-    <ul className="space-y-3">
+    <ul className="space-y-2">
       {lines.map((line) => (
         <li
           key={line.lineId}
-          className="rounded-xl border border-slate-200 bg-white p-3"
+          className="rounded-xl border border-slate-200 bg-white p-2.5"
         >
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className="font-semibold text-slate-900">{line.name}</p>
+              <p className="font-semibold leading-tight text-slate-900">{line.name}</p>
               {line.options.length > 0 && (
                 <p className="mt-0.5 text-sm text-slate-500">
                   {line.options.map((o) => o.choice).join(", ")}
@@ -65,26 +65,24 @@ export function CartLineList({
                 </div>
               )}
             </div>
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="flex shrink-0 items-center gap-0.5">
               {onEdit && !line.custom && (
                 <button
                   type="button"
                   onClick={() => onEdit(line)}
                   aria-label={`Edit ${line.name}`}
-                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
                 >
                   <Pencil className="h-4 w-4" />
-                  Edit
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => onRemove(line.lineId)}
                 aria-label={`Remove ${line.name}`}
-                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+                className="rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-50"
               >
                 <Trash2 className="h-4 w-4" />
-                Remove
               </button>
             </div>
           </div>

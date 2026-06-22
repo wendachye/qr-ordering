@@ -370,6 +370,7 @@ export const settingsApi = {
   get: () => apiRequest<Settings>("/admin/settings"),
   update: (input: {
     storeName?: string;
+    logoUrl?: string | null;
     takeawayCharge?: number;
     serviceChargeRate?: number;
     taxes?: { name: string; rate: number }[];

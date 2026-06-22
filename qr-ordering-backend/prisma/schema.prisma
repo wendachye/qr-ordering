@@ -24,6 +24,9 @@ model Store {
   bannerImageUrls String[] @default([])
   bannerTitle     String?
   bannerSubtitle  String?
+  // Restaurant logo / brand mark (a single image), shown on the customer menu
+  // header + the receipt. Distinct from the hero banner slideshow.
+  logoUrl         String?
   takeawayCharge Decimal @default(0) @db.Decimal(10, 2)
   // Service charge + tax (e.g. SST) as percentages, e.g. 10.00 / 6.00. Menu
   // prices are treated as tax-inclusive: reports back out these portions from

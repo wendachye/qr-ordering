@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getReceipt, ApiError, type Receipt } from "@/lib/api";
+import { assetUrl } from "@/lib/assets";
 import { formatPrice } from "@/lib/currency";
 
 function Row({
@@ -71,6 +72,14 @@ export function ReceiptView({ id }: { id: string }) {
         <div className="rounded-2xl bg-white p-6 shadow-sm print:rounded-none print:shadow-none">
           {/* Header */}
           <div className="border-b border-dashed border-slate-200 pb-4 text-center">
+            {r.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={assetUrl(r.logoUrl)}
+                alt=""
+                className="mx-auto mb-2 h-14 w-auto max-w-[60%] object-contain"
+              />
+            )}
             <h1 className="text-xl font-black tracking-tight text-slate-900">{r.storeName}</h1>
             <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-slate-400">
               Tax Invoice

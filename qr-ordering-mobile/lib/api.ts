@@ -107,6 +107,7 @@ export function applyVoucher(tableCode: string, code: string): Promise<AppliedVo
 export type Receipt = {
   receiptNumber: number;
   storeName: string;
+  logoUrl: string | null;
   tableName: string;
   pax: number | null;
   openedAt: string;
