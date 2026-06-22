@@ -6,6 +6,7 @@ import { sendOk } from '../../lib/response';
 import { applyVoucherSchema } from '../../validators/voucher';
 import { applyVoucherToTable } from '../admin/vouchers.service';
 import { getMenuForTable, getTableByCode } from './public.service';
+import { getReceipt } from './receipt.service';
 
 export const publicRouter = Router();
 
@@ -28,4 +29,9 @@ publicRouter.get('/menu', async (req, res) => {
     .object({ tableCode: z.string().min(1, 'tableCode query param is required') })
     .parse(req.query);
   sendOk(res, await getMenuForTable(tableCode));
+});
+
+// GET /api/public/receipt/:id — the diner-facing receipt for a settled tab.
+publicRouter.get('/receipt/:id', async (req: Request<{ id: string }>, res) => {
+  sendOk(res, await getReceipt(req.params.id));
 });

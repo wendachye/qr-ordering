@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Plus, Search, X } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import { assetUrl } from "@/lib/assets";
 import { formatPrice } from "@/lib/format";
 import type { PublicMenuCategory, PublicMenuItem } from "@/lib/types";

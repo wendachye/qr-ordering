@@ -2,16 +2,13 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ScrollText } from "lucide-react";
-import { AdminShell } from "@/components/layout/AdminShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
+import { AuditRow } from "@/components/platform/AuditRow";
 import { useAuth } from "@/hooks/useAuth";
 import { platformAuditApi } from "@/lib/endpoints";
-import type { AuditEntry } from "@/lib/types";
 
 const ACTIONS = [
   { value: "", label: "All actions" },
@@ -26,22 +23,6 @@ const ACTIONS = [
 
 const PAGE = 50;
 
-function fmt(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function actionTone(action: string): "green" | "amber" | "gray" {
-  if (action === "outlet.impersonate") return "amber";
-  if (action.endsWith(".create")) return "green";
-  return "gray";
-}
-
 export default function PlatformAuditPage() {
   const { user, status } = useAuth();
   const [action, setAction] = useState("");
@@ -55,22 +36,22 @@ export default function PlatformAuditPage() {
 
   if (status === "loading") {
     return (
-      <AdminShell>
+      <>
         <LoadingState label="Loading…" />
-      </AdminShell>
+      </>
     );
   }
 
   if (!user?.isPlatformAdmin) {
     return (
-      <AdminShell>
+      <>
         <Card>
           <CardContent>
             <h1 className="text-xl font-bold text-slate-900">Restricted</h1>
             <p className="mt-1 text-slate-500">The audit log is for the platform operator only.</p>
           </CardContent>
         </Card>
-      </AdminShell>
+      </>
     );
   }
 
@@ -79,19 +60,7 @@ export default function PlatformAuditPage() {
   const total = data?.total ?? 0;
 
   return (
-    <AdminShell>
-      <div className="mb-6 flex items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-          <ScrollText className="h-5 w-5" />
-        </span>
-        <div>
-          <h1 className="text-3xl font-black text-slate-900">Audit log</h1>
-          <p className="text-slate-500">
-            Every operator action across the platform — client &amp; plan edits and impersonation.
-          </p>
-        </div>
-      </div>
-
+    <>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <select
           value={action}
@@ -168,27 +137,6 @@ export default function PlatformAuditPage() {
           </Button>
         </div>
       </div>
-    </AdminShell>
-  );
-}
-
-function AuditRow({ entry }: { entry: AuditEntry }) {
-  return (
-    <tr className="border-b border-slate-100 last:border-0">
-      <td className="whitespace-nowrap px-4 py-3 text-slate-500">{fmt(entry.createdAt)}</td>
-      <td className="px-4 py-3">
-        <span className="font-medium text-slate-800">{entry.actorEmail}</span>
-        {entry.actorImp && <span className="block text-xs text-amber-600">via {entry.actorImp}</span>}
-      </td>
-      <td className="px-4 py-3">
-        <Badge tone={actionTone(entry.action)}>{entry.action}</Badge>
-      </td>
-      <td className="px-4 py-3 text-slate-600">
-        {entry.summary ?? `${entry.entity}${entry.entityId ? ` · ${entry.entityId}` : ""}`}
-      </td>
-      <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-400">
-        {entry.ip ?? "—"}
-      </td>
-    </tr>
+    </>
   );
 }

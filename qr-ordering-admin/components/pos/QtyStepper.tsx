@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 
 // Compact +/- quantity stepper with large touch targets (iPad-friendly).
 // Clamps to [min, max] (defaults 1..99, matching the order API's 1..99 rule).

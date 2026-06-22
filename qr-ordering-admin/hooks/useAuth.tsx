@@ -24,12 +24,6 @@ interface AuthContextValue {
   // Set when the operator is "viewing as" an outlet.
   impersonating: { outletName: string } | null;
   login: (email: string, password: string) => Promise<AuthUser>;
-  register: (payload: {
-    restaurantName: string;
-    email: string;
-    password: string;
-    ownerName?: string;
-  }) => Promise<void>;
   logout: () => void;
   impersonate: (storeId: string, outletName: string) => Promise<void>;
   exitImpersonation: () => Promise<void>;
@@ -87,21 +81,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res.user;
   }, []);
 
-  const register = useCallback(
-    async (payload: {
-      restaurantName: string;
-      email: string;
-      password: string;
-      ownerName?: string;
-    }) => {
-      const res = await authApi.register(payload);
-      setToken(res.token);
-      setUser(res.user);
-      setStatus("authenticated");
-    },
-    []
-  );
-
   const clearImpersonationKeys = () => {
     if (typeof window === "undefined") return;
     window.localStorage.removeItem(REAL_TOKEN_KEY);
@@ -132,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(u);
       setImpersonating({ outletName });
       setStatus("authenticated");
-      router.replace("/admin/floor");
+      router.replace("/admin/tables");
     },
     [router]
   );
@@ -160,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchOutlet = useCallback(async (storeId: string) => {
     const res = await outletsApi.switch(storeId);
     setToken(res.token);
-    if (typeof window !== "undefined") window.location.href = "/admin/floor";
+    if (typeof window !== "undefined") window.location.href = "/admin/tables";
   }, []);
 
   return (
@@ -170,7 +149,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         status,
         impersonating,
         login,
-        register,
         logout,
         impersonate,
         exitImpersonation,

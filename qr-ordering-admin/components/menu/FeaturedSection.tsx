@@ -14,9 +14,9 @@ import { Star, Pencil } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FeaturedItemRow } from "@/components/menu/FeaturedItemRow";
-import { useMenuSensors } from "@/components/menu/useMenuSensors";
+import { useMenuSensors } from "@/hooks/useMenuSensors";
 import { useReorderFeatured } from "@/hooks/useMenuMutations";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import type { MenuItem } from "@/lib/types";
 
 // The curated strip shown at the top of the customer menu. Items here keep

@@ -8,3 +8,8 @@ export const CUSTOMER_BASE_URL =
 export function customerOrderLink(code: string): string {
   return `${CUSTOMER_BASE_URL.replace(/\/+$/, "")}/order/${code}`;
 }
+
+// The diner-facing receipt link for a settled tab (session id).
+export function customerReceiptLink(sessionId: string): string {
+  return `${CUSTOMER_BASE_URL.replace(/\/+$/, "")}/receipt/${sessionId}`;
+}

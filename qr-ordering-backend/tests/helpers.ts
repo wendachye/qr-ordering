@@ -1,6 +1,7 @@
 import request from 'supertest';
 
 import { createApp } from '../src/app';
+import { registerStore } from '../src/modules/auth/auth.service';
 
 // One in-process app instance per test file (supertest needs no open port).
 export const app = createApp();
@@ -41,7 +42,12 @@ export async function login(email: string, password: string) {
   return res.body?.data as { token: string; user: { id: string; email: string; storeId: string } };
 }
 
-/** Register a fresh tenant; returns the request status + the body sent + response data. */
+/**
+ * Provision a fresh tenant for a test; returns the body used + the resulting
+ * token/user. There is no public signup route (the super-admin creates tenants),
+ * so this calls the same provisioning primitive in-process — every test still
+ * gets an isolated tenant with the standard starter workspace.
+ */
 export async function registerTenant(
   overrides: Partial<{ restaurantName: string; email: string; password: string }> = {},
 ) {
@@ -51,12 +57,8 @@ export async function registerTenant(
     email: overrides.email ?? `owner_${tag}@test.local`,
     password: overrides.password ?? 'password12345',
   };
-  const res = await api().post('/admin/auth/register').send(body);
-  return {
-    status: res.status,
-    body,
-    data: res.body?.data as { token: string; user: { id: string; storeId: string } },
-  };
+  const data = await registerStore(body);
+  return { body, data };
 }
 
 /**

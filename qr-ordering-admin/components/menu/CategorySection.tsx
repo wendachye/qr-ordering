@@ -32,9 +32,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SortableItemRow } from "@/components/menu/SortableItemRow";
-import { useMenuSensors } from "@/components/menu/useMenuSensors";
+import { useMenuSensors } from "@/hooks/useMenuSensors";
 import { useReorderItems } from "@/hooks/useMenuMutations";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import type { Category, MenuItem } from "@/lib/types";
 
 export function CategorySection({

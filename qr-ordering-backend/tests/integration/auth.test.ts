@@ -36,15 +36,13 @@ describe('auth', () => {
     expect(r.status).toBe(423);
   });
 
-  it('registers a tenant with an isolated 4-table starter workspace', async () => {
-    const { status, data } = await registerTenant();
-    expect(status).toBe(200);
+  it('provisions a tenant with an isolated 4-table starter workspace', async () => {
+    const { data } = await registerTenant();
     const floor = await api().get('/admin/floor').set(auth(data.token));
     expect(floor.body.data.length).toBe(4);
   });
 
-  it('rejects duplicate email (409) and weak password (400)', async () => {
-    expect((await registerTenant({ email: 'admin@example.com' })).status).toBe(409);
-    expect((await registerTenant({ password: 'short' })).status).toBe(400);
+  it('rejects a duplicate tenant email', async () => {
+    await expect(registerTenant({ email: 'admin@example.com' })).rejects.toThrow();
   });
 });

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -30,7 +29,7 @@ export default function LoginPage() {
   // the Clients console instead of a restaurant floor.
   useEffect(() => {
     if (status === "authenticated") {
-      router.replace(user?.isPlatformAdmin ? "/platform/clients" : "/admin/floor");
+      router.replace(user?.isPlatformAdmin ? "/platform/clients" : "/admin/tables");
     }
   }, [status, user, router]);
 
@@ -47,7 +46,7 @@ export default function LoginPage() {
     setFormError(null);
     try {
       const u = await login(values.email, values.password);
-      router.replace(u.isPlatformAdmin ? "/platform/clients" : "/admin/floor");
+      router.replace(u.isPlatformAdmin ? "/platform/clients" : "/admin/tables");
     } catch (err) {
       setFormError(
         err instanceof ApiError
@@ -113,16 +112,7 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        <p className="mt-6 text-center text-sm text-slate-500">
-          New here?{" "}
-          <Link
-            href="/admin/signup"
-            className="font-semibold text-accent-600 hover:underline"
-          >
-            Create a restaurant account
-          </Link>
-        </p>
-        <p className="mt-2 text-center text-sm text-slate-400">
+        <p className="mt-6 text-center text-sm text-slate-400">
           Demo: admin@example.com / password123
         </p>
       </div>

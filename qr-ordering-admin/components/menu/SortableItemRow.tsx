@@ -15,7 +15,7 @@ import {
 import { SoldOutToggle } from "@/components/menu/SoldOutToggle";
 import { FeatureToggle } from "@/components/menu/FeatureToggle";
 import { ItemThumb } from "@/components/menu/ItemThumb";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format";
 import type { MenuItem } from "@/lib/types";
 

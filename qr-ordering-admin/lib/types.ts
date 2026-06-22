@@ -451,6 +451,9 @@ export interface FloorSession {
   pax: number | null;
   openedAt: string;
   total: number;
+  // Part-paid (split/partial settlement): tendered so far + what's still owed.
+  amountPaid: number;
+  balanceDue: number;
   totalItems: number;
   roundCount: number;
   anyPrintFailed: boolean;
@@ -513,9 +516,27 @@ export interface SessionDetail {
   voucherCode: string | null;
   voucherDiscount: number;
   netTotal: number;
+  // Tender ledger: each payment toward the tab + the running paid / tip totals
+  // and what's still owed (> 0 while a tab is part-paid).
+  payments: Payment[];
+  amountPaid: number;
+  tipTotal: number;
+  balanceDue: number;
   totalItems: number;
   roundCount: number;
   rounds: SessionRound[];
+}
+
+// One tender against a tab (single payment, or one of several when split).
+export interface Payment {
+  id: string;
+  method: string;
+  amount: number;
+  tip: number;
+  tendered: number | null;
+  reference: string | null;
+  voided: boolean;
+  createdAt: string;
 }
 
 // GET /admin/sessions?status= element (history)
@@ -609,6 +630,9 @@ export interface SalesReport {
     totalTax: number;
     totalCollected: number;
     takeawayCharges: number;
+    // Gratuity collected on top of net sales (not revenue).
+    tips: number;
+    grandTotalCollected: number;
   };
   counts: {
     tabsSettled: number;

@@ -17,7 +17,7 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { outletsApi } from "@/lib/endpoints";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ import {
 
 // Top-level sections. "Menu" is now a single drag-and-drop builder page.
 const MAIN_NAV = [
-  { href: "/admin/floor", label: "Tables", icon: LayoutGrid },
+  { href: "/admin/tables", label: "Tables", icon: LayoutGrid },
   { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
   { href: "/admin/promotions", label: "Promotions", icon: Megaphone },
@@ -46,10 +46,10 @@ const PLATFORM_NAV = [
   { href: "/platform/audit", label: "Audit", icon: ScrollText },
 ];
 
-// Paths in the live floor flow (tiles, a session, per-table history, the POS) —
-// keep "Floor" highlighted while drilled into any of them.
-const FLOOR_PATHS = [
-  "/admin/floor",
+// Paths in the live Tables flow (tiles, a session, per-table history, the POS) —
+// keep "Tables" highlighted while drilled into any of them.
+const TABLES_PATHS = [
+  "/admin/tables",
   "/admin/sessions",
   "/admin/history",
   "/admin/orders",
@@ -106,7 +106,7 @@ export function AdminNav() {
 
   const mainActive = (href: string) => {
     if (href === "/admin/menu") return inMenu;
-    if (href === "/admin/floor") return FLOOR_PATHS.some((p) => pathname.startsWith(p));
+    if (href === "/admin/tables") return TABLES_PATHS.some((p) => pathname.startsWith(p));
     // Billing lives under Settings (account area) — keep Settings lit on both.
     if (href === "/admin/settings")
       return pathname.startsWith("/admin/settings") || pathname.startsWith("/admin/billing");
@@ -118,7 +118,7 @@ export function AdminNav() {
       {/* Top-level nav */}
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
         <Link
-          href={user?.isPlatformAdmin ? "/platform/clients" : "/admin/floor"}
+          href={user?.isPlatformAdmin ? "/platform/clients" : "/admin/tables"}
           className="flex items-center gap-2"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-600 text-lg font-black text-white">
@@ -140,12 +140,12 @@ export function AdminNav() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 text-base font-semibold transition-colors",
+                  "inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2.5 text-base font-semibold transition-colors lg:px-4",
                   active ? "bg-accent-50 text-accent-700" : "text-slate-600 hover:bg-slate-100"
                 )}
               >
                 <Icon className="h-5 w-5" />
-                {item.label}
+                <span className="hidden lg:inline">{item.label}</span>
               </Link>
             );
           })}

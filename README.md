@@ -72,7 +72,7 @@ generated from its Zod validators at `GET /api/openapi.json`, with **Swagger UI 
 
 **Multi-tenant SaaS & platform**
 - Tenant isolation: JWT carries the tenant, an `AsyncLocalStorage` request context scopes every query, and every by-id route is IDOR-guarded
-- Clients → multiple outlets; owner can **switch outlets**; self-serve restaurant onboarding
+- Clients → multiple outlets; owner can **switch outlets**; tenants are provisioned by the super-admin (no self-serve signup)
 - Super-admin console: manage clients & outlets, **impersonate** (view-as) an outlet, plans/entitlements
 - Operator **audit log** for platform actions and impersonation
 - **Stripe billing**: subscription plans, free trial, entitlements (SaaS billing — distinct from diner payment, which is settled in-store)

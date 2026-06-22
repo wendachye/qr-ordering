@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,7 +17,7 @@ const TABS = [
   { href: "/admin/billing", label: "Billing" },
 ];
 
-export function SettingsTabs() {
+export function SettingsTabs({ action }: { action?: ReactNode }) {
   const pathname = usePathname();
   // Pick the most specific (longest) matching href so a nested path like
   // /admin/settings/vouchers lights up Vouchers, not General.
@@ -26,15 +27,19 @@ export function SettingsTabs() {
       .find((t) => pathname === t.href || pathname.startsWith(t.href + "/"))?.href ??
     TABS[0].href;
 
+  // Tabs on the left; an optional page action (e.g. "Add table") on the right.
   return (
-    <Tabs value={active} className="mb-6">
-      <TabsList>
-        {TABS.map((t) => (
-          <TabsTrigger key={t.href} value={t.href} asChild>
-            <Link href={t.href}>{t.label}</Link>
-          </TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <Tabs value={active}>
+        <TabsList>
+          {TABS.map((t) => (
+            <TabsTrigger key={t.href} value={t.href} asChild>
+              <Link href={t.href}>{t.label}</Link>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+      {action}
+    </div>
   );
 }

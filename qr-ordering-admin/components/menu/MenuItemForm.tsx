@@ -18,7 +18,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { FieldError } from "@/components/ui/field-error";
 import { MultiCombobox } from "@/components/ui/multi-combobox";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/components/common/Toast";
 import { uploadImage, ApiError } from "@/lib/api";
 import { assetUrl } from "@/lib/assets";
@@ -63,6 +63,7 @@ type GroupDraft = {
   name: string;
   required: boolean;
   multiple: boolean;
+  min: string;
   max: string;
   choices: ChoiceDraft[];
 };
@@ -102,6 +103,7 @@ export function MenuItemForm({
       name: g.name,
       required: g.required,
       multiple: g.maxSelect > 1,
+      min: String(g.minSelect),
       max: String(g.maxSelect),
       choices: g.choices.map((c) => ({
         name: c.name,
@@ -112,7 +114,14 @@ export function MenuItemForm({
   const addGroup = () =>
     setGroups((p) => [
       ...p,
-      { name: "", required: true, multiple: false, max: "2", choices: [{ name: "", price: "" }] },
+      {
+        name: "",
+        required: true,
+        multiple: false,
+        min: "1",
+        max: "2",
+        choices: [{ name: "", price: "" }],
+      },
     ]);
   const removeGroup = (gi: number) => setGroups((p) => p.filter((_, i) => i !== gi));
   const patchGroup = (gi: number, patch: Partial<GroupDraft>) =>
@@ -229,10 +238,18 @@ export function MenuItemForm({
           .map((c) => ({ name: c.name.trim(), priceDelta: Math.max(0, Number(c.price) || 0) }))
           .filter((c) => c.name.length > 0);
         const maxSelect = g.multiple ? Math.max(1, Math.min(20, parseInt(g.max, 10) || 1)) : 1;
+        // Optional → no minimum. Single required → 1. Multi-select required → the
+        // staff-set "at least" floor, clamped to [1, maxSelect].
+        const minSelect =
+          g.multiple && g.required
+            ? Math.max(1, Math.min(maxSelect, parseInt(g.min, 10) || 1))
+            : g.required
+              ? 1
+              : 0;
         return {
           name: g.name.trim(),
           required: g.required,
-          minSelect: g.required ? 1 : 0,
+          minSelect,
           maxSelect,
           choices,
         };
@@ -545,18 +562,34 @@ export function MenuItemForm({
                     ))}
                   </div>
                   {g.multiple && (
-                    <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
-                      Up to
-                      <Input
-                        type="number"
-                        min="1"
-                        max="20"
-                        value={g.max}
-                        onChange={(e) => patchGroup(gi, { max: e.target.value })}
-                        aria-label="Maximum choices"
-                        className="h-9 w-16 bg-white"
-                      />
-                    </label>
+                    <>
+                      {g.required && (
+                        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
+                          At least
+                          <Input
+                            type="number"
+                            min="1"
+                            max="20"
+                            value={g.min}
+                            onChange={(e) => patchGroup(gi, { min: e.target.value })}
+                            aria-label="Minimum choices"
+                            className="h-9 w-16 bg-white"
+                          />
+                        </label>
+                      )}
+                      <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
+                        Up to
+                        <Input
+                          type="number"
+                          min="1"
+                          max="20"
+                          value={g.max}
+                          onChange={(e) => patchGroup(gi, { max: e.target.value })}
+                          aria-label="Maximum choices"
+                          className="h-9 w-16 bg-white"
+                        />
+                      </label>
+                    </>
                   )}
                 </div>
 

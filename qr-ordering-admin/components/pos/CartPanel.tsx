@@ -98,7 +98,6 @@ export function CartPanel({
         </div>
 
         <Button
-          size="lg"
           className="mt-4 w-full"
           disabled={empty || submitting}
           onClick={onSubmit}

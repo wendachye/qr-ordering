@@ -35,6 +35,9 @@ export async function getFloor() {
         pax: true,
         openedAt: true,
         tableId: true,
+        discountAmount: true,
+        voucherDiscount: true,
+        payments: { where: { voided: false }, select: { amount: true } },
         orders: {
           where: { status: { not: 'CANCELLED' } },
           select: {
@@ -57,6 +60,13 @@ export async function getFloor() {
       0,
     );
     const anyPrintFailed = s.orders.some((o) => o.printJobs[0]?.status === 'FAILED');
+    // Part-paid tabs (split / partial settlement): how much is tendered so far and
+    // what's still owed against the locked net.
+    const amountPaid =
+      Math.round(s.payments.reduce((acc, p) => acc + Number(p.amount), 0) * 100) / 100;
+    const net =
+      Math.round((total - Number(s.discountAmount) - Number(s.voucherDiscount)) * 100) / 100;
+    const balanceDue = Math.round((net - amountPaid) * 100) / 100;
     return {
       table: t,
       session: {
@@ -66,6 +76,8 @@ export async function getFloor() {
         pax: s.pax,
         openedAt: s.openedAt,
         total,
+        amountPaid,
+        balanceDue,
         totalItems,
         roundCount: s.orders.length,
         anyPrintFailed,
@@ -96,6 +108,7 @@ export async function getSession(id: string) {
           printJobs: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true } },
         },
       },
+      payments: { orderBy: { createdAt: 'asc' } },
     },
   });
   if (!session) throw ApiError.notFound('Session not found');
@@ -134,6 +147,25 @@ export async function getSession(id: string) {
   const total = billable.reduce((acc, r) => acc + r.total, 0);
   const discount = Number(session.discountAmount);
   const voucherDiscount = Number(session.voucherDiscount);
+  const netTotal = Math.round((total - discount - voucherDiscount) * 100) / 100;
+
+  // Tenders against the tab. A tab settles in one payment (single method) or
+  // several (split / partial). `amountPaid` is money toward the bill; tips are
+  // tracked separately (on top). Voided tenders don't count.
+  const payments = session.payments.map((p) => ({
+    id: p.id,
+    method: p.method,
+    amount: Number(p.amount),
+    tip: Number(p.tip),
+    tendered: p.tendered == null ? null : Number(p.tendered),
+    reference: p.reference,
+    voided: p.voided,
+    createdAt: p.createdAt,
+  }));
+  const live = payments.filter((p) => !p.voided);
+  const amountPaid = Math.round(live.reduce((acc, p) => acc + p.amount, 0) * 100) / 100;
+  const tipTotal = Math.round(live.reduce((acc, p) => acc + p.tip, 0) * 100) / 100;
+
   return {
     id: session.id,
     sessionNumber: session.sessionNumber,
@@ -151,7 +183,13 @@ export async function getSession(id: string) {
     // Voucher applied to the tab (attached by a customer or at settlement).
     voucherCode: session.voucherCode,
     voucherDiscount,
-    netTotal: Math.round((total - discount - voucherDiscount) * 100) / 100,
+    netTotal,
+    // Tenders: the payment ledger + the running paid / tip totals and what's
+    // still owed (> 0 while a tab is part-paid).
+    payments,
+    amountPaid,
+    tipTotal,
+    balanceDue: Math.round((netTotal - amountPaid) * 100) / 100,
     totalItems: billable.reduce((acc, r) => acc + r.totalItems, 0),
     roundCount: billable.length,
     rounds,
@@ -159,15 +197,23 @@ export async function getSession(id: string) {
 }
 
 /**
- * Settle the tab: record the payment method (+ an optional bill-level discount),
- * close it, mark rounds completed. The discount is PERCENT or FIXED off the tab's
- * net total (non-voided items on non-cancelled rounds) and is computed here so a
- * tampered client can't under-charge.
+ * Record a tender against an OPEN tab. The bill-level discount + voucher are
+ * resolved on the FIRST payment and then locked on the session, so every split
+ * tender settles the same net (later payments ignore any discount/voucher input).
+ * `amount` is the portion to apply now — omit it (or pass ≥ the balance) to settle
+ * the remaining balance in full. When the running paid total reaches the net the
+ * tab closes (rounds completed, voucher redeemed once). A tip rides on top and
+ * never counts toward the balance. All money is computed server-side so a tampered
+ * client can't under-charge.
  */
-export async function closeSession(
+export async function recordPayment(
   id: string,
   input: {
     paymentMethod: string;
+    amount?: number;
+    tip?: number;
+    tendered?: number;
+    reference?: string;
     discountType?: 'PERCENT' | 'FIXED';
     discountValue?: number;
     voucherCode?: string;
@@ -177,7 +223,14 @@ export async function closeSession(
   await prisma.$transaction(async (tx) => {
     const s = await tx.tableSession.findFirst({
       where: { id, storeId },
-      select: { status: true, voucherCode: true },
+      select: {
+        status: true,
+        voucherCode: true,
+        voucherDiscount: true,
+        discountType: true,
+        discountValue: true,
+        discountAmount: true,
+      },
     });
     if (!s) throw ApiError.notFound('Session not found');
     if (s.status !== 'OPEN') throw ApiError.conflict('This table is already closed');
@@ -187,90 +240,167 @@ export async function closeSession(
       where: { sessionId: id, status: { not: 'CANCELLED' } },
       select: { items: { where: { voided: false }, select: { totalPrice: true } } },
     });
-    const net0 = orders.reduce(
+    const gross = orders.reduce(
       (acc, o) => acc.add(o.items.reduce((x, it) => x.add(it.totalPrice), new Prisma.Decimal(0))),
       new Prisma.Decimal(0),
     );
 
-    // Bill-level discount on the tab gross.
-    let discountType: string | null = null;
-    let discountValue = new Prisma.Decimal(0);
-    let discountAmount = new Prisma.Decimal(0);
-    if (input.discountType && input.discountValue && input.discountValue > 0) {
-      discountType = input.discountType;
-      discountValue = new Prisma.Decimal(input.discountValue);
-      discountAmount =
-        input.discountType === 'PERCENT'
-          ? net0.mul(Math.min(100, input.discountValue)).div(100)
-          : discountValue;
-      if (discountAmount.greaterThan(net0)) discountAmount = net0;
-      discountAmount = discountAmount.toDecimalPlaces(2);
-      // A discount that rounds to nothing has no money effect — drop the metadata.
-      if (discountAmount.isZero()) {
-        discountType = null;
-        discountValue = new Prisma.Decimal(0);
-      }
-    }
-    const afterBill = net0.sub(discountAmount);
+    // Prior tenders (non-voided). The first payment locks the discount + voucher.
+    const prior = await tx.payment.findMany({
+      where: { sessionId: id, voided: false },
+      select: { amount: true },
+    });
+    const isFirst = prior.length === 0;
 
-    // Voucher: a staff-provided code wins; else the customer-attached one. A
-    // stale attached voucher simply doesn't apply (a staff one errors loudly).
-    const strict = input.voucherCode !== undefined && input.voucherCode.trim() !== '';
-    const code = (input.voucherCode !== undefined ? input.voucherCode : (s.voucherCode ?? ''))
-      .trim()
-      .toUpperCase();
-    let voucherCode: string | null = null;
-    let voucherDiscount = new Prisma.Decimal(0);
-    let redeemedVoucherId: string | null = null;
-    if (code) {
-      const v = await tx.voucher.findUnique({ where: { storeId_code: { storeId, code } } });
-      const err = voucherError(v, Number(net0));
-      if (err) {
-        if (strict) throw ApiError.badRequest(err);
-      } else {
-        const amt = voucherDiscountAmount(v!, Number(afterBill));
-        if (amt > 0) {
-          voucherDiscount = new Prisma.Decimal(amt);
-          voucherCode = code;
-          redeemedVoucherId = v!.id;
+    let discountType: string | null = s.discountType;
+    let discountValue = new Prisma.Decimal(s.discountValue);
+    let discountAmount = new Prisma.Decimal(s.discountAmount);
+    let voucherCode: string | null = s.voucherCode;
+    let voucherDiscount = new Prisma.Decimal(s.voucherDiscount);
+
+    if (isFirst) {
+      // --- Bill-level discount on the tab gross. ---
+      discountType = null;
+      discountValue = new Prisma.Decimal(0);
+      discountAmount = new Prisma.Decimal(0);
+      if (input.discountType && input.discountValue && input.discountValue > 0) {
+        discountType = input.discountType;
+        discountValue = new Prisma.Decimal(input.discountValue);
+        discountAmount =
+          input.discountType === 'PERCENT'
+            ? gross.mul(Math.min(100, input.discountValue)).div(100)
+            : discountValue;
+        if (discountAmount.greaterThan(gross)) discountAmount = gross;
+        discountAmount = discountAmount.toDecimalPlaces(2);
+        // A discount that rounds to nothing has no money effect — drop the metadata.
+        if (discountAmount.isZero()) {
+          discountType = null;
+          discountValue = new Prisma.Decimal(0);
+        }
+      }
+      const afterBill = gross.sub(discountAmount);
+
+      // --- Voucher: a staff-provided code wins; else the customer-attached one.
+      // A stale attached voucher simply doesn't apply (a staff one errors loudly). ---
+      const strict = input.voucherCode !== undefined && input.voucherCode.trim() !== '';
+      const code = (input.voucherCode !== undefined ? input.voucherCode : (s.voucherCode ?? ''))
+        .trim()
+        .toUpperCase();
+      voucherCode = null;
+      voucherDiscount = new Prisma.Decimal(0);
+      if (code) {
+        const v = await tx.voucher.findUnique({ where: { storeId_code: { storeId, code } } });
+        const err = voucherError(v, Number(gross));
+        if (err) {
+          if (strict) throw ApiError.badRequest(err);
+        } else {
+          const amt = voucherDiscountAmount(v!, Number(afterBill));
+          if (amt > 0) {
+            voucherDiscount = new Prisma.Decimal(amt);
+            voucherCode = code;
+          }
+        }
+      }
+
+      // Lock the bill values on the session so later tenders read them.
+      await tx.tableSession.update({
+        where: { id },
+        data: { discountType, discountValue, discountAmount, voucherCode, voucherDiscount },
+      });
+    }
+
+    // Net to collect (≥ 0) and what's outstanding after prior tenders.
+    let net = gross.sub(discountAmount).sub(voucherDiscount);
+    if (net.isNegative()) net = new Prisma.Decimal(0);
+    const paidSoFar = prior.reduce((acc, p) => acc.add(p.amount), new Prisma.Decimal(0));
+    const balance = net.sub(paidSoFar);
+    if (balance.lessThanOrEqualTo(0)) throw ApiError.conflict('This tab is already fully paid');
+
+    // Amount applied to the bill this tender — capped at the balance (cash given
+    // above the balance is change, tracked via `tendered`, not applied to the bill).
+    let applied =
+      input.amount == null ? balance : new Prisma.Decimal(input.amount).toDecimalPlaces(2);
+    if (applied.greaterThan(balance)) applied = balance;
+    if (applied.lessThanOrEqualTo(0)) throw ApiError.badRequest('Enter an amount to pay');
+
+    const tip =
+      input.tip && input.tip > 0
+        ? new Prisma.Decimal(input.tip).toDecimalPlaces(2)
+        : new Prisma.Decimal(0);
+    const tendered =
+      input.tendered != null && input.tendered > 0
+        ? new Prisma.Decimal(input.tendered).toDecimalPlaces(2)
+        : null;
+
+    await tx.payment.create({
+      data: {
+        storeId,
+        sessionId: id,
+        method: input.paymentMethod,
+        amount: applied.toDecimalPlaces(2),
+        tip,
+        tendered,
+        reference: input.reference?.trim() || null,
+      },
+    });
+
+    // Settle when the running paid total reaches the net (½-cent tolerance).
+    const settled = paidSoFar.add(applied).greaterThanOrEqualTo(net.sub(new Prisma.Decimal('0.005')));
+    if (!settled) return; // partial — tab stays OPEN with a balance owing
+
+    // Redeem the (locked) voucher exactly once, at close.
+    if (voucherCode) {
+      const already = await tx.voucherRedemption.findFirst({
+        where: { sessionId: id },
+        select: { id: true },
+      });
+      if (!already) {
+        const v = await tx.voucher.findUnique({ where: { storeId_code: { storeId, code: voucherCode } } });
+        if (v) {
+          await tx.voucher.update({ where: { id: v.id }, data: { redeemedCount: { increment: 1 } } });
+          await tx.voucherRedemption.create({
+            data: { voucherId: v.id, storeId, sessionId: id, code: voucherCode, amount: voucherDiscount },
+          });
         }
       }
     }
 
+    // Summarise the tender method: a single method, or "Split" across several.
+    const methods = await tx.payment.findMany({
+      where: { sessionId: id, voided: false },
+      select: { method: true },
+    });
+    const distinct = [...new Set(methods.map((m) => m.method))];
+    const methodSummary = distinct.length === 1 ? distinct[0] : 'Split';
+
     await tx.tableSession.update({
       where: { id },
-      data: {
-        status: 'CLOSED',
-        closedAt: new Date(),
-        paymentMethod: input.paymentMethod,
-        discountType,
-        discountValue,
-        discountAmount,
-        voucherCode,
-        voucherDiscount,
-      },
+      data: { status: 'CLOSED', closedAt: new Date(), paymentMethod: methodSummary },
     });
-    if (redeemedVoucherId) {
-      await tx.voucher.update({
-        where: { id: redeemedVoucherId },
-        data: { redeemedCount: { increment: 1 } },
-      });
-      await tx.voucherRedemption.create({
-        data: {
-          voucherId: redeemedVoucherId,
-          storeId,
-          sessionId: id,
-          code: voucherCode!,
-          amount: voucherDiscount,
-        },
-      });
-    }
     await tx.order.updateMany({
       where: { sessionId: id, status: 'NEW' },
       data: { status: 'COMPLETED' },
     });
   });
   return getSession(id);
+}
+
+/**
+ * Settle the tab in full: record a single tender for the whole remaining balance
+ * (+ an optional bill-level discount / voucher / tip) and close it. Thin wrapper
+ * over recordPayment — the split / partial path is the same ledger.
+ */
+export async function closeSession(
+  id: string,
+  input: {
+    paymentMethod: string;
+    discountType?: 'PERCENT' | 'FIXED';
+    discountValue?: number;
+    voucherCode?: string;
+    tip?: number;
+  },
+) {
+  return recordPayment(id, { ...input, amount: undefined });
 }
 
 /** Void the tab: cancel the session and all of its rounds. */
@@ -331,6 +461,9 @@ export async function reopenSession(id: string) {
         discountAmount: 0,
       },
     });
+    // Drop the prior tender ledger — those payments settled the now-reversed
+    // close; they're re-recorded at the next close (mirrors the discount reset).
+    await tx.payment.deleteMany({ where: { sessionId: id } });
     await tx.order.updateMany({
       where: { sessionId: id, status: 'COMPLETED' },
       data: { status: 'NEW' },

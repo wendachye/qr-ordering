@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { itemsApi } from "@/lib/endpoints";
 import { useToast } from "@/components/common/Toast";
 import { ApiError } from "@/lib/api";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 
 // A clear, large toggle for the item availability (sold-out) state.
 export function SoldOutToggle({

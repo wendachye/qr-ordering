@@ -2,7 +2,7 @@
 
 import { formatPrice } from "@/lib/format";
 import { chargesFromSettings } from "@/lib/charges";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import type { Settings } from "@/lib/types";
 
 /**

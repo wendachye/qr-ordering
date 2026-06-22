@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { AdminShell } from "@/components/layout/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModalDialog } from "@/components/ui/modal-dialog";
@@ -116,29 +115,7 @@ export default function MenuBuilderPage() {
   };
 
   return (
-    <AdminShell>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900">Menu</h1>
-          <p className="mt-1 text-slate-500">
-            Your menu, the featured strip, and the customer-menu banner
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {tab === "menu" && limits.maxMenuItems != null && (
-            <span className="text-sm font-medium text-slate-500">
-              {itemCount} / {limits.maxMenuItems} items
-            </span>
-          )}
-          {tab === "menu" && categories.length > 0 && (
-            <Button onClick={() => setCategoryDialog({ mode: "create" })}>
-              <Plus />
-              Add category
-            </Button>
-          )}
-        </div>
-      </div>
-
+    <>
       {isLoading ? (
         <LoadingState label="Loading menu…" />
       ) : isError ? (
@@ -151,11 +128,28 @@ export default function MenuBuilderPage() {
         />
       ) : (
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="menu">Menu</TabsTrigger>
-            <TabsTrigger value="featured">Featured</TabsTrigger>
-            <TabsTrigger value="banner">Banner</TabsTrigger>
-          </TabsList>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <TabsList>
+              <TabsTrigger value="menu">Menu</TabsTrigger>
+              <TabsTrigger value="featured">Featured</TabsTrigger>
+              <TabsTrigger value="banner">Banner</TabsTrigger>
+            </TabsList>
+            {tab === "menu" && (
+              <div className="flex items-center gap-3">
+                {limits.maxMenuItems != null && (
+                  <span className="text-sm font-medium text-slate-500">
+                    {itemCount} / {limits.maxMenuItems} items
+                  </span>
+                )}
+                {categories.length > 0 && (
+                  <Button size="xs" onClick={() => setCategoryDialog({ mode: "create" })}>
+                    <Plus />
+                    Add category
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
 
           <TabsContent value="menu">
             {atItemLimit && (
@@ -381,6 +375,6 @@ export default function MenuBuilderPage() {
           </div>
         </form>
       </ModalDialog>
-    </AdminShell>
+    </>
   );
 }

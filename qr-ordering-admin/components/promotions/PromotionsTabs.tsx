@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,22 +9,26 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // in here as a second tab once it's built.
 const TABS = [{ href: "/admin/promotions/vouchers", label: "Vouchers" }];
 
-export function PromotionsTabs() {
+export function PromotionsTabs({ action }: { action?: ReactNode }) {
   const pathname = usePathname();
   const active =
     [...TABS]
       .sort((a, b) => b.href.length - a.href.length)
       .find((t) => pathname === t.href || pathname.startsWith(t.href + "/"))?.href ?? TABS[0].href;
 
+  // Tabs on the left; an optional page action (e.g. "New voucher") on the right.
   return (
-    <Tabs value={active} className="mb-6">
-      <TabsList>
-        {TABS.map((t) => (
-          <TabsTrigger key={t.href} value={t.href} asChild>
-            <Link href={t.href}>{t.label}</Link>
-          </TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <Tabs value={active}>
+        <TabsList>
+          {TABS.map((t) => (
+            <TabsTrigger key={t.href} value={t.href} asChild>
+              <Link href={t.href}>{t.label}</Link>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+      {action}
+    </div>
   );
 }

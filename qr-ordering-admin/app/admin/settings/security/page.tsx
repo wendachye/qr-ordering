@@ -1,23 +1,19 @@
 "use client";
 
-import { AdminShell } from "@/components/layout/AdminShell";
-import { SettingsTabs } from "@/components/layout/SettingsTabs";
+import { SettingsTabs } from "@/components/settings/SettingsTabs";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { ApiError } from "@/lib/api";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
-import { PinCard, PinRequirementsCard } from "@/components/settings/cards";
+import { PinCard } from "@/components/settings/PinCard";
+import { PinRequirementsCard } from "@/components/settings/PinRequirementsCard";
 
 // Security tab: the manager override PIN + which actions require it.
 export default function SecuritySettingsPage() {
   const { query, update } = useStoreSettings();
 
   return (
-    <AdminShell>
-      <div className="mb-4">
-        <h1 className="text-3xl font-black text-slate-900">Settings</h1>
-        <p className="mt-1 text-slate-500">Manager override PIN &amp; PIN-required actions</p>
-      </div>
+    <>
       <SettingsTabs />
 
       {query.isLoading ? (
@@ -40,6 +36,6 @@ export default function SecuritySettingsPage() {
           />
         </div>
       ) : null}
-    </AdminShell>
+    </>
   );
 }

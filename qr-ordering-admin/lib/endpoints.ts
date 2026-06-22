@@ -118,18 +118,6 @@ export const authApi = {
       body: { email, password },
       skipAuthRedirect: true,
     }),
-  // Self-serve restaurant signup — creates a new tenant + first admin, returns a token.
-  register: (payload: {
-    restaurantName: string;
-    email: string;
-    password: string;
-    ownerName?: string;
-  }) =>
-    apiRequest<LoginResponse>("/admin/auth/register", {
-      method: "POST",
-      body: payload,
-      skipAuthRedirect: true,
-    }),
   me: () => apiRequest<AuthUser>("/admin/auth/me", { skipAuthRedirect: true }),
   // Re-confirm the admin's password (gates a price override). Returns { ok }.
   verifyPassword: (password: string) =>
@@ -189,11 +177,43 @@ export const sessionsApi = {
     id: string,
     paymentMethod: string,
     discount?: { discountType: DiscountType; discountValue: number },
-    voucherCode?: string
+    voucherCode?: string,
+    tip?: number
   ) =>
     apiRequest<SessionDetail>(`/admin/sessions/${id}/close`, {
       method: "POST",
-      body: { paymentMethod, ...(discount ?? {}), ...(voucherCode !== undefined ? { voucherCode } : {}) },
+      body: {
+        paymentMethod,
+        ...(discount ?? {}),
+        ...(voucherCode !== undefined ? { voucherCode } : {}),
+        ...(tip && tip > 0 ? { tip } : {}),
+      },
+    }),
+  // Record a tender (full or partial/split). Omit `amount` to settle the whole
+  // remaining balance; a smaller amount keeps the tab open with a balance owing.
+  pay: (
+    id: string,
+    input: {
+      paymentMethod: string;
+      amount?: number;
+      tip?: number;
+      tendered?: number;
+      reference?: string;
+      discount?: { discountType: DiscountType; discountValue: number };
+      voucherCode?: string;
+    }
+  ) =>
+    apiRequest<SessionDetail>(`/admin/sessions/${id}/pay`, {
+      method: "POST",
+      body: {
+        paymentMethod: input.paymentMethod,
+        ...(input.amount != null ? { amount: input.amount } : {}),
+        ...(input.tip && input.tip > 0 ? { tip: input.tip } : {}),
+        ...(input.tendered != null ? { tendered: input.tendered } : {}),
+        ...(input.reference ? { reference: input.reference } : {}),
+        ...(input.discount ?? {}),
+        ...(input.voucherCode !== undefined ? { voucherCode: input.voucherCode } : {}),
+      },
     }),
   cancel: (id: string) =>
     apiRequest<SessionDetail>(`/admin/sessions/${id}/cancel`, { method: "POST" }),

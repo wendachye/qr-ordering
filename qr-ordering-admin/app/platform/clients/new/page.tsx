@@ -5,13 +5,12 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { AdminShell } from "@/components/layout/AdminShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/common/Toast";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import { platformClientsApi } from "@/lib/endpoints";
 import { ApiError } from "@/lib/api";
 import type { CreateClientInput, PlanKey } from "@/lib/types";
@@ -64,7 +63,7 @@ export default function NewClientPage() {
   };
 
   return (
-    <AdminShell>
+    <>
       <div className="mx-auto max-w-2xl">
         <Link
           href="/platform/clients"
@@ -155,7 +154,7 @@ export default function NewClientPage() {
           </CardContent>
         </Card>
       </div>
-    </AdminShell>
+    </>
   );
 }
 

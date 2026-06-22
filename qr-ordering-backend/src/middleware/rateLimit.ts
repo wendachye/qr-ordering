@@ -37,8 +37,5 @@ export const loginLimiter = rateLimit({
   skipSuccessfulRequests: true,
 });
 
-// Caps automated mass-signup from a single IP.
-export const registerLimiter = rateLimit({ ...common, windowMs: 60 * 60_000, limit: 8 });
-
 // Caps order-submission floods (per IP) — well above any real POS / customer rate.
 export const orderLimiter = rateLimit({ ...common, windowMs: 60_000, limit: 60 });

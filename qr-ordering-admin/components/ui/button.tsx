@@ -26,6 +26,8 @@ const buttonVariants = cva(
         // Generous touch targets for iPad.
         default: "h-11 px-5 py-2 text-base",
         sm: "h-10 rounded-md px-4",
+        // Compact — for secondary header/toolbar actions where density matters.
+        xs: "h-8 rounded-md px-3",
         lg: "h-14 rounded-lg px-6 text-lg",
         icon: "h-10 w-10",
       },

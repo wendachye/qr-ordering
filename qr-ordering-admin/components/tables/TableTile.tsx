@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useDraftCount } from "@/hooks/useDraftCart";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import { formatPrice, formatRelative } from "@/lib/format";
 import type { FloorEntry } from "@/lib/types";
 
@@ -16,7 +16,7 @@ import type { FloorEntry } from "@/lib/types";
 // tap to open the running tab. The ⋯ menu (QR / link / history) is a sibling of
 // the tap target so its clicks don't trigger navigation. Table setup lives in
 // Settings → Tables.
-export function FloorTile({
+export function TableTile({
   entry,
   onOpen,
   onQr,
@@ -81,6 +81,11 @@ export function FloorTile({
                   {session!.pax ? `${session!.pax} pax · ` : ""}
                   {formatRelative(session!.openedAt)}
                 </p>
+                {session!.amountPaid > 0 && session!.balanceDue > 0 && (
+                  <p className="mt-1 text-xs font-bold text-amber-700">
+                    Part-paid · {formatPrice(session!.balanceDue)} due
+                  </p>
+                )}
               </div>
               {unsent > 0 && (
                 <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">

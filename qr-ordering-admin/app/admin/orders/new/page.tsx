@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { AdminShell } from "@/components/layout/AdminShell";
 import {
   Select,
   SelectContent,
@@ -162,11 +161,11 @@ export default function NewOrderPage() {
     setCart((prev) => prev.filter((l) => l.lineId !== lineId));
 
   return (
-    <AdminShell>
+    <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-4">
           <Link
-            href="/admin/floor"
+            href="/admin/tables"
             className="inline-flex items-center gap-1 text-base font-semibold text-accent-700 hover:text-accent-800"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -221,9 +220,9 @@ export default function NewOrderPage() {
           onRetry={() => tablesQuery.refetch()}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_22rem] xl:grid-cols-[1fr_26rem]">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_20rem] lg:grid-cols-[1fr_22rem] xl:grid-cols-[1fr_26rem]">
           {/* Menu (left) */}
-          <div className="min-h-[60vh] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:h-[calc(100vh-12rem)]">
+          <div className="min-h-[60vh] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:h-[calc(100vh-12rem)]">
             {menuQuery.isLoading ? (
               <LoadingState label="Loading menu…" />
             ) : menuQuery.isError ? (
@@ -297,6 +296,6 @@ export default function NewOrderPage() {
         }}
         onCancel={() => setConfirmClear(false)}
       />
-    </AdminShell>
+    </>
   );
 }

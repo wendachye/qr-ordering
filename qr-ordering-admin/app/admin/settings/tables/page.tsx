@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link2, Pencil, Plus, QrCode, Trash2 } from "lucide-react";
-import { AdminShell } from "@/components/layout/AdminShell";
-import { SettingsTabs } from "@/components/layout/SettingsTabs";
+import { SettingsTabs } from "@/components/settings/SettingsTabs";
 import { Button } from "@/components/ui/button";
 import { ModalDialog } from "@/components/ui/modal-dialog";
 import { TableForm } from "@/components/tables/TableForm";
@@ -19,14 +18,14 @@ import { tablesApi } from "@/lib/endpoints";
 import { useTableMutations } from "@/hooks/useTableMutations";
 import { useEntitlements } from "@/hooks/useEntitlements";
 import { ApiError } from "@/lib/api";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import { customerOrderLink } from "@/lib/customer";
 import { copyToClipboard } from "@/lib/clipboard";
 import type { Table } from "@/lib/types";
 
 // Settings → Tables: set up the restaurant's tables (add / rename / activate /
 // delete) and their QR ordering links. The live operational view lives on the
-// Tables screen (/admin/floor); this is the configuration surface.
+// Tables screen (/admin/tables); this is the configuration surface.
 export default function SettingsTablesPage() {
   const { toast } = useToast();
   const query = useQuery({ queryKey: ["tables"], queryFn: tablesApi.list });
@@ -56,31 +55,29 @@ export default function SettingsTablesPage() {
   };
 
   return (
-    <AdminShell>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900">Settings</h1>
-          <p className="mt-1 text-slate-500">Your tables and their customer QR ordering links</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {limits.maxTables != null && (
-            <span className="text-sm font-medium text-slate-500">
-              {tables.length} / {limits.maxTables} tables
-            </span>
-          )}
-          {tables.length > 0 && (
-            <Button
-              onClick={openCreate}
-              disabled={atLimit}
-              title={atLimit ? "Table limit reached — upgrade for more" : undefined}
-            >
-              <Plus />
-              Add table
-            </Button>
-          )}
-        </div>
-      </div>
-      <SettingsTabs />
+    <>
+      <SettingsTabs
+        action={
+          <div className="flex items-center gap-3">
+            {limits.maxTables != null && (
+              <span className="text-sm font-medium text-slate-500">
+                {tables.length} / {limits.maxTables} tables
+              </span>
+            )}
+            {tables.length > 0 && (
+              <Button
+                size="xs"
+                onClick={openCreate}
+                disabled={atLimit}
+                title={atLimit ? "Table limit reached — upgrade for more" : undefined}
+              >
+                <Plus />
+                Add table
+              </Button>
+            )}
+          </div>
+        }
+      />
 
       {atLimit && (
         <UpgradeNotice
@@ -223,6 +220,6 @@ export default function SettingsTablesPage() {
           if (deleting) remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) });
         }}
       />
-    </AdminShell>
+    </>
   );
 }

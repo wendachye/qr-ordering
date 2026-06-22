@@ -1,14 +1,14 @@
 "use client";
 
 import { ShoppingBag } from "lucide-react";
-import { AdminShell } from "@/components/layout/AdminShell";
-import { SettingsTabs } from "@/components/layout/SettingsTabs";
+import { SettingsTabs } from "@/components/settings/SettingsTabs";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { ApiError } from "@/lib/api";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { useEntitlements } from "@/hooks/useEntitlements";
-import { InlineNumber, ServiceTaxCard } from "@/components/settings/cards";
+import { InlineNumber } from "@/components/settings/InlineNumber";
+import { ServiceTaxCard } from "@/components/settings/ServiceTaxCard";
 
 // Charges tab: takeaway charge + service charge & tax (tax_multi gated).
 export default function ChargesSettingsPage() {
@@ -17,11 +17,7 @@ export default function ChargesSettingsPage() {
   const taxMultiLocked = locked("tax_multi");
 
   return (
-    <AdminShell>
-      <div className="mb-4">
-        <h1 className="text-3xl font-black text-slate-900">Settings</h1>
-        <p className="mt-1 text-slate-500">Charges, service charge &amp; tax</p>
-      </div>
+    <>
       <SettingsTabs />
 
       {query.isLoading ? (
@@ -50,6 +46,6 @@ export default function ChargesSettingsPage() {
           />
         </div>
       ) : null}
-    </AdminShell>
+    </>
   );
 }

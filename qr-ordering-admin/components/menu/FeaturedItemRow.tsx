@@ -6,7 +6,7 @@ import { GripVertical } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { ItemThumb } from "@/components/menu/ItemThumb";
 import { FeatureToggle } from "@/components/menu/FeatureToggle";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format";
 import type { MenuItem } from "@/lib/types";
 

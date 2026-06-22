@@ -22,7 +22,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CategorySection } from "@/components/menu/CategorySection";
-import { useMenuSensors } from "@/components/menu/useMenuSensors";
+import { useMenuSensors } from "@/hooks/useMenuSensors";
 import { useReorderCategories } from "@/hooks/useMenuMutations";
 import type { Category, MenuItem } from "@/lib/types";
 

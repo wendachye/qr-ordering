@@ -102,13 +102,14 @@ function p2002Target(err: unknown): string[] {
 }
 
 /**
- * Self-serve restaurant signup. Creates a new tenant (Store) + its first admin
- * and a small starter workspace (tables + one sample menu item) in a single
- * transaction, then returns a login token so the client can drop the user
- * straight into the dashboard.
+ * Provision a new tenant: creates a Store + its first admin and a small starter
+ * workspace (tables + one sample menu item) in a single transaction, then
+ * returns a login token. There is no public self-serve signup route — tenants
+ * are created by the super-admin (platform console) — so this is the internal
+ * provisioning primitive, used by the seed and the integration-test factory.
  *
  * The unique indexes on Store.slug / Table.code / AdminUser.email are the real
- * guards. Two concurrent signups can still race to the same slug or table code,
+ * guards. Two concurrent calls can still race to the same slug or table code,
  * so the whole transaction is retried on those collisions (the next attempt
  * picks the next free slug / fresh codes). An email collision can't be resolved
  * by retrying, so it's translated to a clean 409 instead.

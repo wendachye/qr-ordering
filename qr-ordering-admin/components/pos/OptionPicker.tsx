@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { QtyStepper } from "./QtyStepper";
 import { settingsApi } from "@/lib/endpoints";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format";
 import {
   defaultSelection,

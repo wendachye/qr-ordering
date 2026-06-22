@@ -8,6 +8,7 @@ import {
   closeSessionSchema,
   combineSessionSchema,
   moveSessionSchema,
+  payTabSchema,
   sessionListQuerySchema,
   sessionPaxSchema,
 } from '../../validators/session';
@@ -19,6 +20,7 @@ import {
   getSession,
   listSessions,
   moveSession,
+  recordPayment,
   reopenSession,
   setSessionPax,
 } from './adminSessions.service';
@@ -51,11 +53,18 @@ adminSessionsRouter.patch('/:id/pax', async (req: Request<{ id: string }>, res) 
   sendOk(res, await setSessionPax(req.params.id, pax));
 });
 
-// POST /api/admin/sessions/:id/close — settle the tab with a payment method
-// (and an optional bill-level discount).
+// POST /api/admin/sessions/:id/close — settle the tab in full with a payment
+// method (and an optional bill-level discount).
 adminSessionsRouter.post('/:id/close', async (req: Request<{ id: string }>, res) => {
   const input = closeSessionSchema.parse(req.body);
   sendOk(res, await closeSession(req.params.id, input));
+});
+
+// POST /api/admin/sessions/:id/pay — record a tender (full or partial/split). The
+// tab stays open with a balance until the running paid total reaches the net.
+adminSessionsRouter.post('/:id/pay', async (req: Request<{ id: string }>, res) => {
+  const input = payTabSchema.parse(req.body);
+  sendOk(res, await recordPayment(req.params.id, input));
 });
 
 // POST /api/admin/sessions/:id/cancel

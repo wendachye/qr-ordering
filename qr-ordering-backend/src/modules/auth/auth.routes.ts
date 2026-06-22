@@ -2,16 +2,11 @@ import { Router } from 'express';
 
 import { sendOk } from '../../lib/response';
 import { requireAdmin } from '../../middleware/auth';
-import { loginLimiter, registerLimiter } from '../../middleware/rateLimit';
-import { loginSchema, passwordVerifySchema, registerSchema } from '../../validators/auth';
-import { getProfile, login, registerStore, verifyPassword } from './auth.service';
+import { loginLimiter } from '../../middleware/rateLimit';
+import { loginSchema, passwordVerifySchema } from '../../validators/auth';
+import { getProfile, login, verifyPassword } from './auth.service';
 
 export const authRouter = Router();
-
-// POST /api/admin/auth/register — self-serve restaurant signup (public).
-authRouter.post('/register', registerLimiter, async (req, res) => {
-  sendOk(res, await registerStore(registerSchema.parse(req.body)));
-});
 
 // POST /api/admin/auth/login
 authRouter.post('/login', loginLimiter, async (req, res) => {

@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { tablesApi } from "@/lib/endpoints";
 import { useToast } from "@/components/common/Toast";
 import { ApiError } from "@/lib/api";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 
 // Large pill toggle for a table's Active/Inactive state (PATCH isActive).
 // Mirrors the menu SoldOutToggle styling.

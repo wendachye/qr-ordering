@@ -5,7 +5,7 @@ import { Star } from "lucide-react";
 import { itemsApi } from "@/lib/endpoints";
 import { useToast } from "@/components/common/Toast";
 import { ApiError } from "@/lib/api";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 
 // Star toggle: add/remove an item from the featured strip. The endpoint returns
 // the full item list, so we write it straight to cache (the Featured section

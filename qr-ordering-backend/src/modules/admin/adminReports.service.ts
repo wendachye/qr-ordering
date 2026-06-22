@@ -116,6 +116,7 @@ export async function getSalesReport(fromInput?: string, toInput?: string) {
         openedAt: true,
         closedAt: true,
         table: { select: { name: true } },
+        payments: { where: { voided: false }, select: { tip: true } },
         orders: {
           where: { status: { not: 'CANCELLED' } },
           select: {
@@ -159,6 +160,7 @@ export async function getSalesReport(fromInput?: string, toInput?: string) {
   let diningSessions = 0;
   let takeawayChargeTotal = 0;
   let voucherDiscountTotal = 0;
+  let tipsTotal = 0; // gratuity collected on top of the bill (not sales)
 
   const voucherByCode = new Map<string, { count: number; amount: number }>();
   const byCategory = new Map<string, { quantity: number; revenue: number }>();
@@ -249,6 +251,7 @@ export async function getSalesReport(fromInput?: string, toInput?: string) {
     pay.amount += tabNet;
     byPayment.set(method, pay);
 
+    tipsTotal += s.payments.reduce((x, p) => x + Number(p.tip), 0);
     covers += s.pax ?? 0;
     tablesUsed.add(s.tableId);
     billNumbers.push(s.sessionNumber);
@@ -354,6 +357,10 @@ export async function getSalesReport(fromInput?: string, toInput?: string) {
       totalTax,
       totalCollected: netSales,
       takeawayCharges: round2(takeawayChargeTotal),
+      // Gratuity collected on top of net sales (staff money, not revenue). The
+      // drawer holds netSales + tips.
+      tips: round2(tipsTotal),
+      grandTotalCollected: round2(netSales + tipsTotal),
     },
     counts: {
       tabsSettled,
