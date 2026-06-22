@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { Request } from 'express';
 import { z } from 'zod';
 
-import { requireAdmin } from '../../middleware/auth';
+import { requireAdmin, requirePermission } from '../../middleware/auth';
 import { requireActiveSubscription } from '../../middleware/subscription';
 import { sendCreated, sendOk } from '../../lib/response';
 import {
@@ -41,6 +41,11 @@ import { createCombo, deleteCombo, listCombos, updateCombo } from './combo.servi
 export const menuRouter = Router();
 
 menuRouter.use(requireAdmin, requireActiveSubscription);
+// Reads (GET) are open to any staff (the POS needs the menu); any mutation
+// requires the 'menu:manage' permission (owner / manager).
+menuRouter.use((req, res, next) =>
+  req.method === 'GET' ? next() : requirePermission('menu:manage')(req, res, next),
+);
 
 // GET /api/admin/menu/pos-menu?tableCode=...  — the customer-shaped menu plus
 // POS-only ("secret") items, for the staff POS order screens.

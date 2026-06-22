@@ -412,6 +412,10 @@ model AdminUser {
   email     String   @unique
   password  String
   name      String?
+  // Staff role within the store (RBAC). Existing accounts default to OWNER.
+  role      Role     @default(OWNER)
+  // Deactivated staff can't log in; kept for attribution/audit (not deleted).
+  isActive  Boolean  @default(true)
   // Platform operator who can edit the global Plan definitions (super-admin).
   isPlatformAdmin Boolean @default(false)
   // Brute-force lockout: failed attempts counter + a temporary lock window.
@@ -656,6 +660,15 @@ model AuditLog {
   @@index([createdAt])
   @@index([entity, entityId])
   @@index([actorId])
+}
+
+// Staff role within a store (RBAC). OWNER = full access; MANAGER = operations +
+// settings + staff; CASHIER = POS + payments + reports; WAITER = order entry only.
+enum Role {
+  OWNER
+  MANAGER
+  CASHIER
+  WAITER
 }
 
 enum OrderStatus {

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request } from 'express';
 
-import { requireAdmin } from '../../middleware/auth';
+import { requireAdmin, requirePermission } from '../../middleware/auth';
 import { requireActiveSubscription } from '../../middleware/subscription';
 import { sendOk } from '../../lib/response';
 import {
@@ -55,22 +55,34 @@ adminSessionsRouter.patch('/:id/pax', async (req: Request<{ id: string }>, res) 
 
 // POST /api/admin/sessions/:id/close — settle the tab in full with a payment
 // method (and an optional bill-level discount).
-adminSessionsRouter.post('/:id/close', async (req: Request<{ id: string }>, res) => {
-  const input = closeSessionSchema.parse(req.body);
-  sendOk(res, await closeSession(req.params.id, input));
-});
+adminSessionsRouter.post(
+  '/:id/close',
+  requirePermission('payment:take'),
+  async (req: Request<{ id: string }>, res) => {
+    const input = closeSessionSchema.parse(req.body);
+    sendOk(res, await closeSession(req.params.id, input));
+  },
+);
 
 // POST /api/admin/sessions/:id/pay — record a tender (full or partial/split). The
 // tab stays open with a balance until the running paid total reaches the net.
-adminSessionsRouter.post('/:id/pay', async (req: Request<{ id: string }>, res) => {
-  const input = payTabSchema.parse(req.body);
-  sendOk(res, await recordPayment(req.params.id, input));
-});
+adminSessionsRouter.post(
+  '/:id/pay',
+  requirePermission('payment:take'),
+  async (req: Request<{ id: string }>, res) => {
+    const input = payTabSchema.parse(req.body);
+    sendOk(res, await recordPayment(req.params.id, input));
+  },
+);
 
 // POST /api/admin/sessions/:id/cancel
-adminSessionsRouter.post('/:id/cancel', async (req: Request<{ id: string }>, res) => {
-  sendOk(res, await cancelSession(req.params.id));
-});
+adminSessionsRouter.post(
+  '/:id/cancel',
+  requirePermission('order:void'),
+  async (req: Request<{ id: string }>, res) => {
+    sendOk(res, await cancelSession(req.params.id));
+  },
+);
 
 // POST /api/admin/sessions/:id/move — relocate the tab to a free table.
 adminSessionsRouter.post('/:id/move', async (req: Request<{ id: string }>, res) => {

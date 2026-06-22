@@ -4,6 +4,7 @@ import { ApiError } from '../lib/response';
 import { verifyAdminToken } from '../lib/jwt';
 import { tenantStore } from '../lib/tenant';
 import { requestContext } from '../lib/requestContext';
+import { can, type Permission } from '../lib/permissions';
 
 /**
  * Requires a valid admin JWT in the `Authorization: Bearer <token>` header.
@@ -28,6 +29,7 @@ export function requireAdmin(req: Request, _res: Response, next: NextFunction) {
     id: payload.sub,
     email: payload.email,
     storeId: payload.storeId,
+    role: payload.role ?? 'OWNER',
     isPlatformAdmin: payload.isPlatformAdmin === true,
     imp: payload.imp,
   };
@@ -49,4 +51,18 @@ export function requirePlatformAdmin(req: Request, _res: Response, next: NextFun
     throw ApiError.forbidden('Platform super-admin access required');
   }
   next();
+}
+
+/**
+ * Gate a route on a staff permission (RBAC). Must run AFTER requireAdmin.
+ * A platform super-admin (and any impersonation session, which carries the
+ * outlet OWNER role) passes through.
+ */
+export function requirePermission(perm: Permission) {
+  return (req: Request, _res: Response, next: NextFunction) => {
+    const admin = req.admin;
+    if (!admin) throw ApiError.unauthorized('Not authenticated');
+    if (admin.isPlatformAdmin || can(admin.role, perm)) return next();
+    throw ApiError.forbidden('You do not have permission for this action');
+  };
 }

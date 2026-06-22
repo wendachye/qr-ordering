@@ -1,6 +1,6 @@
 import { Router } from 'express';
 
-import { requireAdmin } from '../../middleware/auth';
+import { requireAdmin, requirePermission } from '../../middleware/auth';
 import { sendOk } from '../../lib/response';
 import { setPinSchema, settingsUpdateSchema, verifyPinSchema } from '../../validators/settings';
 import {
@@ -19,12 +19,15 @@ adminSettingsRouter.get('/', async (_req, res) => {
   sendOk(res, await getSettings());
 });
 
-adminSettingsRouter.patch('/', async (req, res) => {
+// Editing settings + the override PIN needs settings:manage (owner / manager).
+// GET settings + verify-PIN stay open (the POS reads payment methods + checks the
+// PIN to authorise an override).
+adminSettingsRouter.patch('/', requirePermission('settings:manage'), async (req, res) => {
   sendOk(res, await updateSettings(settingsUpdateSchema.parse(req.body)));
 });
 
 // POST /api/admin/settings/pin — set/change the override PIN (needs password).
-adminSettingsRouter.post('/pin', async (req, res) => {
+adminSettingsRouter.post('/pin', requirePermission('settings:manage'), async (req, res) => {
   const { currentPassword, pin } = setPinSchema.parse(req.body);
   sendOk(res, await setOverridePin(req.admin!.id, currentPassword, pin));
 });

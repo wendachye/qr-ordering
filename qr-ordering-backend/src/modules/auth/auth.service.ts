@@ -66,6 +66,11 @@ export async function login(input: LoginInput) {
     });
   }
 
+  // Deactivated staff: the password is correct, but the account is disabled.
+  if (!user.isActive) {
+    throw ApiError.forbidden('This account has been disabled. Contact your manager.');
+  }
+
   // Platform super-admin: the persisted DB flag, or granted by the
   // PLATFORM_ADMIN_EMAILS allowlist (persisted on first such login so it sticks).
   let isPlatformAdmin = user.isPlatformAdmin;
@@ -78,6 +83,7 @@ export async function login(input: LoginInput) {
     sub: user.id,
     email: user.email,
     storeId: user.storeId,
+    role: user.role,
     isPlatformAdmin,
   });
 
@@ -88,6 +94,7 @@ export async function login(input: LoginInput) {
       email: user.email,
       name: user.name,
       storeId: user.storeId,
+      role: user.role,
       isPlatformAdmin,
     },
   };
@@ -181,7 +188,12 @@ export async function registerStore(input: RegisterInput) {
         return { admin, store };
       });
 
-      const token = signAdminToken({ sub: admin.id, email: admin.email, storeId: store.id });
+      const token = signAdminToken({
+        sub: admin.id,
+        email: admin.email,
+        storeId: store.id,
+        role: admin.role,
+      });
       return {
         token,
         user: {
@@ -189,6 +201,7 @@ export async function registerStore(input: RegisterInput) {
           email: admin.email,
           name: admin.name,
           storeId: store.id,
+          role: admin.role,
           isPlatformAdmin: false,
         },
       };
@@ -212,7 +225,14 @@ export async function getProfile(adminId: string, isPlatformAdmin: boolean, imp?
   // so an impersonation token (isPlatformAdmin=false) is reflected here even
   // when its `sub` happens to be the operator's own account. `imp` (the operator
   // email) lets the UI reliably detect + label an impersonation session.
-  return { id: user.id, email: user.email, name: user.name, isPlatformAdmin, imp: imp ?? null };
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    isPlatformAdmin,
+    imp: imp ?? null,
+  };
 }
 
 /**
