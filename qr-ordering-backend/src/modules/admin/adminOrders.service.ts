@@ -2,6 +2,7 @@ import { Prisma, type OrderStatus } from '@prisma/client';
 
 import { prisma } from '../../lib/prisma';
 import { getDefaultStoreId } from '../../lib/store';
+import { floorEvents } from '../../lib/floorEvents';
 import { ApiError } from '../../lib/response';
 import { buildKitchenPayload } from '../../lib/printPayload';
 import { getSession } from './adminSessions.service';
@@ -268,5 +269,6 @@ export async function voidOrderItem(
     });
   });
 
+  floorEvents.emit(storeId);
   return getSession(sessionId);
 }

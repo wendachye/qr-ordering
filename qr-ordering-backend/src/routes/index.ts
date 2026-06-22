@@ -14,6 +14,7 @@ import { adminLoyaltyRouter } from '../modules/admin/adminLoyalty.routes';
 import { adminPlatformRouter } from '../modules/admin/platform.routes';
 import { adminOutletsRouter } from '../modules/admin/adminOutlets.routes';
 import { adminStaffRouter } from '../modules/admin/adminStaff.routes';
+import { adminRealtimeRouter } from '../modules/admin/realtime.routes';
 import { menuRouter } from '../modules/menu/menu.routes';
 import { uploadsRouter } from '../modules/uploads/uploads.routes';
 import { printAgentRouter } from '../modules/print-jobs/printJobs.routes';
@@ -51,6 +52,7 @@ apiRouter.use('/admin/loyalty', adminLoyaltyRouter);
 apiRouter.use('/admin/platform', adminPlatformRouter);
 apiRouter.use('/admin/outlets', adminOutletsRouter);
 apiRouter.use('/admin/staff', adminStaffRouter);
+apiRouter.use('/admin/realtime', adminRealtimeRouter);
 apiRouter.use('/admin/menu', menuRouter);
 apiRouter.use('/admin/uploads', uploadsRouter);
 

@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../lib/response';
 import { compareNatural } from '../../lib/sort';
 import { getDefaultStoreId } from '../../lib/store';
+import { floorEvents } from '../../lib/floorEvents';
 import { voucherDiscountAmount, voucherError } from './vouchers.service';
 
 type SelectedOption = { group: string; choice: string; priceDelta: number };
@@ -382,6 +383,7 @@ export async function recordPayment(
       data: { status: 'COMPLETED' },
     });
   });
+  floorEvents.emit(storeId);
   return getSession(id);
 }
 
@@ -419,6 +421,7 @@ export async function cancelSession(id: string) {
       data: { status: 'CANCELLED' },
     });
   });
+  floorEvents.emit(storeId);
   return getSession(id);
 }
 
@@ -428,6 +431,7 @@ export async function setSessionPax(id: string, pax: number) {
   const s = await prisma.tableSession.findFirst({ where: { id, storeId }, select: { id: true } });
   if (!s) throw ApiError.notFound('Session not found');
   await prisma.tableSession.update({ where: { id }, data: { pax } });
+  floorEvents.emit(storeId);
   return getSession(id);
 }
 
@@ -469,6 +473,7 @@ export async function reopenSession(id: string) {
       data: { status: 'NEW' },
     });
   });
+  floorEvents.emit(storeId);
   return getSession(id);
 }
 
@@ -504,6 +509,7 @@ export async function moveSession(id: string, targetTableId: string) {
     await tx.tableSession.update({ where: { id }, data: { tableId: targetTableId } });
     await tx.order.updateMany({ where: { sessionId: id }, data: { tableId: targetTableId } });
   });
+  floorEvents.emit(storeId);
   return getSession(id);
 }
 
@@ -555,6 +561,7 @@ export async function combineSessions(targetId: string, sourceId: string) {
       data: { status: 'MERGED', closedAt: new Date() },
     });
   });
+  floorEvents.emit(storeId);
   return getSession(targetId);
 }
 

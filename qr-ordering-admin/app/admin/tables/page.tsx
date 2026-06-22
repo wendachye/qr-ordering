@@ -15,6 +15,7 @@ import { ordersApi, sessionsApi } from "@/lib/endpoints";
 import { ApiError } from "@/lib/api";
 import { customerOrderLink } from "@/lib/customer";
 import { copyToClipboard } from "@/lib/clipboard";
+import { useFloorStream } from "@/hooks/useFloorStream";
 import type { FloorEntry, FloorTable } from "@/lib/types";
 
 // The live operational "Tables" view: a grid of tiles (free / occupied). Tap a
@@ -23,16 +24,19 @@ import type { FloorEntry, FloorTable } from "@/lib/types";
 export default function TablesPage() {
   const router = useRouter();
   const { toast } = useToast();
+  // Live floor via Server-Sent Events: each change pushes an instant refetch.
+  useFloorStream();
   const query = useQuery({
     queryKey: ["floor"],
     queryFn: sessionsApi.floor,
-    refetchInterval: 5000, // live; poll like the old orders list
+    // SSE drives the live updates; this is just a fallback if the stream drops.
+    refetchInterval: 30000,
   });
   // Kitchen-printing health — surfaces tickets that failed to print.
   const printHealth = useQuery({
     queryKey: ["print-health"],
     queryFn: ordersApi.printHealth,
-    refetchInterval: 20000,
+    refetchInterval: 30000,
   });
 
   const [qrTable, setQrTable] = useState<FloorTable | null>(null);

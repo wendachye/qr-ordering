@@ -7,6 +7,7 @@ import { config } from '../../config/env';
 import { ordersPlacedTotal } from '../../lib/metrics';
 import { effectiveItemPrice } from '../../lib/pricing';
 import { isItemAvailableNow } from '../../lib/availability';
+import { floorEvents } from '../../lib/floorEvents';
 import type { CreateAdminOrderInput } from '../../validators/order';
 
 const MAX_ATTEMPTS = 5;
@@ -412,6 +413,8 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
       });
 
       ordersPlacedTotal.inc();
+      // Push a live floor update (covers customer + staff orders).
+      floorEvents.emit(table.storeId);
 
       return {
         id: order.id,
