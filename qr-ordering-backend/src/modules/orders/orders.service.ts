@@ -6,6 +6,7 @@ import { buildKitchenPayload } from '../../lib/printPayload';
 import { config } from '../../config/env';
 import { ordersPlacedTotal } from '../../lib/metrics';
 import { effectiveItemPrice } from '../../lib/pricing';
+import { isItemAvailableNow } from '../../lib/availability';
 import type { CreateAdminOrderInput } from '../../validators/order';
 
 const MAX_ATTEMPTS = 5;
@@ -136,6 +137,10 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
     const mi = line.menuItemId ? byId.get(line.menuItemId) : undefined;
     if (!mi) throw ApiError.badRequest(`Menu item "${line.menuItemId ?? '?'}" is not on this menu`);
     if (!mi.isAvailable) throw ApiError.badRequest(`"${mi.name}" is sold out`);
+    // Off-schedule items are blocked for diners, but staff can still order them.
+    if (!ctx.admin && !isItemAvailableNow(mi)) {
+      throw ApiError.badRequest(`"${mi.name}" isn't available right now`);
+    }
 
     const submitted = line.optionChoiceIds ?? [];
     const submittedSet = new Set(submitted);

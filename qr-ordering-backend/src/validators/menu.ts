@@ -47,6 +47,9 @@ export const optionGroupSchema = z
     }
   });
 
+// Venue-local 24h wall-clock "HH:MM".
+const hhmm = () => z.string().regex(/^([01]?\d|2[0-3]):[0-5]\d$/, 'Use HH:MM (24h)');
+
 export const createItemSchema = z
   .object({
     categoryId: z.string().min(1, 'categoryId is required'),
@@ -59,6 +62,11 @@ export const createItemSchema = z
     isAvailable: z.boolean().default(true),
     // POS-only ("secret") item: hidden from the customer menu, orderable in POS.
     posOnly: z.boolean().default(false),
+    // Availability window (customer menu): days 0=Sun..6=Sat (empty = every day),
+    // venue-local from/to (null = all day; may wrap past midnight).
+    availableDays: z.array(z.coerce.number().int().min(0).max(6)).max(7).optional(),
+    availableFrom: hhmm().nullable().optional(),
+    availableTo: hhmm().nullable().optional(),
     imageUrls: z.array(z.string().trim().min(1).max(1000)).max(8).optional(),
     tags: z.array(z.string().trim().min(1).max(24)).max(8).optional(),
     optionGroups: z.array(optionGroupSchema).max(20).optional(),
@@ -82,6 +90,9 @@ export const updateItemSchema = z
     discountValue: z.coerce.number().min(0).max(100000),
     isAvailable: z.boolean(),
     posOnly: z.boolean(),
+    availableDays: z.array(z.coerce.number().int().min(0).max(6)).max(7),
+    availableFrom: hhmm().nullable(),
+    availableTo: hhmm().nullable(),
     sortOrder: z.coerce.number().int(),
     imageUrls: z.array(z.string().trim().min(1).max(1000)).max(8),
     tags: z.array(z.string().trim().min(1).max(24)).max(8),

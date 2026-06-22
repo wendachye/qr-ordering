@@ -233,6 +233,11 @@ export interface MenuItem {
   isAvailable: boolean;
   // POS-only ("secret") item: hidden from the customer menu, orderable in POS.
   posOnly: boolean;
+  // Availability window (customer menu): days 0=Sun..6=Sat (empty = every day),
+  // venue-local "HH:MM" from/to (null = all day; may wrap past midnight).
+  availableDays: number[];
+  availableFrom: string | null;
+  availableTo: string | null;
   sortOrder: number;
   isFeatured: boolean;
   featuredOrder: number;
@@ -307,6 +312,9 @@ export interface MenuItemInput {
   discountValue?: number;
   isAvailable: boolean;
   posOnly?: boolean;
+  availableDays?: number[];
+  availableFrom?: string | null;
+  availableTo?: string | null;
   sortOrder?: number;
   // Configurable option groups (full-replace on save). Omit to leave untouched.
   optionGroups?: OptionGroupInput[];

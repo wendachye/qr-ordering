@@ -161,6 +161,13 @@ model MenuItem {
   // POS-only ("secret") item: orderable by staff in the admin POS, hidden from
   // the customer menu + public API. Default false = visible to customers.
   posOnly     Boolean  @default(false)
+  // Availability window: the item only shows on the customer menu + is orderable
+  // by diners within these. Empty days = every day; null from/to = all day. Times
+  // are the venue-local "HH:MM" wall clock and may wrap past midnight (from > to,
+  // e.g. 22:00–02:00). Staff can still order off-schedule items in the POS.
+  availableDays Int[]   @default([]) // 0=Sun .. 6=Sat
+  availableFrom String?
+  availableTo   String?
   sortOrder   Int      @default(0)
   isFeatured  Boolean  @default(false)
   featuredOrder Int    @default(0)

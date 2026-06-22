@@ -89,6 +89,13 @@ export function MenuItemForm({
   const [imageUrls, setImageUrls] = useState<string[]>(initial?.imageUrls ?? []);
   const [uploading, setUploading] = useState(false);
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
+  // Availability window: days (0=Sun..6=Sat; empty = every day) + venue-local
+  // from/to (blank = all day; may wrap past midnight).
+  const [availDays, setAvailDays] = useState<number[]>(initial?.availableDays ?? []);
+  const [availFrom, setAvailFrom] = useState<string>(initial?.availableFrom ?? "");
+  const [availTo, setAvailTo] = useState<string>(initial?.availableTo ?? "");
+  const toggleDay = (d: number) =>
+    setAvailDays((p) => (p.includes(d) ? p.filter((x) => x !== d) : [...p, d].sort()));
   const [discountType, setDiscountType] = useState<"PERCENT" | "FIXED" | null>(
     initial?.discountType ?? null
   );
@@ -266,6 +273,9 @@ export function MenuItemForm({
       discountValue: discountType ? Number(discountValue) || 0 : 0,
       isAvailable: v.isAvailable,
       posOnly: v.posOnly,
+      availableDays: availDays,
+      availableFrom: availFrom.trim() || null,
+      availableTo: availTo.trim() || null,
       optionGroups,
     });
   };
@@ -676,6 +686,67 @@ export function MenuItemForm({
           </span>
         </span>
       </label>
+
+      {/* Availability schedule (customer menu) */}
+      <div className="rounded-xl border border-slate-200 p-4">
+        <p className="text-base font-medium text-slate-700">Availability schedule</p>
+        <p className="mt-0.5 text-sm text-slate-400">
+          Limit when this item shows on the customer menu (e.g. a breakfast or happy-hour item).
+          All days on + blank times = always available. Staff can still order it in the POS.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label, d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => toggleDay(d)}
+              className={cn(
+                "h-9 w-12 rounded-lg border text-sm font-semibold transition-colors",
+                availDays.includes(d)
+                  ? "border-accent-500 bg-accent-50 text-accent-700"
+                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-slate-400">
+          {availDays.length === 0 ? "Available every day" : "Only on the highlighted days"}
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
+            From
+            <Input
+              type="time"
+              value={availFrom}
+              onChange={(e) => setAvailFrom(e.target.value)}
+              className="h-9 w-36 bg-white"
+            />
+          </label>
+          <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
+            to
+            <Input
+              type="time"
+              value={availTo}
+              onChange={(e) => setAvailTo(e.target.value)}
+              className="h-9 w-36 bg-white"
+            />
+          </label>
+          {(availFrom || availTo) && (
+            <button
+              type="button"
+              onClick={() => {
+                setAvailFrom("");
+                setAvailTo("");
+              }}
+              className="text-sm font-semibold text-slate-500 hover:text-slate-700"
+            >
+              Clear times
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="flex justify-end gap-3 pt-2">
         <Button variant="secondary" onClick={onCancel} disabled={submitting || uploading}>
