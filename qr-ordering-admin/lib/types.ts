@@ -4,14 +4,29 @@ export type OrderStatus = "NEW" | "COMPLETED" | "CANCELLED";
 
 export type PrintStatus = "PENDING" | "PRINTING" | "PRINTED" | "FAILED" | null;
 
+// Staff role within the store (RBAC).
+export type Role = "OWNER" | "MANAGER" | "CASHIER" | "WAITER";
+
 export interface AuthUser {
   id: string;
   email: string;
   name: string | null;
+  // Staff role (RBAC) — drives nav gating; the backend is the real enforcement.
+  role?: Role;
   // Platform operator (owner) — can edit the global subscription plans.
   isPlatformAdmin?: boolean;
   // Set when this is an impersonation session: the operator's email.
   imp?: string | null;
+}
+
+// One staff account (GET /admin/staff).
+export interface StaffMember {
+  id: string;
+  email: string;
+  name: string | null;
+  role: Role;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export interface LoginResponse {

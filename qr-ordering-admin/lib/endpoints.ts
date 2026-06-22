@@ -34,7 +34,9 @@ import type {
   PrintHealth,
   PublicMenu,
   ReprintResponse,
+  Role,
   Settings,
+  StaffMember,
   Table,
   TableInput,
   FloorEntry,
@@ -393,6 +395,15 @@ export const settingsApi = {
       "/admin/settings/pin/verify",
       { method: "POST", body: { pin } }
     ),
+};
+
+// --- Staff accounts (RBAC) ---
+export const staffApi = {
+  list: () => apiRequest<StaffMember[]>("/admin/staff"),
+  create: (input: { email: string; password: string; name?: string; role: Role }) =>
+    apiRequest<StaffMember>("/admin/staff", { method: "POST", body: input }),
+  update: (id: string, input: { name?: string | null; role?: Role; isActive?: boolean }) =>
+    apiRequest<StaffMember>(`/admin/staff/${id}`, { method: "PATCH", body: input }),
 };
 
 // --- Vouchers (discount / promo codes) ---

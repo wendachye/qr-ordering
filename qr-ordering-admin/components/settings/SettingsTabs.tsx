@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const TABS = [
   { href: "/admin/settings", label: "General" },
   { href: "/admin/settings/charges", label: "Charges" },
+  { href: "/admin/settings/staff", label: "Staff" },
   { href: "/admin/settings/security", label: "Security" },
   { href: "/admin/settings/tables", label: "Tables" },
   { href: "/admin/billing", label: "Billing" },

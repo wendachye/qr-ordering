@@ -19,6 +19,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { can, ROLE_LABELS, type Permission } from "@/lib/permissions";
 import { outletsApi } from "@/lib/endpoints";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,13 +30,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Top-level sections. "Menu" is now a single drag-and-drop builder page.
-const MAIN_NAV = [
+// Top-level sections. "Menu" is now a single drag-and-drop builder page. Each
+// item names the permission that reveals it (RBAC); Tables is always shown.
+const MAIN_NAV: { href: string; label: string; icon: typeof LayoutGrid; perm?: Permission }[] = [
   { href: "/admin/tables", label: "Tables", icon: LayoutGrid },
-  { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed },
-  { href: "/admin/reports", label: "Reports", icon: BarChart3 },
-  { href: "/admin/promotions", label: "Promotions", icon: Megaphone },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
+  { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed, perm: "menu:manage" },
+  { href: "/admin/reports", label: "Reports", icon: BarChart3, perm: "reports:view" },
+  { href: "/admin/promotions", label: "Promotions", icon: Megaphone, perm: "menu:manage" },
+  { href: "/admin/settings", label: "Settings", icon: Settings, perm: "settings:manage" },
 ];
 
 // Platform operator (super-admin) sees a distinct console instead of a single
@@ -130,7 +132,10 @@ export function AdminNav() {
         </Link>
 
         <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
-          {(user?.isPlatformAdmin ? PLATFORM_NAV : MAIN_NAV).map((item) => {
+          {(user?.isPlatformAdmin
+            ? PLATFORM_NAV
+            : MAIN_NAV.filter((item) => !item.perm || can(user?.role, item.perm))
+          ).map((item) => {
             const Icon = item.icon;
             const active = user?.isPlatformAdmin
               ? pathname.startsWith(item.href)
@@ -154,8 +159,13 @@ export function AdminNav() {
         <div className="flex items-center gap-3">
           <OutletSwitcher />
           {user && (
-            <span className="hidden text-sm text-slate-500 md:inline">
-              {user.name ?? user.email}
+            <span className="hidden items-center gap-2 md:inline-flex">
+              <span className="text-sm text-slate-500">{user.name ?? user.email}</span>
+              {!user.isPlatformAdmin && user.role && (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                  {ROLE_LABELS[user.role]}
+                </span>
+              )}
             </span>
           )}
           <Button variant="secondary" size="sm" onClick={logout}>
