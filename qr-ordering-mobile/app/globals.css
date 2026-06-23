@@ -4,6 +4,13 @@
 
 :root {
   color-scheme: light;
+  /* Brand accent (default emerald), as space-separated RGB channels so Tailwind
+     `/opacity` works. Overridden per-tenant at runtime by lib/theme.ts →
+     ThemeAccent so one value themes every `accent` surface. */
+  --accent-rgb: 5 150 105;
+  --accent-dark-rgb: 4 120 87;
+  --accent-light-rgb: 16 185 129;
+  --accent-fg-rgb: 255 255 255;
 }
 
 html,
@@ -11,6 +18,26 @@ body {
   background-color: #f3f4f6;
   color: #000000;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Hide the browser's native clear (×) on search inputs — the menu search uses a
+   themed custom clear button instead (otherwise two × buttons show). */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* The menu search field expanding in from the search icon (fade + slide). */
+@keyframes searchExpand {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 /* Prefer dynamic viewport height where supported. */

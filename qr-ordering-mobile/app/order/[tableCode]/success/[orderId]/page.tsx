@@ -41,6 +41,13 @@ export default async function SuccessPage({
             Order more
           </Button>
         </Link>
+
+        <Link
+          href={`/order/${encodeURIComponent(tableCode)}/tab`}
+          className="text-sm font-medium text-accent"
+        >
+          View your tab →
+        </Link>
       </div>
     </MobileShell>
   );

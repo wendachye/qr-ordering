@@ -104,7 +104,7 @@ export function MenuBanner({
           className="relative mx-auto mb-3 h-16 w-16 rounded-2xl bg-white object-contain p-1.5 shadow-lg"
         />
       )}
-      <p className="relative text-xs font-medium uppercase tracking-[0.2em] text-emerald-300/90 drop-shadow">
+      <p className="relative text-xs font-medium uppercase tracking-[0.2em] text-accent-light/90 drop-shadow">
         {storeName}
       </p>
       <h1 className="relative mt-2 text-3xl font-extrabold tracking-tight drop-shadow">
@@ -114,7 +114,7 @@ export function MenuBanner({
         {tagline}
       </p>
       <span className="relative mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        <span className="h-1.5 w-1.5 rounded-full bg-accent-light" />
         {tableName}
       </span>
 

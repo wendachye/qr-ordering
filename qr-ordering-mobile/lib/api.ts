@@ -5,6 +5,7 @@ import type {
   CreateOrderRequest,
   CreatedOrder,
   MenuResponse,
+  OpenTab,
   TableValidation,
 } from "./types";
 
@@ -78,6 +79,13 @@ async function request<T>(
 export function getTable(tableCode: string): Promise<TableValidation> {
   return request<TableValidation>(
     `/public/tables/${encodeURIComponent(tableCode)}`
+  );
+}
+
+/** GET /public/tables/:tableCode/tab — the table's current open tab (orders so far). */
+export function getTab(tableCode: string): Promise<OpenTab> {
+  return request<OpenTab>(
+    `/public/tables/${encodeURIComponent(tableCode)}/tab`
   );
 }
 

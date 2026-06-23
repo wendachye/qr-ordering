@@ -5,6 +5,7 @@ export type Store = {
   name: string;
   slug: string;
   logoUrl?: string | null;
+  themeColor?: string | null;
 };
 
 export type Table = {
@@ -108,6 +109,30 @@ export type MenuResponse = {
   featured?: MenuItem[];
   featuredTitle?: string;
   banner?: MenuBannerConfig;
+};
+
+// GET /public/tables/:tableCode/tab — the table's current open tab (orders so far).
+export type OpenTabItem = {
+  id: string;
+  name: string;
+  quantity: number;
+  totalPrice: number;
+  note: string | null;
+};
+export type OpenTabRound = {
+  id: string;
+  roundNumber: number;
+  createdAt: string;
+  items: OpenTabItem[];
+};
+export type OpenTab = {
+  tableName: string;
+  hasOpenTab: boolean;
+  sessionNumber: number | null;
+  openedAt: string | null;
+  rounds: OpenTabRound[];
+  itemCount: number;
+  total: number;
 };
 
 // POST /orders request
