@@ -7,6 +7,7 @@ import { Button } from "@/components/common/Button";
 import { QuantityStepper } from "@/components/common/QuantityStepper";
 import { ImageCarousel } from "@/components/menu/ImageCarousel";
 import { tagChipClasses } from "@/lib/tags";
+import { useDialogFocus } from "@/hooks/useDialogFocus";
 
 // What the modal hands back to MenuView when "Add to cart" is pressed.
 export type AddSelection = {
@@ -93,6 +94,10 @@ export function ItemModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [shownItem, onClose]);
+
+  // Focus management: trap focus in the sheet while open, restore on close.
+  // Initial focus goes to the Close button (data-dialog-initial-focus).
+  useDialogFocus(Boolean(shownItem), sheetRef, "[data-dialog-initial-focus]");
 
   // First required group still missing its minimum — drives the Add button.
   const missingGroup = useMemo<OptionGroup | null>(() => {
@@ -226,7 +231,8 @@ export function ItemModal({
       {/* Sheet (slides up from the bottom; drag the handle down to dismiss) */}
       <div
         ref={sheetRef}
-        className="relative z-10 max-h-[90vh] w-full max-w-app overflow-y-auto rounded-t-3xl bg-white p-5 pb-6 shadow-xl transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform"
+        tabIndex={-1}
+        className="relative z-10 max-h-[90vh] w-full max-w-app overflow-y-auto rounded-t-3xl bg-white p-5 pb-6 shadow-xl transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] will-change-transform focus:outline-none"
         style={{
           transform: open ? `translateY(${dragY}px)` : "translateY(100%)",
           transition: dragging ? "none" : undefined,
@@ -243,6 +249,30 @@ export function ItemModal({
         >
           <div className="mx-auto h-1.5 w-10 rounded-full bg-gray-300" />
         </div>
+
+        {/* Close button — top-right, sits above the drag handle row */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          data-dialog-initial-focus
+          className="absolute right-3 top-2 flex h-11 w-11 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-black focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
 
         {activeItem.imageUrls.length > 0 && (
           <div className="mb-4">
@@ -288,16 +318,25 @@ export function ItemModal({
           const chosen = selected[group.id] ?? [];
           const multi = group.maxSelect > 1;
           const maxReached = multi && chosen.length >= group.maxSelect;
+          const headingId = `item-group-${group.id}`;
           return (
             <div key={group.id} className="mt-5">
               <div className="mb-2 flex items-baseline justify-between gap-2">
-                <h3 className="text-sm font-semibold text-black">{group.name}</h3>
+                <h3 id={headingId} className="text-sm font-semibold text-black">
+                  {group.name}
+                </h3>
                 <span className="text-xs text-gray-400">
                   {group.required ? "Required" : "Optional"}
                   {multi ? ` · Choose up to ${group.maxSelect}` : ""}
                 </span>
               </div>
-              <div className="flex flex-col gap-2">
+              <div
+                className="flex flex-col gap-2"
+                role={multi ? "group" : "radiogroup"}
+                aria-labelledby={headingId}
+                // aria-required is only valid on radiogroup, not role=group.
+                aria-required={multi ? undefined : group.required}
+              >
                 {group.choices.map((choice) => {
                   const isSelected = chosen.includes(choice.id);
                   const disabled = !isSelected && maxReached;
@@ -305,9 +344,10 @@ export function ItemModal({
                     <button
                       key={choice.id}
                       type="button"
+                      role={multi ? "checkbox" : "radio"}
                       onClick={() => toggleChoice(group, choice)}
                       disabled={disabled}
-                      aria-pressed={isSelected}
+                      aria-checked={isSelected}
                       className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
                         isSelected
                           ? "border-accent bg-accent/5 text-black"

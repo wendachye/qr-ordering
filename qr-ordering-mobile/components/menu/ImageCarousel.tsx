@@ -95,17 +95,22 @@ export function ImageCarousel({ images, alt }: { images: string[]; alt: string }
           <div className="pointer-events-none absolute right-2 top-2 rounded-full bg-black/50 px-2 py-0.5 text-xs font-medium text-white">
             {active + 1}/{images.length}
           </div>
-          <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1.5">
+          <div className="absolute inset-x-0 bottom-0 flex justify-center">
             {images.map((_, i) => (
               <button
                 key={i}
                 type="button"
                 aria-label={`Go to photo ${i + 1}`}
+                aria-current={i === active}
                 onClick={() => goTo(i)}
-                className={`h-1.5 rounded-full shadow transition-all ${
-                  i === active ? "w-5 bg-white" : "w-1.5 bg-white/70"
-                }`}
-              />
+                className="flex items-center justify-center p-2.5"
+              >
+                <span
+                  className={`block h-1.5 rounded-full shadow transition-all ${
+                    i === active ? "w-5 bg-white" : "w-1.5 bg-white/70"
+                  }`}
+                />
+              </button>
             ))}
           </div>
         </>

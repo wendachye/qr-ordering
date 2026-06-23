@@ -6,9 +6,11 @@
   color-scheme: light;
   /* Brand accent (default emerald), as space-separated RGB channels so Tailwind
      `/opacity` works. Overridden per-tenant at runtime by lib/theme.ts →
-     ThemeAccent so one value themes every `accent` surface. */
-  --accent-rgb: 5 150 105;
-  --accent-dark-rgb: 4 120 87;
+     ThemeAccent so one value themes every `accent` surface. Defaults are
+     emerald-700/-800 (not -600) so the small `text-accent` link text used across
+     the app clears WCAG AA (~4.8:1 on white); emerald-600 was only ~3.8:1. */
+  --accent-rgb: 4 120 87;
+  --accent-dark-rgb: 6 95 70;
   --accent-light-rgb: 16 185 129;
   --accent-fg-rgb: 255 255 255;
 }
@@ -37,6 +39,19 @@ input[type="search"]::-webkit-search-decoration {
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+/* Respect users who prefer reduced motion: neutralise transitions + animations
+   (sheet slide-up, search expand, card press, spinner) app-wide. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

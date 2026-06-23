@@ -45,6 +45,26 @@ export function CategoryTabs({
 
   if (categories.length === 0) return null;
 
+  // Roving-tabindex keyboard navigation: arrows/Home/End move BOTH selection
+  // and focus to the adjacent tab (move focus after onSelect re-renders).
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const count = categories.length;
+    if (count === 0) return;
+    const current = categories.findIndex((c) => c.id === activeId);
+    const from = current === -1 ? 0 : current;
+    let next: number | null = null;
+    if (e.key === "ArrowRight") next = (from + 1) % count;
+    else if (e.key === "ArrowLeft") next = (from - 1 + count) % count;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = count - 1;
+    if (next === null) return;
+    e.preventDefault();
+    const nextId = categories[next].id;
+    onSelect(nextId);
+    const el = navRef.current;
+    el?.querySelector<HTMLButtonElement>(`#tab-${CSS.escape(nextId)}`)?.focus();
+  };
+
   // Mouse drag-to-scroll. Touch is left to the browser's native scroll.
   const onPointerDown = (e: React.PointerEvent) => {
     // Reset the tap/drag discriminator for EVERY pointer (incl. touch taps).
@@ -78,11 +98,14 @@ export function CategoryTabs({
   return (
     <nav
       ref={navRef}
+      role="tablist"
+      aria-label="Menu categories"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
       onPointerLeave={endDrag}
+      onKeyDown={onKeyDown}
       className="flex cursor-grab gap-4 overflow-x-auto px-4 py-3 active:cursor-grabbing [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {categories.map((c) => {
@@ -91,13 +114,17 @@ export function CategoryTabs({
           <button
             key={c.id}
             type="button"
+            role="tab"
+            id={`tab-${c.id}`}
+            aria-selected={active}
+            aria-controls="menu-panel"
+            tabIndex={active ? 0 : -1}
             onClick={() => {
               // Suppress the click that ends a drag so dragging doesn't switch
               // categories. Taps (no movement) still select normally.
               if (drag.current.moved) return;
               onSelect(c.id);
             }}
-            aria-pressed={active}
             className="flex w-16 shrink-0 flex-col items-center gap-1.5"
           >
             <span
