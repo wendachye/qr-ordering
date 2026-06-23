@@ -54,12 +54,26 @@ export function CartView({ tableCode }: { tableCode: string }) {
         {
           tableCode,
           note: orderNote.trim() ? orderNote.trim() : undefined,
-          items: items.map((i) => ({
-            menuItemId: i.menuItemId,
-            quantity: i.quantity,
-            note: i.note?.trim() ? i.note.trim() : undefined,
-            optionChoiceIds: i.optionChoiceIds,
-          })),
+          items: items.map((i) => {
+            const note = i.note?.trim() ? i.note.trim() : undefined;
+            if (i.kind === "combo") {
+              return {
+                comboId: i.comboId,
+                comboSelections: i.picks.map((p) => ({
+                  groupId: p.groupId,
+                  optionId: p.optionId,
+                })),
+                quantity: i.quantity,
+                note,
+              };
+            }
+            return {
+              menuItemId: i.menuItemId,
+              quantity: i.quantity,
+              note,
+              optionChoiceIds: i.optionChoiceIds,
+            };
+          }),
         },
         idemKeyRef.current
       );

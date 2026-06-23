@@ -16,12 +16,18 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { CartItem } from "@/lib/types";
 
+// `Omit` over a discriminated union must DISTRIBUTE, or it collapses to the
+// members' common keys (dropping menuItemId / comboId / picks). This keeps each
+// variant's own fields on the add-item input.
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+export type NewCartItem = DistributiveOmit<CartItem, "lineId">;
+
 export type CartState = {
   tableCode: string | null;
   items: CartItem[];
   // actions
   setTable: (tableCode: string) => void;
-  addItem: (item: Omit<CartItem, "lineId">) => void;
+  addItem: (item: NewCartItem) => void;
   removeItem: (lineId: string) => void;
   setQuantity: (lineId: string, quantity: number) => void;
   increment: (lineId: string) => void;
@@ -39,6 +45,30 @@ function sameChoiceSet(a: string[], b: string[]): boolean {
   const sortedA = [...a].sort();
   const sortedB = [...b].sort();
   return sortedA.every((id, i) => id === sortedB[i]);
+}
+
+// Two cart lines are mergeable when they are the same kind, same note, and the
+// same underlying selection: for items, the same item + option choice set; for
+// combos, the same combo + the same chosen option id per group.
+function isMergeable(a: CartItem, b: CartItem): boolean {
+  if (a.kind !== b.kind) return false;
+  if ((a.note ?? "") !== (b.note ?? "")) return false;
+  if (a.kind === "item" && b.kind === "item") {
+    return (
+      a.menuItemId === b.menuItemId &&
+      sameChoiceSet(a.optionChoiceIds, b.optionChoiceIds)
+    );
+  }
+  if (a.kind === "combo" && b.kind === "combo") {
+    if (a.comboId !== b.comboId) return false;
+    // Compare the full (group → option) mapping, not just the set of option ids,
+    // so two distinct configurations can never collapse into one line.
+    return sameChoiceSet(
+      a.picks.map((p) => `${p.groupId}:${p.optionId}`),
+      b.picks.map((p) => `${p.groupId}:${p.optionId}`)
+    );
+  }
+  return false;
 }
 
 // We persist using a single key but namespace the data by tableCode inside
@@ -61,12 +91,10 @@ export const useCartStore = create<CartState>()(
 
       addItem: (item) => {
         const items = get().items;
-        const existing = items.find(
-          (i) =>
-            i.menuItemId === item.menuItemId &&
-            (i.note ?? "") === (item.note ?? "") &&
-            sameChoiceSet(i.optionChoiceIds, item.optionChoiceIds)
-        );
+        // Treat the incoming line as a full CartItem (lineId is filled below)
+        // for the merge comparison.
+        const candidate = { ...item, lineId: "" } as CartItem;
+        const existing = items.find((i) => isMergeable(i, candidate));
         if (existing) {
           set({
             items: items.map((i) =>
@@ -83,7 +111,7 @@ export const useCartStore = create<CartState>()(
                 ...item,
                 lineId: crypto.randomUUID(),
                 quantity: Math.min(99, item.quantity),
-              },
+              } as CartItem,
             ],
           });
         }

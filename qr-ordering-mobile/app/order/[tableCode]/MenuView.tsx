@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { MenuItem, MenuResponse } from "@/lib/types";
+import type { MenuItem, MenuResponse, PublicCombo } from "@/lib/types";
 import { ApiError, getMenu, getTable } from "@/lib/api";
 import { useCartStore, selectSubtotal, selectTotalItems } from "@/store/cart";
 import { MobileShell } from "@/components/layout/MobileShell";
 import { MenuBanner } from "@/components/menu/MenuBanner";
 import { CategoryTabs } from "@/components/menu/CategoryTabs";
 import { MenuItemCard } from "@/components/menu/MenuItemCard";
+import { ComboCard } from "@/components/menu/ComboCard";
 import { ItemModal, type AddSelection } from "@/components/menu/ItemModal";
+import { ComboModal, type AddComboSelection } from "@/components/menu/ComboModal";
 import { StickyCartBar } from "@/components/cart/StickyCartBar";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
@@ -22,11 +24,14 @@ type LoadState =
 // Synthetic category id for the "Popular"/featured tab — a virtual category
 // whose items are the flagged ones (which also remain in their real categories).
 const FEATURED_CATEGORY_ID = "__featured__";
+// Synthetic category id for the "Set meals"/combos tab.
+const COMBOS_CATEGORY_ID = "__combos__";
 
 export function MenuView({ tableCode }: { tableCode: string }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [modalItem, setModalItem] = useState<MenuItem | null>(null);
+  const [modalCombo, setModalCombo] = useState<PublicCombo | null>(null);
 
   // Cart store wiring.
   const setTable = useCartStore((s) => s.setTable);
@@ -44,10 +49,16 @@ export function MenuView({ tableCode }: { tableCode: string }) {
       await getTable(tableCode);
       const data = await getMenu(tableCode);
       setState({ status: "ready", data });
-      // Default to the "Popular" tab when there are featured items.
+      // Default tab: "Popular" if featured, else "Set meals" if there are
+      // orderable combos, else the first real category.
+      const hasCombos = (data.combos ?? []).some(
+        (c) => c.isAvailable && !c.posOnly
+      );
       setActiveCategory(
         data.featured && data.featured.length > 0
           ? FEATURED_CATEGORY_ID
+          : hasCombos
+          ? COMBOS_CATEGORY_ID
           : data.categories[0]?.id ?? null
       );
     } catch (err) {
@@ -67,15 +78,27 @@ export function MenuView({ tableCode }: { tableCode: string }) {
     load();
   }, [tableCode, setTable, load]);
 
-  // Map of menuItemId -> quantity, for the "in cart" badges.
+  // Map of menuItemId -> quantity, for the "in cart" badges (item lines only).
   const quantityById = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const i of items) map[i.menuItemId] = (map[i.menuItemId] ?? 0) + i.quantity;
+    for (const i of items) {
+      if (i.kind === "item") map[i.menuItemId] = (map[i.menuItemId] ?? 0) + i.quantity;
+    }
+    return map;
+  }, [items]);
+
+  // Map of comboId -> quantity, for the combo cards' "in cart" badges.
+  const comboQuantityById = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const i of items) {
+      if (i.kind === "combo") map[i.comboId] = (map[i.comboId] ?? 0) + i.quantity;
+    }
     return map;
   }, [items]);
 
   const handleAdd = (item: MenuItem, selection: AddSelection) => {
     addItem({
+      kind: "item",
       menuItemId: item.id,
       name: item.name,
       price: selection.unitPrice,
@@ -85,6 +108,19 @@ export function MenuView({ tableCode }: { tableCode: string }) {
       optionChoiceIds: selection.optionChoiceIds,
     });
     setModalItem(null);
+  };
+
+  const handleAddCombo = (combo: PublicCombo, selection: AddComboSelection) => {
+    addItem({
+      kind: "combo",
+      comboId: combo.id,
+      name: combo.name,
+      price: selection.unitPrice,
+      quantity: selection.quantity,
+      note: selection.note.trim() ? selection.note.trim() : undefined,
+      picks: selection.picks,
+    });
+    setModalCombo(null);
   };
 
   if (state.status === "loading") {
@@ -111,23 +147,43 @@ export function MenuView({ tableCode }: { tableCode: string }) {
     );
   }
 
-  const { store, table, categories, featured, featuredTitle, banner } = state.data;
+  const { store, table, categories, combos, featured, featuredTitle, banner } =
+    state.data;
 
-  // Surface "Popular" as the first category tab: a virtual category whose items
-  // are the featured ones (which also still appear in their own categories).
-  const displayCategories =
-    featured && featured.length > 0
+  // Available combos / set meals (guard out unavailable + POS-only ones).
+  const availableCombos = (combos ?? []).filter(
+    (c) => c.isAvailable && !c.posOnly
+  );
+
+  // Surface "Popular" (featured) and "Set meals" (combos) as the first tabs:
+  // virtual categories near the top. The combos tab carries no `items` (combos
+  // render separately); CategoryTabs only reads `id` + `name`.
+  const displayCategories = [
+    ...(featured && featured.length > 0
       ? [
           {
             id: FEATURED_CATEGORY_ID,
             name: featuredTitle ?? "Popular",
-            sortOrder: -1,
+            sortOrder: -2,
             items: featured,
           },
-          ...categories,
         ]
-      : categories;
-  const hasItems = displayCategories.some((c) => c.items.length > 0);
+      : []),
+    ...(availableCombos.length > 0
+      ? [
+          {
+            id: COMBOS_CATEGORY_ID,
+            name: "Set meals",
+            sortOrder: -1,
+            items: [],
+          },
+        ]
+      : []),
+    ...categories,
+  ];
+  const showingCombos = activeCategory === COMBOS_CATEGORY_ID;
+  const hasItems =
+    availableCombos.length > 0 || displayCategories.some((c) => c.items.length > 0);
   const activeItems =
     displayCategories.find((c) => c.id === activeCategory)?.items ?? [];
 
@@ -158,12 +214,23 @@ export function MenuView({ tableCode }: { tableCode: string }) {
         </div>
       )}
 
-      {/* Items grid for the active category */}
+      {/* Items grid for the active category (combo cards on the "Set meals" tab) */}
       {!hasItems ? (
         <EmptyState
           title="No items yet"
           message="This menu doesn't have any items right now. Please check back soon."
         />
+      ) : showingCombos ? (
+        <div className="grid grid-cols-2 gap-3 px-4 py-4">
+          {availableCombos.map((combo) => (
+            <ComboCard
+              key={combo.id}
+              combo={combo}
+              quantityInCart={comboQuantityById[combo.id] ?? 0}
+              onSelect={setModalCombo}
+            />
+          ))}
+        </div>
       ) : activeItems.length === 0 ? (
         <EmptyState
           title="Nothing in this category"
@@ -183,6 +250,11 @@ export function MenuView({ tableCode }: { tableCode: string }) {
       )}
 
       <ItemModal item={modalItem} onClose={() => setModalItem(null)} onAdd={handleAdd} />
+      <ComboModal
+        combo={modalCombo}
+        onClose={() => setModalCombo(null)}
+        onAdd={handleAddCombo}
+      />
     </MobileShell>
   );
 }

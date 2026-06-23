@@ -54,6 +54,35 @@ export type MenuCategory = {
   items: MenuItem[];
 };
 
+// Combos / set meals. A combo is a fixed base `price` plus exactly ONE pick per
+// group; a premium option adds its `priceDelta`. The server recomputes + charges
+// the total authoritatively — the client only displays an estimate.
+export type PublicComboOption = {
+  id: string;
+  menuItemId: string;
+  name: string;
+  priceDelta: number;
+  isAvailable: boolean;
+};
+
+export type PublicComboGroup = {
+  id: string;
+  name: string;
+  options: PublicComboOption[];
+};
+
+export type PublicCombo = {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrls: string[];
+  price: number;
+  isAvailable: boolean;
+  posOnly: boolean;
+  sortOrder: number;
+  groups: PublicComboGroup[];
+};
+
 // GET /public/tables/:tableCode
 export type TableValidation = {
   table: Table;
@@ -73,6 +102,8 @@ export type MenuResponse = {
   store: Store;
   table: Table;
   categories: MenuCategory[];
+  // Combos / set meals, shown as their own "Set meals" section.
+  combos: PublicCombo[];
   // Curated "featured" strip (available items only), shown at the top.
   featured?: MenuItem[];
   featuredTitle?: string;
@@ -80,11 +111,21 @@ export type MenuResponse = {
 };
 
 // POST /orders request
+// A line is either a menu item (menuItemId + optionChoiceIds) OR a combo
+// (comboId + comboSelections) — the two are mutually exclusive. The server
+// validates and prices either shape.
+export type CreateOrderComboSelection = {
+  groupId: string;
+  optionId: string;
+};
+
 export type CreateOrderItem = {
-  menuItemId: string;
+  menuItemId?: string;
   quantity: number;
   note?: string;
   optionChoiceIds?: string[];
+  comboId?: string;
+  comboSelections?: CreateOrderComboSelection[];
 };
 
 export type CreateOrderRequest = {
@@ -112,8 +153,22 @@ export type CartSelectedOption = {
   priceDelta: number;
 };
 
-// Cart item shape (client-side / persisted in localStorage)
-export type CartItem = {
+// A single combo pick (one per group), kept for display + the order submit.
+export type CartComboPick = {
+  groupId: string;
+  groupName: string;
+  optionId: string;
+  optionName: string;
+  priceDelta: number;
+};
+
+// Cart line shapes (client-side / persisted in localStorage). A line is a
+// discriminated union on `kind`: a regular menu item or a combo. Both carry a
+// stable `lineId`, an EFFECTIVE unit `price`, quantity and optional note.
+
+// A regular menu-item line.
+export type CartMenuLine = {
+  kind: "item";
   lineId: string; // stable unique id for this cart line
   menuItemId: string;
   name: string;
@@ -123,3 +178,17 @@ export type CartItem = {
   options: CartSelectedOption[]; // selected options, for display
   optionChoiceIds: string[]; // selected choice ids, for the order submit
 };
+
+// A combo / set-meal line.
+export type CartComboLine = {
+  kind: "combo";
+  lineId: string;
+  comboId: string;
+  name: string;
+  price: number; // EFFECTIVE unit price = base price + sum(selected priceDelta)
+  quantity: number;
+  note?: string;
+  picks: CartComboPick[]; // one per group, for display + the order submit
+};
+
+export type CartItem = CartMenuLine | CartComboLine;

@@ -23,11 +23,20 @@ export function CartItemRow({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-black">{item.name}</h3>
-          {item.options.length > 0 && (
+          {item.kind === "item" && item.options.length > 0 && (
             <ul className="mt-0.5 space-y-0.5">
               {item.options.map((o, i) => (
                 <li key={i} className="text-xs text-gray-500">
                   {o.group}: {o.choice}
+                </li>
+              ))}
+            </ul>
+          )}
+          {item.kind === "combo" && item.picks.length > 0 && (
+            <ul className="mt-0.5 space-y-0.5">
+              {item.picks.map((p) => (
+                <li key={p.groupId} className="text-xs text-gray-500">
+                  {p.groupName}: {p.optionName}
                 </li>
               ))}
             </ul>
