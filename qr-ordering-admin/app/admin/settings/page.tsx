@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { InlineText } from "@/components/settings/InlineText";
 import { LogoCard } from "@/components/settings/LogoCard";
+import { ThemeColorCard } from "@/components/settings/ThemeColorCard";
 import { PaymentMethodsCard } from "@/components/settings/PaymentMethodsCard";
 
 // General settings: store identity + payment methods. Charges/tax live under the
@@ -40,6 +41,11 @@ export default function GeneralSettingsPage() {
             logoUrl={query.data.logoUrl}
             saving={update.isPending}
             onSave={(logoUrl) => update.mutate({ logoUrl })}
+          />
+          <ThemeColorCard
+            themeColor={query.data.themeColor}
+            saving={update.isPending}
+            onSave={(themeColor) => update.mutate({ themeColor })}
           />
           <PaymentMethodsCard
             methods={query.data.paymentMethods}

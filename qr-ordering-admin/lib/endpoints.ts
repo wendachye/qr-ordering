@@ -428,6 +428,7 @@ export const settingsApi = {
   update: (input: {
     storeName?: string;
     logoUrl?: string | null;
+    themeColor?: string | null;
     takeawayCharge?: number;
     serviceChargeRate?: number;
     taxes?: { name: string; rate: number }[];
