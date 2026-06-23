@@ -213,8 +213,18 @@ export async function submitInvoice(invoiceId: string) {
     include: { store: { select: { einvoiceMode: true } } },
   });
   if (!inv) throw ApiError.notFound('Invoice not found');
-  if (inv.status === 'valid' || inv.status === 'submitted') {
-    return toInvoiceDto(inv, { includeDocument: true });
+
+  // Claim the invoice for submission atomically — only a draft / previously-failed
+  // invoice is claimable, so two concurrent submits can't both reach the adapter
+  // (a real networked LHDN adapter would otherwise double-submit). The loser (or a
+  // submit of an already-valid/submitted invoice) just returns the current state.
+  const claim = await prisma.invoice.updateMany({
+    where: { id: inv.id, storeId, status: { in: ['draft', 'invalid'] } },
+    data: { status: 'submitting' },
+  });
+  if (claim.count === 0) {
+    const current = await prisma.invoice.findFirstOrThrow({ where: { id: inv.id, storeId } });
+    return toInvoiceDto(current, { includeDocument: true });
   }
 
   const adapter = getSubmissionAdapter(inv.store.einvoiceMode);

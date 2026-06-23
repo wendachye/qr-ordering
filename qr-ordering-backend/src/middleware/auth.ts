@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 
+import { prisma } from '../lib/prisma';
 import { ApiError } from '../lib/response';
 import { verifyAdminToken } from '../lib/jwt';
 import { tenantStore } from '../lib/tenant';
@@ -11,7 +12,7 @@ import { can, type Permission } from '../lib/permissions';
  * Attaches `req.admin` and runs the rest of the request inside the tenant
  * context so every downstream query is scoped to this admin's store.
  */
-export function requireAdmin(req: Request, _res: Response, next: NextFunction) {
+export async function requireAdmin(req: Request, _res: Response, next: NextFunction) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
     throw ApiError.unauthorized('Missing or invalid Authorization header');
@@ -23,6 +24,20 @@ export function requireAdmin(req: Request, _res: Response, next: NextFunction) {
     payload = verifyAdminToken(token);
   } catch {
     throw ApiError.unauthorized('Invalid or expired token');
+  }
+
+  // Token revocation: a deactivated or deleted staff account loses access
+  // immediately, rather than at token expiry (the JWT is only signed once). Skip
+  // for impersonation tokens — short-lived operator "view-as" sessions whose
+  // subject is the operator, not a store staff account.
+  if (!payload.imp) {
+    const account = await prisma.adminUser.findUnique({
+      where: { id: payload.sub },
+      select: { isActive: true },
+    });
+    if (!account || !account.isActive) {
+      throw ApiError.unauthorized('Your account is no longer active — please sign in again');
+    }
   }
 
   req.admin = {

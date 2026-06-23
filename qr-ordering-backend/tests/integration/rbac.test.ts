@@ -95,6 +95,21 @@ describe('RBAC — staff roles', () => {
     expect(status).toBe(403);
   });
 
+  it('revokes an already-issued token the moment the account is deactivated', async () => {
+    const { data } = await registerTenant();
+    const { res, email, password } = await createStaff(data.token, 'CASHIER');
+    const { token } = await loginToken(email, password);
+    // The live token works before deactivation…
+    expect((await api().get('/admin/reports/sales').set(auth(token!))).status).toBe(200);
+    // …owner deactivates the cashier…
+    await api()
+      .patch(`/admin/staff/${res.body.data.id}`)
+      .set(auth(data.token))
+      .send({ isActive: false });
+    // …and the SAME still-unexpired token is rejected immediately (not at expiry).
+    expect((await api().get('/admin/reports/sales').set(auth(token!))).status).toBe(401);
+  });
+
   it("an owner can't change their own role (keep at least one owner)", async () => {
     const { data } = await registerTenant();
     const me = (await api().get('/admin/auth/me').set(auth(data.token))).body.data;

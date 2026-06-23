@@ -555,6 +555,7 @@ export async function setSessionPax(id: string, pax: number) {
  */
 export async function reopenSession(id: string) {
   const storeId = await getDefaultStoreId();
+  const lcfg = await loadConfig(storeId); // stable rates — read once, outside the tx
   await prisma.$transaction(async (tx) => {
     const s = await tx.tableSession.findFirst({
       where: { id, storeId },
@@ -599,7 +600,6 @@ export async function reopenSession(id: string) {
             Number(s.loyaltyDiscount)) *
             100,
         ) / 100;
-      const lcfg = await loadConfig(storeId);
       await reverseLoyaltyAtReopen(tx, {
         storeId,
         sessionId: id,
@@ -684,6 +684,7 @@ export async function detachMemberFromSession(id: string) {
  */
 export async function redeemPointsOnSession(id: string, points: number) {
   const storeId = await getDefaultStoreId();
+  const cfg = await loadConfig(storeId); // stable rates — read once, outside the tx
   await prisma.$transaction(async (tx) => {
     const s = await tx.tableSession.findFirst({
       where: { id, storeId },
@@ -695,7 +696,6 @@ export async function redeemPointsOnSession(id: string, points: number) {
     const paid = await tx.payment.count({ where: { sessionId: id, voided: false } });
     if (paid > 0) throw ApiError.conflict('Redeem points before taking payment');
 
-    const cfg = await loadConfig(storeId);
     if (!cfg.loyaltyEnabled || !cfg.pointsEnabled) throw ApiError.badRequest('Points are not enabled');
     if (points < cfg.minRedeemPoints) {
       throw ApiError.badRequest(`Redeem at least ${cfg.minRedeemPoints} points`);
