@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/common/Toast";
 import { platformClientsApi } from "@/lib/endpoints";
 import { ApiError } from "@/lib/api";
@@ -56,11 +57,10 @@ export function ClientDetail({ client }: { client: Client }) {
           <div className="flex items-center justify-between gap-2">
             <h1 className="text-2xl font-black text-slate-900">{client.name}</h1>
             <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-600">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={draft.isActive}
-                onChange={(e) => setDraft((d) => ({ ...d, isActive: e.target.checked }))}
-                className="h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+                onCheckedChange={(v) => setDraft((d) => ({ ...d, isActive: v === true }))}
+                className="h-4 w-4"
               />
               Active
             </label>

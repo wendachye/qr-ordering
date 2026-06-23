@@ -1,6 +1,7 @@
 "use client";
 
-import { Pencil, ShoppingBag, Trash2 } from "lucide-react";
+import { Pencil, ShoppingBag, Trash2, UtensilsCrossed } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { QtyStepper } from "./QtyStepper";
 import { formatPrice } from "@/lib/format";
 import { lineDiscountAmount, lineTotal, type CartLine } from "@/lib/pos";
@@ -39,8 +40,17 @@ export function CartLineList({
                   “{line.note}”
                 </p>
               )}
-              {(line.isTakeaway || line.priceOverridden || line.discountType) && (
+              {(line.combo ||
+                line.isTakeaway ||
+                line.priceOverridden ||
+                line.discountType) && (
                 <div className="mt-1 flex flex-wrap gap-1">
+                  {line.combo && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                      <UtensilsCrossed className="h-3 w-3" />
+                      Combo
+                    </span>
+                  )}
                   {line.isTakeaway && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700">
                       <ShoppingBag className="h-3 w-3" />
@@ -67,23 +77,27 @@ export function CartLineList({
             </div>
             <div className="flex shrink-0 items-center gap-0.5">
               {onEdit && !line.custom && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => onEdit(line)}
                   aria-label={`Edit ${line.name}`}
-                  className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  className="h-auto w-auto rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
                 >
                   <Pencil className="h-4 w-4" />
-                </button>
+                </Button>
               )}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => onRemove(line.lineId)}
                 aria-label={`Remove ${line.name}`}
-                className="rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-50"
+                className="h-auto w-auto rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-50"
               >
                 <Trash2 className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
           </div>
           <div className="mt-2 flex items-center justify-between gap-3">

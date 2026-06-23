@@ -47,19 +47,19 @@ export function VoidDialog({
           </p>
           <div className="flex flex-wrap gap-2">
             {PRESETS.map((r) => (
-              <button
+              <Button
                 key={r}
-                type="button"
+                variant="ghost"
                 onClick={() => setReason((cur) => (cur === r ? "" : r))}
                 className={cn(
-                  "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+                  "h-auto rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
                   reason === r
-                    ? "border-accent-500 bg-accent-50 text-accent-700"
+                    ? "border-accent-500 bg-accent-50 text-accent-700 hover:bg-accent-50"
                     : "border-slate-200 text-slate-600 hover:bg-slate-50"
                 )}
               >
                 {r}
-              </button>
+              </Button>
             ))}
           </div>
           <Input

@@ -171,17 +171,17 @@ export function PlanToggle({ value, onChange }: { value: PlanKey; onChange: (v: 
   return (
     <div className="inline-flex h-10 rounded-lg border border-slate-200 p-0.5">
       {(["basic", "pro"] as PlanKey[]).map((p) => (
-        <button
+        <Button
           key={p}
-          type="button"
+          variant="ghost"
           onClick={() => onChange(p)}
           className={cn(
-            "rounded-md px-4 text-sm font-semibold capitalize transition-colors",
+            "h-auto rounded-md px-4 text-sm font-semibold capitalize transition-colors hover:bg-transparent",
             value === p ? "bg-accent-600 text-white" : "text-slate-600 hover:bg-slate-100"
           )}
         >
           {p}
-        </button>
+        </Button>
       ))}
     </div>
   );

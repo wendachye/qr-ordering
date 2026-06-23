@@ -53,13 +53,14 @@ export function CartPanel({
             {count} {count === 1 ? "item" : "items"}
           </span>
           {onClear && !empty && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={onClear}
-              className="text-sm font-semibold text-red-600 hover:text-red-700"
+              className="h-auto p-0 hover:bg-transparent text-sm font-semibold text-red-600 hover:text-red-700"
             >
               Clear all
-            </button>
+            </Button>
           )}
         </div>
       </div>

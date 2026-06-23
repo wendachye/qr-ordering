@@ -2,6 +2,7 @@
 
 import { Ban, Printer, ShoppingBag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatPrice, formatTime } from "@/lib/format";
 import type { SessionRound, SessionRoundItem } from "@/lib/types";
@@ -32,15 +33,15 @@ export function TabRound({
         </span>
         <div className="flex items-center gap-2">
           {cancelled && <Badge tone="gray">Cancelled</Badge>}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={onReprint}
             disabled={reprinting}
-            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-200 disabled:opacity-50"
+            className="inline-flex h-auto items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-200 disabled:opacity-50"
           >
             <Printer className="h-3.5 w-3.5" />
             Reprint
-          </button>
+          </Button>
         </div>
       </div>
       <ul className="space-y-1">
@@ -108,14 +109,14 @@ export function TabRound({
                   {formatPrice(item.totalPrice)}
                 </span>
                 {!cancelled && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => onVoid(item)}
                     aria-label={`Void ${item.name}`}
-                    className="rounded p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                    className="h-auto rounded p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
                   >
                     <Ban className="h-3.5 w-3.5" />
-                  </button>
+                  </Button>
                 )}
               </div>
             )}

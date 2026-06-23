@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // Compact +/- quantity stepper with large touch targets (iPad-friendly).
@@ -33,18 +34,19 @@ export function QtyStepper({
     delta: number;
     disabled: boolean;
   }) => (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       aria-label={delta > 0 ? "Increase quantity" : "Decrease quantity"}
       disabled={disabled}
       onClick={() => onChange(clamp(value + delta))}
       className={cn(
-        "flex items-center justify-center rounded-lg border border-slate-300 bg-white font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40",
+        "h-auto p-0 hover:bg-transparent flex items-center justify-center rounded-lg border border-slate-300 bg-white font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40",
         btn
       )}
     >
       {label}
-    </button>
+    </Button>
   );
 
   return (

@@ -14,6 +14,7 @@ const TABS = [
   { href: "/admin/settings/charges", label: "Charges" },
   { href: "/admin/settings/staff", label: "Staff" },
   { href: "/admin/settings/security", label: "Security" },
+  { href: "/admin/settings/einvoice", label: "e-Invoice" },
   { href: "/admin/settings/tables", label: "Tables" },
   { href: "/admin/billing", label: "Billing" },
 ];

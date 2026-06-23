@@ -256,10 +256,27 @@ export interface MenuItem {
   sortOrder: number;
   isFeatured: boolean;
   featuredOrder: number;
+  // Inventory tracking. When trackStock is on, hitting 0 auto-86s the item
+  // (isAvailable→false); a restock above 0 re-enables it. lowStockThreshold
+  // null = no low-stock alert.
+  trackStock: boolean;
+  stockQty: number;
+  lowStockThreshold: number | null;
   // Configurable option groups + choices (same shape as the public menu).
   optionGroups?: OptionGroup[];
   createdAt: string;
   updatedAt: string;
+}
+
+// One row of the inventory ledger (GET /admin/inventory/:id/ledger), newest first.
+export interface StockLedgerEntry {
+  id: string;
+  delta: number;
+  reason: string;
+  note: string | null;
+  balanceAfter: number;
+  actorEmail: string | null;
+  createdAt: string;
 }
 
 export interface MenuSettings {
@@ -345,6 +362,44 @@ export interface OptionGroupInput {
   choices: { name: string; priceDelta: number }[];
 }
 
+// --- Combos / set meals (admin builder + POS + customer menu) ---
+// A combo is a fixed base price plus one pick per group; a premium pick can add
+// an upcharge (priceDelta). Each option maps to an existing menu item.
+export interface ComboOption {
+  id: string;
+  menuItemId: string;
+  name: string;
+  priceDelta: number;
+  isAvailable: boolean;
+}
+export interface ComboOptionGroup {
+  id: string;
+  name: string;
+  options: ComboOption[];
+}
+export interface Combo {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrls: string[];
+  price: number;
+  isAvailable: boolean;
+  posOnly: boolean;
+  sortOrder: number;
+  groups: ComboOptionGroup[];
+}
+
+// Create/update payload — the server recreates groups + options, so no ids.
+export interface ComboInput {
+  name: string;
+  description?: string | null;
+  price: number;
+  imageUrls?: string[];
+  isAvailable: boolean;
+  posOnly: boolean;
+  groups: { name: string; options: { menuItemId: string; priceDelta: number }[] }[];
+}
+
 // --- Tables (GET /admin/tables element) ---
 export interface Table {
   id: string;
@@ -407,16 +462,25 @@ export interface PublicMenu {
   table: { id: string; name: string; code: string; isActive: boolean };
   takeawayCharge: number;
   categories: PublicMenuCategory[];
+  // Set meals / combos (fixed base price + one pick per group). Present on both
+  // the public customer menu and the staff POS menu.
+  combos: Combo[];
 }
 
 // --- Placing an order (POST /orders) ---
 export type DiscountType = "PERCENT" | "FIXED";
 
 export interface PlaceOrderItem {
-  // A menu item, OR a custom (open) line — admin only — with name + price.
+  // A menu item, OR a custom (open) line — admin only — with name + price, OR a
+  // combo line (comboId + one selection per group). These three are mutually
+  // exclusive; the backend validates + prices the chosen shape authoritatively.
   menuItemId?: string;
   customName?: string;
   customPrice?: number;
+  // Combo: the chosen combo + exactly one option per group (optionId = the
+  // ComboOption id). The server recomputes the price (base + selected deltas).
+  comboId?: string;
+  comboSelections?: { groupId: string; optionId: string }[];
   quantity: number;
   note?: string;
   optionChoiceIds?: string[];
@@ -712,6 +776,86 @@ export interface SalesReport {
     lastCloseAt: string | null;
   };
   tabs: ReportTabRow[];
+}
+
+// --- Malaysia e-Invoice (MyInvois) ---
+
+// GET /admin/einvoice/settings — seller details + MyInvois mode. All seller*
+// fields are nullable until configured.
+export interface EinvoiceSettings {
+  storeName: string;
+  einvoiceEnabled: boolean;
+  einvoiceMode: "sandbox" | "production";
+  sellerTin: string | null;
+  sellerRegistrationNo: string | null;
+  sellerSstNo: string | null;
+  sellerMsic: string | null;
+  sellerAddress: string | null;
+  sellerEmail: string | null;
+  sellerPhone: string | null;
+}
+
+export type InvoiceStatus = "draft" | "submitted" | "valid" | "invalid" | "cancelled";
+
+// An issued e-Invoice (GET /admin/einvoice/invoices element + detail).
+export interface Invoice {
+  id: string;
+  sessionId: string | null;
+  number: string;
+  status: InvoiceStatus;
+  buyerName: string | null;
+  buyerTin: string | null;
+  buyerRegistrationNo: string | null;
+  buyerEmail: string | null;
+  buyerPhone: string | null;
+  buyerAddress: string | null;
+  currency: string;
+  subtotal: number;
+  serviceCharge: number;
+  taxTotal: number;
+  total: number;
+  // Set once submitted to MyInvois.
+  submissionUid: string | null;
+  longId: string | null;
+  validationUrl: string | null;
+  qrCode: string | null;
+  rejectionReason: string | null;
+  submittedAt: string | null;
+  validatedAt: string | null;
+  createdAt: string | null;
+  // Present on the detail endpoint — the rendered MyInvois document JSON.
+  document?: unknown;
+}
+
+// Buyer details captured when issuing an invoice for a settled tab (all optional).
+export interface InvoiceBuyerInput {
+  buyerName?: string;
+  buyerTin?: string;
+  buyerRegistrationNo?: string;
+  buyerEmail?: string;
+  buyerPhone?: string;
+  buyerAddress?: string;
+}
+
+// GET /admin/einvoice/invoices?limit&offset — paginated list envelope.
+export interface InvoiceList {
+  total: number;
+  limit: number;
+  offset: number;
+  invoices: Invoice[];
+}
+
+// PATCH /admin/einvoice/settings body — any subset of the editable seller fields.
+export interface EinvoiceSettingsInput {
+  einvoiceEnabled?: boolean;
+  einvoiceMode?: "sandbox" | "production";
+  sellerTin?: string | null;
+  sellerRegistrationNo?: string | null;
+  sellerSstNo?: string | null;
+  sellerMsic?: string | null;
+  sellerAddress?: string | null;
+  sellerEmail?: string | null;
+  sellerPhone?: string | null;
 }
 
 // GET /admin/orders/table/:tableId — a table's flat order history.

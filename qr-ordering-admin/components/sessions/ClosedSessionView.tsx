@@ -4,7 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Receipt } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ChargeBreakdown } from "@/components/orders/ChargeBreakdown";
+import { SessionInvoiceCard } from "@/components/einvoice/SessionInvoiceCard";
 import { settingsApi } from "@/lib/endpoints";
 import { customerReceiptLink } from "@/lib/customer";
 import { cn } from "@/lib/utils";
@@ -41,15 +43,20 @@ export function ClosedSessionView({ session }: { session: SessionDetail }) {
             <div className="flex flex-col items-end gap-2">
               <Badge tone={SESSION_TONE[session.status]}>{session.status}</Badge>
               {session.status === "CLOSED" && (
-                <a
-                  href={customerReceiptLink(session.id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                <Button
+                  asChild
+                  variant="ghost"
+                  className="inline-flex h-auto items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
-                  <Receipt className="h-4 w-4" />
-                  Receipt
-                </a>
+                  <a
+                    href={customerReceiptLink(session.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Receipt className="h-4 w-4" />
+                    Receipt
+                  </a>
+                </Button>
               )}
             </div>
           </div>
@@ -128,6 +135,8 @@ export function ClosedSessionView({ session }: { session: SessionDetail }) {
           </div>
         </CardContent>
       </Card>
+
+      {session.status === "CLOSED" && <SessionInvoiceCard sessionId={session.id} />}
 
       {session.rounds.map((round) => (
         <Card

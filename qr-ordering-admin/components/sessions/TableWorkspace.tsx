@@ -193,13 +193,13 @@ export function TableWorkspace({ session }: { session: SessionDetail }) {
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     aria-label="Table actions"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg p-0 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <MoreHorizontal className="h-5 w-5" />
-                  </button>
+                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
                   <DropdownMenuItem onSelect={() => setTableOp("move")}>
@@ -249,13 +249,13 @@ export function TableWorkspace({ session }: { session: SessionDetail }) {
                   <span className="text-xs font-medium text-slate-400">
                     {cartItemCount(cart)} to send
                   </span>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => setConfirmClear(true)}
-                    className="text-xs font-semibold text-red-600 hover:text-red-700"
+                    className="h-auto p-0 text-xs font-semibold text-red-600 hover:bg-transparent hover:text-red-700"
                   >
                     Clear all
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>

@@ -1,43 +1,7 @@
 "use client";
 
 import { Lock } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-// A small on/off switch reused by the PIN-requirements rows.
-function Switch({
-  checked,
-  disabled,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  disabled: boolean;
-  onChange: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      onClick={onChange}
-      className={cn(
-        "relative h-7 w-12 shrink-0 rounded-full transition-colors",
-        checked ? "bg-accent-600" : "bg-slate-300",
-        disabled && "opacity-50"
-      )}
-    >
-      <span
-        className={cn(
-          "absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all",
-          checked ? "left-6" : "left-1"
-        )}
-      />
-    </button>
-  );
-}
+import { Switch } from "@/components/ui/switch";
 
 export type PinPatch = {
   voidPinRequired?: boolean;
@@ -117,8 +81,8 @@ export function PinRequirementsCard({
               <Switch
                 checked={pinConfigured && r.enabled}
                 disabled={disabled}
-                onChange={() => onToggle(r.patch(!r.enabled))}
-                label={`Require PIN for ${r.label.toLowerCase()}`}
+                onCheckedChange={() => onToggle(r.patch(!r.enabled))}
+                aria-label={`Require PIN for ${r.label.toLowerCase()}`}
               />
             </div>
           );

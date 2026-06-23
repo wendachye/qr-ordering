@@ -295,14 +295,14 @@ export function SessionActions({
             <div className="mb-1 flex items-center justify-between gap-2">
               <p className="text-sm font-semibold text-slate-700">Discount</p>
               {discountPinRequired && !unlocked && !pwOpen && (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => setPwOpen(true)}
-                  className="inline-flex items-center gap-1 text-sm font-semibold text-accent-700 hover:text-accent-800"
+                  className="inline-flex h-auto items-center gap-1 p-0 text-sm font-semibold text-accent-700 hover:bg-transparent hover:text-accent-800"
                 >
                   <Lock className="h-3.5 w-3.5" />
                   Add discount
-                </button>
+                </Button>
               )}
             </div>
 
@@ -312,7 +312,7 @@ export function SessionActions({
                   Enter the override PIN to apply a discount
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <input
+                  <Input
                     type="password"
                     inputMode="numeric"
                     value={pwValue}
@@ -355,22 +355,22 @@ export function SessionActions({
                       ["FIXED", "$ off"],
                     ] as const
                   ).map(([val, label]) => (
-                    <button
+                    <Button
                       key={val || "none"}
-                      type="button"
+                      variant="ghost"
                       onClick={() => {
                         if (val !== discountType) setDiscountValue("");
                         setDiscountType(val);
                       }}
                       className={cn(
-                        "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
+                        "h-auto rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
                         discountType === val
-                          ? "bg-accent-600 text-white"
+                          ? "bg-accent-600 text-white hover:bg-accent-600"
                           : "text-slate-600 hover:bg-slate-100"
                       )}
                     >
                       {label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
                 {discountType !== "" && (
@@ -378,7 +378,7 @@ export function SessionActions({
                     {discountType === "FIXED" && (
                       <span className="text-sm font-medium text-slate-500">$</span>
                     )}
-                    <input
+                    <Input
                       type="number"
                       min="0"
                       step={discountType === "PERCENT" ? "1" : "0.10"}
@@ -434,28 +434,28 @@ export function SessionActions({
                     ["custom", "Custom"],
                   ] as const
                 ).map(([val, label]) => (
-                  <button
+                  <Button
                     key={val || "none"}
-                    type="button"
+                    variant="ghost"
                     onClick={() => {
                       if (val !== "custom") setTipCustom("");
                       setTipPreset(val);
                     }}
                     className={cn(
-                      "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
+                      "h-auto rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
                       tipPreset === val
-                        ? "bg-accent-600 text-white"
+                        ? "bg-accent-600 text-white hover:bg-accent-600"
                         : "text-slate-600 hover:bg-slate-100"
                     )}
                   >
                     {label}
-                  </button>
+                  </Button>
                 ))}
               </div>
               {tipPreset === "custom" && (
                 <div className="flex items-center gap-1">
                   <span className="text-sm font-medium text-slate-500">$</span>
-                  <input
+                  <Input
                     type="number"
                     min="0"
                     step="0.10"
@@ -474,33 +474,33 @@ export function SessionActions({
           <div>
             <div className="mb-1 flex items-center justify-between gap-2">
               <p className="text-sm font-semibold text-slate-700">Split / partial</p>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={() => {
                   setSplitMode((v) => !v);
                   setPayAmount("");
                 }}
-                className="text-sm font-semibold text-accent-700 hover:text-accent-800"
+                className="h-auto p-0 text-sm font-semibold text-accent-700 hover:bg-transparent hover:text-accent-800"
               >
                 {splitMode ? "Pay full balance" : "Pay part / split"}
-              </button>
+              </Button>
             </div>
             {splitMode && (
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   {[2, 3, 4].map((n) => (
-                    <button
+                    <Button
                       key={n}
-                      type="button"
+                      variant="ghost"
                       onClick={() => setPayAmount(String(round2(dueNow / n)))}
-                      className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100"
+                      className="h-auto rounded-md border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100"
                     >
                       ÷{n} · {formatPrice(round2(dueNow / n))}
-                    </button>
+                    </Button>
                   ))}
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-medium text-slate-500">$</span>
-                    <input
+                    <Input
                       type="number"
                       min="0"
                       step="0.10"
@@ -532,19 +532,19 @@ export function SessionActions({
             ) : (
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {paymentMethods.map((m) => (
-                  <button
+                  <Button
                     key={m}
-                    type="button"
+                    variant="ghost"
                     onClick={() => setMethod(m)}
                     className={cn(
-                      "rounded-xl border px-3 py-3 text-sm font-semibold transition-colors",
+                      "h-auto whitespace-normal rounded-xl border px-3 py-3 text-sm font-semibold transition-colors",
                       method === m
-                        ? "border-accent-500 bg-accent-50 text-accent-700"
+                        ? "border-accent-500 bg-accent-50 text-accent-700 hover:bg-accent-50"
                         : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                     )}
                   >
                     {m}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}

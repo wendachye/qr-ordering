@@ -4,6 +4,14 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { AuditRow } from "@/components/platform/AuditRow";
@@ -22,6 +30,11 @@ const ACTIONS = [
 ];
 
 const PAGE = 50;
+
+// Radix Select forbids an empty-string item value; map the "All actions"
+// sentinel to a non-empty token at the Select boundary only — the `action`
+// state stays "" exactly as before.
+const ALL = "__all__";
 
 export default function PlatformAuditPage() {
   const { user, status } = useAuth();
@@ -62,20 +75,24 @@ export default function PlatformAuditPage() {
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <select
-          value={action}
-          onChange={(e) => {
-            setAction(e.target.value);
+        <Select
+          value={action || ALL}
+          onValueChange={(v) => {
+            setAction(v === ALL ? "" : v);
             setOffset(0);
           }}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700"
         >
-          {ACTIONS.map((a) => (
-            <option key={a.value} value={a.value}>
-              {a.label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ACTIONS.map((a) => (
+              <SelectItem key={a.value} value={a.value || ALL}>
+                {a.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {query.isFetching && <span className="text-sm text-slate-400">Loading…</span>}
       </div>
 
@@ -93,22 +110,22 @@ export default function PlatformAuditPage() {
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
-                    <th className="px-4 py-3 font-semibold">When</th>
-                    <th className="px-4 py-3 font-semibold">Operator</th>
-                    <th className="px-4 py-3 font-semibold">Action</th>
-                    <th className="px-4 py-3 font-semibold">Details</th>
-                    <th className="px-4 py-3 font-semibold">IP</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table className="w-full text-sm">
+                <TableHeader>
+                  <TableRow className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400 hover:bg-transparent">
+                    <TableHead className="h-auto px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">When</TableHead>
+                    <TableHead className="h-auto px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Operator</TableHead>
+                    <TableHead className="h-auto px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Action</TableHead>
+                    <TableHead className="h-auto px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Details</TableHead>
+                    <TableHead className="h-auto px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">IP</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {entries.map((e) => (
                     <AuditRow key={e.id} entry={e} />
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>

@@ -106,30 +106,30 @@ export function CategorySection({
           {searching ? (
             <span aria-hidden className="w-7" />
           ) : (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
               ref={setActivatorNodeRef}
               {...attributes}
               {...listeners}
               aria-label={`Drag to reorder ${category.name}`}
-              className="touch-none cursor-grab rounded p-1 text-slate-300 hover:text-slate-500 active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-auto p-1 hover:bg-transparent touch-none cursor-grab rounded text-slate-300 hover:text-slate-500 active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <GripVertical className="h-5 w-5" />
-            </button>
+            </Button>
           )}
 
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={onToggleOpen}
             disabled={searching}
             aria-label={open ? "Collapse category" : "Expand category"}
             aria-expanded={open}
-            className="rounded p-1 text-slate-400 hover:text-slate-700 disabled:opacity-40"
+            className="h-auto rounded p-1 text-slate-400 hover:bg-transparent hover:text-slate-700 disabled:opacity-40"
           >
             <ChevronDown
               className={cn("h-5 w-5 transition-transform", !open && "-rotate-90")}
             />
-          </button>
+          </Button>
 
           <h2 className="text-lg font-bold text-slate-900">{category.name}</h2>
           {!category.isActive && <Badge tone="gray">Inactive</Badge>}
@@ -174,14 +174,14 @@ export function CategorySection({
         {open && (
           <div className="p-3">
             {items.length === 0 ? (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={onAddItem}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-6 text-slate-400 transition-colors hover:border-accent-300 hover:text-accent-600"
+                className="flex h-auto w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-6 text-slate-400 transition-colors hover:bg-transparent hover:border-accent-300 hover:text-accent-600"
               >
                 <Plus className="h-4 w-4" />
                 Add the first item
-              </button>
+              </Button>
             ) : (
               <DndContext
                 sensors={sensors}

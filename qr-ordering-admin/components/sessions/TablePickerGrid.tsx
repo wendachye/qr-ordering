@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format";
 import type { FloorEntry } from "@/lib/types";
@@ -30,13 +31,13 @@ export function TablePickerGrid({
             ? !occupied && e.table.isActive
             : occupied && !isCurrent;
         return (
-          <button
+          <Button
             key={e.table.id}
-            type="button"
+            variant="ghost"
             disabled={!selectable || busy}
             onClick={() => onPick(e)}
             className={cn(
-              "flex min-h-[5.5rem] flex-col rounded-xl border p-3 text-left transition",
+              "flex h-auto min-h-[5.5rem] flex-col items-stretch justify-start whitespace-normal rounded-xl border p-3 text-left transition hover:bg-transparent",
               !selectable
                 ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-55"
                 : occupied
@@ -81,7 +82,7 @@ export function TablePickerGrid({
                 <span className="text-xs font-medium text-slate-400">Inactive</span>
               )}
             </div>
-          </button>
+          </Button>
         );
       })}
     </div>

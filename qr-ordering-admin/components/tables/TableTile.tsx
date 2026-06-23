@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { useDraftCount } from "@/hooks/useDraftCart";
 import { cn } from "@/lib/utils";
 import { formatPrice, formatRelative } from "@/lib/format";
@@ -41,11 +42,12 @@ export function TableTile({
 
   return (
     <div className="relative">
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={onOpen}
         disabled={!interactive}
         className={cn(
+          "h-auto items-stretch justify-start gap-0 whitespace-normal hover:bg-transparent",
           "flex min-h-[7.5rem] w-full flex-col rounded-2xl border p-4 text-left shadow-sm transition",
           occupied
             ? "border-accent-300 bg-accent-50/70 hover:border-accent-400 hover:shadow-md active:scale-[0.99]"
@@ -108,18 +110,19 @@ export function TableTile({
             <span className="text-sm font-medium text-slate-400">Inactive</span>
           )}
         </div>
-      </button>
+      </Button>
 
       {/* Manage menu — sits above the tap target */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             aria-label={`Manage ${table.name}`}
             className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <MoreHorizontal className="h-5 w-5" />
-          </button>
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem onSelect={onQr}>

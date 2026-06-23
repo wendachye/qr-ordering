@@ -77,17 +77,17 @@ export function VoucherForm({
                 ["FIXED", "$ off"],
               ] as const
             ).map(([val, label]) => (
-              <button
+              <Button
                 key={val}
-                type="button"
+                variant={discountType === val ? "default" : "outline"}
                 onClick={() => setDiscountType(val)}
                 className={cn(
-                  "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
+                  "h-auto rounded-md border-0 bg-transparent px-3 py-1.5 text-sm font-semibold shadow-none transition-colors",
                   discountType === val ? "bg-accent-600 text-white" : "text-slate-600 hover:bg-slate-100"
                 )}
               >
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
           <div className="flex items-center gap-1">

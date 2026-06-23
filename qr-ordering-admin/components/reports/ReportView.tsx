@@ -2,6 +2,15 @@
 
 import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { formatDateTime, formatPrice, formatTime } from "@/lib/format";
 import type { SalesReport } from "@/lib/types";
 
@@ -521,44 +530,53 @@ function ReportTable({
 }) {
   if (rows.length === 0) return <p className="text-sm text-slate-400">None.</p>;
   return (
-    <table className="w-full min-w-[34rem] text-sm">
-      <thead>
-        <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-400">
+    <Table className="w-full min-w-[34rem] text-sm">
+      <TableHeader>
+        <TableRow className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-400">
           {head.map((h, i) => (
-            <th key={h} className={cn("py-1.5 font-semibold", i === 0 ? "text-left" : "text-right")}>
+            <TableHead
+              key={h}
+              className={cn(
+                "h-auto px-0 py-1.5 font-semibold text-slate-400",
+                i === 0 ? "text-left" : "text-right"
+              )}
+            >
               {h}
-            </th>
+            </TableHead>
           ))}
-        </tr>
-      </thead>
-      <tbody>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows.map((r, ri) => (
-          <tr key={ri} className="border-b border-slate-100">
+          <TableRow key={ri} className="border-b border-slate-100 hover:bg-transparent">
             {r.map((cell, ci) => (
-              <td
+              <TableCell
                 key={ci}
                 className={cn(
-                  "py-1.5",
+                  "p-0 py-1.5",
                   ci === 0 ? "font-medium text-slate-800" : "text-right tabular-nums text-slate-700"
                 )}
               >
                 {cell}
-              </td>
+              </TableCell>
             ))}
-          </tr>
+          </TableRow>
         ))}
-      </tbody>
+      </TableBody>
       {foot && (
-        <tfoot>
-          <tr className="font-bold text-slate-900">
+        <TableFooter className="border-0 bg-transparent font-medium">
+          <TableRow className="font-bold text-slate-900 hover:bg-transparent">
             {foot.map((cell, ci) => (
-              <td key={ci} className={cn("py-2", ci === 0 ? "text-left" : "text-right tabular-nums")}>
+              <TableCell
+                key={ci}
+                className={cn("p-0 py-2", ci === 0 ? "text-left" : "text-right tabular-nums")}
+              >
                 {cell}
-              </td>
+              </TableCell>
             ))}
-          </tr>
-        </tfoot>
+          </TableRow>
+        </TableFooter>
       )}
-    </table>
+    </Table>
   );
 }

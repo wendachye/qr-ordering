@@ -7,6 +7,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ModalDialog } from "@/components/ui/modal-dialog";
@@ -17,6 +25,7 @@ import { staffApi } from "@/lib/endpoints";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { ASSIGNABLE_ROLES, ROLE_LABELS } from "@/lib/permissions";
+import { initials } from "@/lib/initials";
 import type { Role, StaffMember } from "@/lib/types";
 
 const ROLE_HINT: Record<Role, string> = {
@@ -25,14 +34,6 @@ const ROLE_HINT: Record<Role, string> = {
   CASHIER: "POS, payments + reports",
   WAITER: "Order entry only",
 };
-
-// 1–2 letter initials for the avatar fallback: "Test Waiter" → "TW", an email
-// with no name → its first two letters.
-function initials(label: string): string {
-  const parts = label.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return (parts[0]?.slice(0, 2) || "?").toUpperCase();
-}
 
 function RoleBadge({ role }: { role: Role }) {
   const tone = role === "OWNER" ? "accent" : role === "MANAGER" ? "green" : "gray";
@@ -110,20 +111,26 @@ export function StaffManager() {
                 <div className="flex items-center gap-2">
                   {!m.isActive && <Badge tone="gray">Disabled</Badge>}
                   {canManage && !isSelf ? (
-                    <select
+                    <Select
                       value={m.role}
-                      onChange={(e) => update.mutate({ id: m.id, role: e.target.value as Role })}
+                      onValueChange={(v) => update.mutate({ id: m.id, role: v as Role })}
                       disabled={update.isPending}
-                      aria-label={`Role for ${m.email}`}
-                      className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30"
                     >
-                      {/* The member's current role is always listed, plus the ones you may assign. */}
-                      {[...new Set([m.role, ...assignable])].map((r) => (
-                        <option key={r} value={r}>
-                          {ROLE_LABELS[r]}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger
+                        aria-label={`Role for ${m.email}`}
+                        className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {/* The member's current role is always listed, plus the ones you may assign. */}
+                        {[...new Set([m.role, ...assignable])].map((r) => (
+                          <SelectItem key={r} value={r}>
+                            {ROLE_LABELS[r]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   ) : (
                     <RoleBadge role={m.role} />
                   )}
@@ -211,26 +218,29 @@ function AddStaffDialog({
         </div>
         <div>
           <Label className="mb-2">Role</Label>
-          <div className="space-y-1.5">
+          <RadioGroup
+            value={role}
+            onValueChange={(v) => setRole(v as Role)}
+            className="space-y-1.5"
+          >
             {assignable.map((r) => (
-              <label
+              <Label
                 key={r}
+                htmlFor={`role-${r}`}
                 className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 p-2.5 transition-colors hover:bg-slate-50"
               >
-                <input
-                  type="radio"
-                  name="role"
-                  checked={role === r}
-                  onChange={() => setRole(r)}
-                  className="mt-0.5 h-4 w-4 text-accent-600 focus:ring-accent-500"
+                <RadioGroupItem
+                  id={`role-${r}`}
+                  value={r}
+                  className="mt-0.5 h-4 w-4"
                 />
                 <span>
                   <span className="block text-sm font-semibold text-slate-800">{ROLE_LABELS[r]}</span>
                   <span className="block text-xs text-slate-400">{ROLE_HINT[r]}</span>
                 </span>
-              </label>
+              </Label>
             ))}
-          </div>
+          </RadioGroup>
         </div>
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose} disabled={create.isPending}>

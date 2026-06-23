@@ -2,6 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Star } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { itemsApi } from "@/lib/endpoints";
 import { useToast } from "@/components/common/Toast";
 import { ApiError } from "@/lib/api";
@@ -31,10 +32,9 @@ export function FeatureToggle({
   });
 
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={isFeatured}
+    <Button
+      variant="ghost"
+      aria-pressed={isFeatured}
       aria-label={isFeatured ? "Remove from featured" : "Feature this item"}
       title={isFeatured ? "Featured — tap to remove" : "Feature this item"}
       disabled={mutation.isPending}
@@ -47,6 +47,6 @@ export function FeatureToggle({
       )}
     >
       <Star className={cn("h-5 w-5", isFeatured && "fill-amber-400")} />
-    </button>
+    </Button>
   );
 }

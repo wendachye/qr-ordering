@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/common/Toast";
 import { platformPlansApi } from "@/lib/endpoints";
@@ -76,11 +77,10 @@ export function PlanCard({ plan }: { plan: PlanDef }) {
             <Badge tone="gray">{plan.key}</Badge>
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-600">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={draft.isActive}
-              onChange={(e) => patch({ isActive: e.target.checked })}
-              className="h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+              onCheckedChange={(v) => patch({ isActive: v === true })}
+              className="h-4 w-4"
             />
             Active
           </label>
@@ -137,11 +137,10 @@ export function PlanCard({ plan }: { plan: PlanDef }) {
                 key={f.key}
                 className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 p-2.5 transition-colors hover:bg-slate-50"
               >
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={draft.features.includes(f.key)}
-                  onChange={() => toggleFeature(f.key)}
-                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+                  onCheckedChange={() => toggleFeature(f.key)}
+                  className="mt-0.5 h-4 w-4"
                 />
                 <span>
                   <span className="block text-sm font-semibold text-slate-800">{f.label}</span>

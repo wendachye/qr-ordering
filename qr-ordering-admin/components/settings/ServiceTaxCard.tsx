@@ -114,14 +114,15 @@ export function ServiceTaxCard({
                 />
                 <span className="text-sm font-medium text-slate-500">%</span>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => removeRow(i)}
                 aria-label="Remove tax"
-                className="rounded p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                className="h-auto w-auto rounded p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
           ))}
         </div>

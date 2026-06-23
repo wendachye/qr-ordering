@@ -2,6 +2,7 @@
 
 import { Eye, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
 // Top banner shown while the platform operator is "viewing as" an outlet.
 export function ImpersonationBanner() {
@@ -14,14 +15,14 @@ export function ImpersonationBanner() {
         Viewing <span className="font-black">{impersonating.outletName}</span> as the operator
         {user?.imp ? ` (${user.imp})` : ""}
       </span>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         onClick={() => void exitImpersonation()}
-        className="ml-2 inline-flex items-center gap-1 rounded-md bg-white/20 px-2.5 py-1 font-bold transition-colors hover:bg-white/30"
+        className="ml-2 inline-flex h-auto items-center gap-1 rounded-md bg-white/20 px-2.5 py-1 font-bold text-white transition-colors hover:bg-white/30 hover:text-white"
       >
         <LogOut className="h-3.5 w-3.5" />
         Exit
-      </button>
+      </Button>
     </div>
   );
 }

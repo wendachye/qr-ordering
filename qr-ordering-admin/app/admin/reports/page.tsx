@@ -88,21 +88,21 @@ export default function ReportsPage() {
           {(["day", "month", "range"] as Mode[]).map((m) => {
             const lockedMode = advLocked && m !== "day";
             return (
-              <button
+              <Button
                 key={m}
-                type="button"
+                variant="ghost"
                 onClick={() => !lockedMode && setMode(m)}
                 disabled={lockedMode}
                 title={lockedMode ? "Upgrade to Pro for monthly & custom-range reports" : undefined}
                 className={cn(
-                  "flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-semibold capitalize transition-colors",
+                  "h-auto flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-semibold capitalize transition-colors hover:bg-transparent",
                   mode === m ? "bg-accent-600 text-white" : "text-slate-600 hover:bg-slate-100",
                   lockedMode && "cursor-not-allowed opacity-50 hover:bg-transparent"
                 )}
               >
                 {m}
                 {lockedMode && <Lock className="h-3 w-3" />}
-              </button>
+              </Button>
             );
           })}
         </div>

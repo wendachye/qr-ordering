@@ -3,7 +3,7 @@
 import { Ticket } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 import { formatPrice } from "@/lib/format";
 import type { Voucher } from "@/lib/types";
 
@@ -58,25 +58,13 @@ export function VoucherRow({
           {v.expiresAt ? ` · expires ${ymd(v.expiresAt)}` : ""}
         </p>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={v.isActive}
-        aria-label={`Toggle ${v.code}`}
+      <Switch
+        checked={v.isActive}
+        onCheckedChange={onToggle}
         disabled={toggling}
-        onClick={onToggle}
-        className={cn(
-          "relative h-7 w-12 shrink-0 rounded-full transition-colors",
-          v.isActive ? "bg-accent-600" : "bg-slate-300"
-        )}
-      >
-        <span
-          className={cn(
-            "absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all",
-            v.isActive ? "left-6" : "left-1"
-          )}
-        />
-      </button>
+        aria-label={`Toggle ${v.code}`}
+        className="shrink-0"
+      />
       <Button variant="secondary" size="sm" onClick={onEdit}>
         Edit
       </Button>

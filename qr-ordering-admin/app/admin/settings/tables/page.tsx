@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link2, Pencil, Plus, QrCode, Trash2 } from "lucide-react";
 import { SettingsTabs } from "@/components/settings/SettingsTabs";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { ModalDialog } from "@/components/ui/modal-dialog";
 import { TableForm } from "@/components/tables/TableForm";
 import { TableQrDialog } from "@/components/tables/TableQrDialog";
@@ -18,7 +19,6 @@ import { tablesApi } from "@/lib/endpoints";
 import { useTableMutations } from "@/hooks/useTableMutations";
 import { useEntitlements } from "@/hooks/useEntitlements";
 import { ApiError } from "@/lib/api";
-import { cn } from "@/lib/utils";
 import { customerOrderLink } from "@/lib/customer";
 import { copyToClipboard } from "@/lib/clipboard";
 import type { Table } from "@/lib/types";
@@ -128,25 +128,13 @@ export default function SettingsTablesPage() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                role="switch"
-                aria-checked={t.isActive}
+              <Switch
                 aria-label={`Toggle ${t.name}`}
                 disabled={update.isPending}
-                onClick={() => update.mutate({ id: t.id, input: { isActive: !t.isActive } })}
-                className={cn(
-                  "relative h-7 w-12 shrink-0 rounded-full transition-colors",
-                  t.isActive ? "bg-accent-600" : "bg-slate-300"
-                )}
-              >
-                <span
-                  className={cn(
-                    "absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all",
-                    t.isActive ? "left-6" : "left-1"
-                  )}
-                />
-              </button>
+                checked={t.isActive}
+                onCheckedChange={() => update.mutate({ id: t.id, input: { isActive: !t.isActive } })}
+                className="shrink-0"
+              />
 
               <Button variant="secondary" size="sm" onClick={() => setQrTable(t)}>
                 <QrCode />

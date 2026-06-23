@@ -5,6 +5,14 @@ import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ModalDialog } from "@/components/ui/modal-dialog";
 import { useToast } from "@/components/common/Toast";
 import { platformOutletsApi } from "@/lib/endpoints";
@@ -76,28 +84,28 @@ function OutletEditBody({
         </div>
         <div>
           <Label>Subscription</Label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as SubStatus)}
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30"
-          >
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+          <Select value={status} onValueChange={(v) => setStatus(v as SubStatus)}>
+            <SelectTrigger className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <Label>Trial ends</Label>
           <Input type="date" value={trial} onChange={(e) => setTrial(e.target.value)} />
         </div>
         <label className="flex items-end gap-2 pb-2 text-sm font-medium text-slate-600">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={isActive}
-            onChange={(e) => setIsActive(e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+            onCheckedChange={(v) => setIsActive(v === true)}
+            className="h-4 w-4"
           />
           Active
         </label>

@@ -150,22 +150,22 @@ export function BannerSettingsCard({ settings }: { settings: MenuSettings }) {
                     First
                   </span>
                 )}
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => removeAt(idx)}
                   aria-label="Remove image"
-                  className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-slate-900/70 text-lg leading-none text-white transition-colors hover:bg-red-600"
+                  className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-slate-900/70 p-0 text-lg leading-none text-white transition-colors hover:bg-red-600 hover:text-white"
                 >
                   ×
-                </button>
+                </Button>
                 {idx > 0 && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => makeFirst(idx)}
-                    className="absolute inset-x-0 bottom-0 bg-slate-900/70 py-1 text-xs font-semibold text-white opacity-0 transition-opacity hover:bg-slate-900/90 group-hover:opacity-100"
+                    className="absolute inset-x-0 bottom-0 h-auto rounded-none bg-slate-900/70 py-1 text-xs font-semibold text-white opacity-0 transition-opacity hover:bg-slate-900/90 hover:text-white group-hover:opacity-100"
                   >
                     Make first
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
