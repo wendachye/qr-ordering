@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { MenuItem, MenuResponse, PublicCombo } from "@/lib/types";
-import { ApiError, getMenu, getTable } from "@/lib/api";
+import { ApiError, getMenu } from "@/lib/api";
 import { useCartStore, selectSubtotal, selectTotalItems } from "@/store/cart";
 import { MobileShell } from "@/components/layout/MobileShell";
 import { ThemeAccent } from "@/components/layout/ThemeAccent";
@@ -38,6 +38,13 @@ export function MenuView({ tableCode }: { tableCode: string }) {
   // Free-text menu search (toggled from the tabs bar); empty = browse by category.
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  // Debounced copy of `search` that actually drives filtering — keeps typing
+  // snappy on large menus (the input stays controlled by `search`).
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(search), 150);
+    return () => clearTimeout(t);
+  }, [search]);
 
   // Cart store wiring.
   const setTable = useCartStore((s) => s.setTable);
@@ -46,13 +53,12 @@ export function MenuView({ tableCode }: { tableCode: string }) {
   const totalItems = useCartStore(selectTotalItems);
   const subtotal = useCartStore(selectSubtotal);
 
-  // Validate the table first (GET /public/tables/:tableCode), then load the
-  // menu (GET /public/menu?tableCode=...). Validation surfaces a clear 404
-  // (missing) / 400 (inactive) before we render the menu.
+  // Load the menu (GET /public/menu?tableCode=...). It already returns the store
+  // + table and 404s (missing) / 400s (inactive) for a bad table, so a separate
+  // table-validation pre-flight would only add a round-trip to time-to-menu.
   const load = useCallback(async () => {
     setState({ status: "loading" });
     try {
-      await getTable(tableCode);
       const data = await getMenu(tableCode);
       setState({ status: "ready", data });
       setSearch("");
@@ -104,6 +110,29 @@ export function MenuView({ tableCode }: { tableCode: string }) {
     return map;
   }, [items]);
 
+  // Search (debounced): items AND set meals whose name/description match, across
+  // every category. Memoised so we don't re-flatten + re-filter the whole menu
+  // on every render. Defined before the early returns to respect the hooks rules.
+  const query = debouncedQuery.trim().toLowerCase();
+  const searching = searchOpen && query.length > 0;
+  const { searchResults, comboResults } = useMemo(() => {
+    if (!searching || state.status !== "ready") {
+      return { searchResults: [] as MenuItem[], comboResults: [] as PublicCombo[] };
+    }
+    const m = (name: string, description?: string | null) =>
+      name.toLowerCase().includes(query) ||
+      (description ?? "").toLowerCase().includes(query);
+    const d = state.data;
+    return {
+      searchResults: d.categories
+        .flatMap((c) => c.items)
+        .filter((it) => m(it.name, it.description)),
+      comboResults: (d.combos ?? [])
+        .filter((c) => c.isAvailable && !c.posOnly)
+        .filter((c) => m(c.name, c.description)),
+    };
+  }, [searching, query, state]);
+
   const handleAdd = (item: MenuItem, selection: AddSelection) => {
     addItem({
       kind: "item",
@@ -149,7 +178,7 @@ export function MenuView({ tableCode }: { tableCode: string }) {
               ? `We couldn't find an active table for "${tableCode}". Please rescan the QR code on your table.`
               : state.message
           }
-          onRetry={state.notFound ? undefined : load}
+          onRetry={load}
         />
       </MobileShell>
     );
@@ -195,19 +224,22 @@ export function MenuView({ tableCode }: { tableCode: string }) {
   const activeItems =
     displayCategories.find((c) => c.id === activeCategory)?.items ?? [];
 
-  // Search: while there's a query, show a flat list of items whose name or
-  // description matches, across every category. Combos are excluded.
-  const query = search.trim().toLowerCase();
-  const searching = searchOpen && query.length > 0;
-  const searchResults = searching
-    ? categories
-        .flatMap((c) => c.items)
-        .filter(
-          (it) =>
-            it.name.toLowerCase().includes(query) ||
-            (it.description ?? "").toLowerCase().includes(query)
-        )
-    : [];
+  // Name of the current view, shown in the panel's visible <h2> and used to
+  // label the tabpanel for assistive tech.
+  const activeCategoryName =
+    displayCategories.find((c) => c.id === activeCategory)?.name ?? "";
+  const viewHeading = searching
+    ? `Results for "${search.trim()}"`
+    : showingCombos
+    ? "Set meals"
+    : activeCategoryName;
+  // While browsing, the panel is labelled by the active tab; while searching,
+  // there is no active tab, so use a plain label instead.
+  const panelLabel = searching
+    ? { "aria-label": "Search results" }
+    : activeCategory
+    ? { "aria-labelledby": `tab-${activeCategory}` }
+    : { "aria-label": "Menu" };
 
   return (
     <MobileShell
@@ -217,6 +249,7 @@ export function MenuView({ tableCode }: { tableCode: string }) {
     >
       {/* Apply this outlet's brand accent (no-op when unset → default emerald). */}
       <ThemeAccent color={store.themeColor} />
+      <h1 className="sr-only">{`${store.name} — Menu`}</h1>
       {/* Banner */}
       <MenuBanner
         storeName={store.name}
@@ -284,21 +317,64 @@ export function MenuView({ tableCode }: { tableCode: string }) {
         </div>
       )}
 
-      {/* Items grid for the active category (combo cards on the "Set meals" tab) */}
-      {!hasItems ? (
-        <EmptyState
-          title="No items yet"
-          message="This menu doesn't have any items right now. Please check back soon."
-        />
-      ) : searching ? (
-        searchResults.length === 0 ? (
+      {/* Items grid for the active category (combo cards on the "Set meals"
+          tab). The scrolling content region is the tabpanel for the category
+          tablist above. */}
+      <div id="menu-panel" role="tabpanel" tabIndex={-1} {...panelLabel}>
+        {/* Visible heading naming the current view (h2 under the sr-only h1). */}
+        {hasItems && viewHeading && (
+          <h2 className="px-4 pt-4 text-lg font-bold text-gray-900">{viewHeading}</h2>
+        )}
+        {!hasItems ? (
           <EmptyState
-            title="No matches"
-            message={`No items match "${search.trim()}". Try another search.`}
+            title="No items yet"
+            message="This menu doesn't have any items right now. Please check back soon."
+          />
+        ) : searching ? (
+          searchResults.length === 0 && comboResults.length === 0 ? (
+            <EmptyState
+              title="No matches"
+              message={`Nothing on the menu matches "${search.trim()}". Try another search.`}
+            />
+          ) : (
+            <div className="grid grid-cols-2 gap-3 px-4 py-4">
+              {comboResults.map((combo) => (
+                <ComboCard
+                  key={combo.id}
+                  combo={combo}
+                  quantityInCart={comboQuantityById[combo.id] ?? 0}
+                  onSelect={setModalCombo}
+                />
+              ))}
+              {searchResults.map((item) => (
+                <MenuItemCard
+                  key={item.id}
+                  item={item}
+                  quantityInCart={quantityById[item.id] ?? 0}
+                  onSelect={setModalItem}
+                />
+              ))}
+            </div>
+          )
+        ) : showingCombos ? (
+          <div className="grid grid-cols-2 gap-3 px-4 py-4">
+            {availableCombos.map((combo) => (
+              <ComboCard
+                key={combo.id}
+                combo={combo}
+                quantityInCart={comboQuantityById[combo.id] ?? 0}
+                onSelect={setModalCombo}
+              />
+            ))}
+          </div>
+        ) : activeItems.length === 0 ? (
+          <EmptyState
+            title="Nothing in this category"
+            message="Try another category from the bar above."
           />
         ) : (
           <div className="grid grid-cols-2 gap-3 px-4 py-4">
-            {searchResults.map((item) => (
+            {activeItems.map((item) => (
               <MenuItemCard
                 key={item.id}
                 item={item}
@@ -307,35 +383,8 @@ export function MenuView({ tableCode }: { tableCode: string }) {
               />
             ))}
           </div>
-        )
-      ) : showingCombos ? (
-        <div className="grid grid-cols-2 gap-3 px-4 py-4">
-          {availableCombos.map((combo) => (
-            <ComboCard
-              key={combo.id}
-              combo={combo}
-              quantityInCart={comboQuantityById[combo.id] ?? 0}
-              onSelect={setModalCombo}
-            />
-          ))}
-        </div>
-      ) : activeItems.length === 0 ? (
-        <EmptyState
-          title="Nothing in this category"
-          message="Try another category from the bar above."
-        />
-      ) : (
-        <div className="grid grid-cols-2 gap-3 px-4 py-4">
-          {activeItems.map((item) => (
-            <MenuItemCard
-              key={item.id}
-              item={item}
-              quantityInCart={quantityById[item.id] ?? 0}
-              onSelect={setModalItem}
-            />
-          ))}
-        </div>
-      )}
+        )}
+      </div>
 
       <ItemModal item={modalItem} onClose={() => setModalItem(null)} onAdd={handleAdd} />
       <ComboModal

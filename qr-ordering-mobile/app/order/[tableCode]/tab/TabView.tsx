@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { OpenTab } from "@/lib/types";
 import { ApiError, getTab } from "@/lib/api";
@@ -16,30 +16,62 @@ type LoadState =
   | { status: "error"; message: string }
   | { status: "ready"; data: OpenTab };
 
+// Re-check the tab this often while the page is visible — a shared table means a
+// companion can add a round from their own phone.
+const POLL_MS = 20_000;
+
 // The table's current open tab: every round + item ordered so far this session,
 // with a running subtotal. Read-only — the diner reviews; staff settle the bill.
+// Auto-refreshes on focus / visibility and on a light poll so a companion's new
+// round appears without a manual reload.
 export function TabView({ tableCode }: { tableCode: string }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [nonce, setNonce] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const backHref = `/order/${encodeURIComponent(tableCode)}`;
 
+  const load = useCallback(
+    async (mode: "initial" | "refresh") => {
+      if (mode === "initial") setState({ status: "loading" });
+      else setRefreshing(true);
+      try {
+        const data = await getTab(tableCode);
+        setState({ status: "ready", data });
+      } catch (err) {
+        const message =
+          err instanceof ApiError ? err.message : "We couldn't load your tab.";
+        // On a background refresh keep the data we already have; only fall to the
+        // error screen if we never managed an initial load.
+        setState((prev) =>
+          mode === "initial" || prev.status !== "ready"
+            ? { status: "error", message }
+            : prev
+        );
+      } finally {
+        if (mode === "refresh") setRefreshing(false);
+      }
+    },
+    [tableCode]
+  );
+
+  // Initial load (and again whenever the table changes).
   useEffect(() => {
-    let cancelled = false;
-    setState({ status: "loading" });
-    getTab(tableCode)
-      .then((data) => !cancelled && setState({ status: "ready", data }))
-      .catch(
-        (err) =>
-          !cancelled &&
-          setState({
-            status: "error",
-            message: err instanceof ApiError ? err.message : "We couldn't load your tab.",
-          })
-      );
-    return () => {
-      cancelled = true;
+    load("initial");
+  }, [load]);
+
+  // Refresh when the page regains focus / visibility, plus a light poll.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible") load("refresh");
     };
-  }, [tableCode, nonce]);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    const id = window.setInterval(refresh, POLL_MS);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+      window.clearInterval(id);
+    };
+  }, [load]);
 
   if (state.status === "loading") {
     return (
@@ -52,7 +84,7 @@ export function TabView({ tableCode }: { tableCode: string }) {
   if (state.status === "error") {
     return (
       <MobileShell>
-        <ErrorState message={state.message} onRetry={() => setNonce((n) => n + 1)} />
+        <ErrorState message={state.message} onRetry={() => load("initial")} />
       </MobileShell>
     );
   }
@@ -76,7 +108,31 @@ export function TabView({ tableCode }: { tableCode: string }) {
         <Link href={backHref} className="text-sm text-accent">
           ← Back to menu
         </Link>
-        <h1 className="mt-2 text-xl font-bold text-black">Your tab</h1>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <h1 className="text-xl font-bold text-black">Your tab</h1>
+          <button
+            type="button"
+            onClick={() => load("refresh")}
+            disabled={refreshing}
+            aria-label="Refresh your tab"
+            className="flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium text-accent active:bg-accent/10 disabled:opacity-50"
+          >
+            <svg
+              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+              <path d="M21 3v6h-6" />
+            </svg>
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
         <p className="mt-1 text-sm text-gray-500">
           {tab.tableName}
           {tab.sessionNumber ? ` · Bill #${tab.sessionNumber}` : ""}
