@@ -36,6 +36,10 @@ export function MenuBanner({
   const images = imageUrls.filter(Boolean);
   const count = images.length;
   const [index, setIndex] = useState(0);
+  // A slide only gets its `src` once it's been shown (the active slide + the
+  // immediate next, preloaded for a smooth cross-fade). So the initial paint
+  // fetches just the first (LCP) image instead of every banner image at once.
+  const [shown, setShown] = useState<Set<number>>(() => new Set([0]));
   const touchX = useRef<number | null>(null);
 
   // Keep the active index in range if the image list changes.
@@ -50,6 +54,16 @@ export function MenuBanner({
     const id = window.setInterval(() => setIndex((i) => (i + 1) % count), ROTATE_MS);
     return () => window.clearInterval(id);
   }, [count]);
+
+  // Mark the active slide (and the next, to preload) as shown so their src loads.
+  useEffect(() => {
+    if (count === 0) return;
+    const a = index % count;
+    const next = (a + 1) % count;
+    setShown((prev) =>
+      prev.has(a) && prev.has(next) ? prev : new Set(prev).add(a).add(next)
+    );
+  }, [index, count]);
 
   const go = (dir: 1 | -1) => setIndex((i) => (i + dir + count) % count);
   const onTouchStart = (e: ReactTouchEvent<HTMLElement>) => {
@@ -77,9 +91,12 @@ export function MenuBanner({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               key={`${url}-${i}`}
-              src={assetUrl(url)}
+              src={shown.has(i) ? assetUrl(url) : undefined}
               alt=""
               aria-hidden="true"
+              fetchPriority={i === 0 ? "high" : undefined}
+              loading={i === 0 ? "eager" : "lazy"}
+              decoding="async"
               className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-in-out ${
                 i === active ? "opacity-100" : "opacity-0"
               }`}
@@ -107,9 +124,11 @@ export function MenuBanner({
       <p className="relative text-xs font-medium uppercase tracking-[0.2em] text-accent-light/90 drop-shadow">
         {storeName}
       </p>
-      <h1 className="relative mt-2 text-3xl font-extrabold tracking-tight drop-shadow">
+      {/* Decorative hero title — NOT the document <h1> (MenuView renders the real
+          sr-only h1) so the menu view has exactly one top-level heading. */}
+      <p className="relative mt-2 text-3xl font-extrabold tracking-tight drop-shadow">
         {heading}
-      </h1>
+      </p>
       <p className="relative mx-auto mt-2 max-w-[18rem] text-sm text-gray-200 drop-shadow">
         {tagline}
       </p>
@@ -120,7 +139,7 @@ export function MenuBanner({
 
       {/* Slideshow dots */}
       {count > 1 && (
-        <div className="relative mt-4 flex justify-center gap-1.5">
+        <div className="relative mt-2 flex justify-center">
           {images.map((_, i) => (
             <button
               key={i}
@@ -128,10 +147,14 @@ export function MenuBanner({
               aria-label={`Show banner image ${i + 1}`}
               aria-current={i === active}
               onClick={() => setIndex(i)}
-              className={`h-1.5 rounded-full transition-all ${
-                i === active ? "w-5 bg-white" : "w-1.5 bg-white/50 hover:bg-white/70"
-              }`}
-            />
+              className="flex items-center justify-center p-2.5"
+            >
+              <span
+                className={`block h-1.5 rounded-full transition-all ${
+                  i === active ? "w-5 bg-white" : "w-1.5 bg-white/50 hover:bg-white/70"
+                }`}
+              />
+            </button>
           ))}
         </div>
       )}

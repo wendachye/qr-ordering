@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { MenuItem } from "@/lib/types";
 import { formatPrice } from "@/lib/currency";
 import { assetUrl } from "@/lib/assets";
@@ -10,7 +11,9 @@ import { tagBadgeClasses } from "@/lib/tags";
  * modal; sold-out items are disabled. The item's attribute tags (Spicy,
  * Vegetarian, …) are shown as coloured badges over the top-left of the image.
  */
-export function MenuItemCard({
+// Memoised: with stable `onSelect`/`item` props, a card only re-renders when its
+// own `quantityInCart` changes — not on every keystroke or other-card cart change.
+export const MenuItemCard = memo(function MenuItemCard({
   item,
   quantityInCart,
   onSelect,
@@ -113,4 +116,4 @@ export function MenuItemCard({
       </div>
     </button>
   );
-}
+});

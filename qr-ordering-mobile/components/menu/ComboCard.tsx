@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { PublicCombo } from "@/lib/types";
 import { formatPrice } from "@/lib/currency";
 import { assetUrl } from "@/lib/assets";
@@ -9,7 +10,8 @@ import { assetUrl } from "@/lib/assets";
  * combo modal. Mirrors MenuItemCard; a "Set" badge marks it as a combo and the
  * price reads "from RM<base>" since premium picks can add to it.
  */
-export function ComboCard({
+// Memoised (see MenuItemCard): re-renders only when its own props change.
+export const ComboCard = memo(function ComboCard({
   combo,
   quantityInCart,
   onSelect,
@@ -69,4 +71,4 @@ export function ComboCard({
       </div>
     </button>
   );
-}
+});
