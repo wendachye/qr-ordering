@@ -25,6 +25,7 @@ export async function getSettings() {
     select: {
       name: true,
       logoUrl: true,
+      themeColor: true,
       featuredTitle: true,
       takeawayCharge: true,
       serviceChargeRate: true,
@@ -39,6 +40,7 @@ export async function getSettings() {
   return {
     storeName: store?.name ?? '',
     logoUrl: store?.logoUrl ?? null,
+    themeColor: store?.themeColor ?? null,
     featuredTitle: store?.featuredTitle ?? 'Popular',
     takeawayCharge: Number(store?.takeawayCharge ?? 0),
     serviceChargeRate: Number(store?.serviceChargeRate ?? 0),
@@ -54,6 +56,7 @@ export async function getSettings() {
 export async function updateSettings(input: {
   storeName?: string;
   logoUrl?: string | null;
+  themeColor?: string | null;
   featuredTitle?: string;
   takeawayCharge?: number;
   serviceChargeRate?: number;
@@ -95,6 +98,7 @@ export async function updateSettings(input: {
     data: {
       ...(input.storeName !== undefined ? { name: input.storeName } : {}),
       ...(input.logoUrl !== undefined ? { logoUrl: input.logoUrl || null } : {}),
+      ...(input.themeColor !== undefined ? { themeColor: input.themeColor || null } : {}),
       ...(input.featuredTitle !== undefined ? { featuredTitle: input.featuredTitle } : {}),
       ...(input.takeawayCharge !== undefined ? { takeawayCharge: input.takeawayCharge } : {}),
       ...(input.serviceChargeRate !== undefined

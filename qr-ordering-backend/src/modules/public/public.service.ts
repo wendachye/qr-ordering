@@ -31,6 +31,7 @@ export async function getTableByCode(tableCode: string) {
       name: table.store.name,
       slug: table.store.slug,
       logoUrl: table.store.logoUrl,
+      themeColor: table.store.themeColor,
     },
   };
 }
@@ -151,6 +152,80 @@ export async function getMenuForTable(tableCode: string) {
   const { table, store } = await getTableByCode(tableCode);
   const menu = await buildStoreMenu(store.id, { includePosOnly: false });
   return { store, table, ...menu };
+}
+
+/**
+ * The current OPEN tab for a table — the rounds + items ordered so far this
+ * session, so a diner can review what the table has ordered. Public by table
+ * code (consistent with ordering: anyone at the table shares the tab). Returns
+ * `hasOpenTab: false` with empty rounds when nothing is open yet. Voided items
+ * and cancelled rounds are excluded; the total is the running item subtotal
+ * (bill-level discounts/charges are only finalised at settlement).
+ */
+export async function getOpenTabForTable(tableCode: string) {
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const table = await prisma.table.findUnique({
+    where: { code: tableCode },
+    select: { id: true, name: true, isActive: true },
+  });
+  if (!table) throw ApiError.notFound(`Table "${tableCode}" was not found`);
+  if (!table.isActive) throw ApiError.badRequest(`Table "${tableCode}" is not active`);
+
+  const session = await prisma.tableSession.findFirst({
+    where: { tableId: table.id, status: 'OPEN' },
+    orderBy: { openedAt: 'desc' },
+    select: {
+      sessionNumber: true,
+      openedAt: true,
+      orders: {
+        where: { status: { not: 'CANCELLED' } },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true,
+          roundNumber: true,
+          createdAt: true,
+          items: {
+            where: { voided: false },
+            orderBy: { createdAt: 'asc' },
+            select: { id: true, name: true, quantity: true, totalPrice: true, note: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!session) {
+    return { tableName: table.name, hasOpenTab: false, sessionNumber: null, openedAt: null, rounds: [], itemCount: 0, total: 0 };
+  }
+
+  const rounds = session.orders
+    .filter((o) => o.items.length > 0)
+    .map((o) => ({
+      id: o.id,
+      roundNumber: o.roundNumber,
+      createdAt: o.createdAt,
+      items: o.items.map((i) => ({
+        id: i.id,
+        name: i.name,
+        quantity: i.quantity,
+        totalPrice: Number(i.totalPrice),
+        note: i.note,
+      })),
+    }));
+  const itemCount = rounds.reduce((s, r) => s + r.items.reduce((x, i) => x + i.quantity, 0), 0);
+  const total = round2(
+    rounds.reduce((s, r) => s + r.items.reduce((x, i) => x + i.totalPrice, 0), 0),
+  );
+
+  return {
+    tableName: table.name,
+    hasOpenTab: true,
+    sessionNumber: session.sessionNumber,
+    openedAt: session.openedAt,
+    rounds,
+    itemCount,
+    total,
+  };
 }
 
 /**

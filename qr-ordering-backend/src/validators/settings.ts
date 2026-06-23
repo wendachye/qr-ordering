@@ -5,6 +5,14 @@ export const settingsUpdateSchema = z.object({
   storeName: z.string().trim().min(1, 'Name is required').max(80).optional(),
   // Restaurant logo URL ('' / null clears it).
   logoUrl: z.string().trim().max(1000).nullable().optional(),
+  // Brand accent colour for the customer app, a hex string ('' / null clears it).
+  themeColor: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Use a hex colour like #059669')
+    .or(z.literal(''))
+    .nullable()
+    .optional(),
   featuredTitle: z.string().trim().min(1).max(40).optional(),
   takeawayCharge: z.coerce.number().min(0).max(10000).optional(),
   // Service charge as a percentage (0–100). 0 = not applied.

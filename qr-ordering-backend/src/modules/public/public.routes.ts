@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { sendOk } from '../../lib/response';
 import { applyVoucherSchema } from '../../validators/voucher';
 import { applyVoucherToTable } from '../admin/vouchers.service';
-import { getMenuForTable, getTableByCode } from './public.service';
+import { getMenuForTable, getOpenTabForTable, getTableByCode } from './public.service';
 import { getReceipt } from './receipt.service';
 
 export const publicRouter = Router();
@@ -21,6 +21,12 @@ publicRouter.post('/voucher', async (req, res) => {
 // GET /api/public/tables/:tableCode
 publicRouter.get('/tables/:tableCode', async (req: Request<{ tableCode: string }>, res) => {
   sendOk(res, await getTableByCode(req.params.tableCode));
+});
+
+// GET /api/public/tables/:tableCode/tab — the table's current open tab (orders
+// placed so far this session), for the diner to review.
+publicRouter.get('/tables/:tableCode/tab', async (req: Request<{ tableCode: string }>, res) => {
+  sendOk(res, await getOpenTabForTable(req.params.tableCode));
 });
 
 // GET /api/public/menu?tableCode=TBL001
