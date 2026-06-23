@@ -37,8 +37,10 @@ export const loginLimiter = rateLimit({
   skipSuccessfulRequests: true,
 });
 
-// Caps automated mass-signup from a single IP.
-export const registerLimiter = rateLimit({ ...common, windowMs: 60 * 60_000, limit: 8 });
-
 // Caps order-submission floods (per IP) — well above any real POS / customer rate.
 export const orderLimiter = rateLimit({ ...common, windowMs: 60_000, limit: 60 });
+
+// Throttle override-PIN verification per IP. It returns 200 even for a WRONG PIN,
+// so a plain count (not skip-successful) is what blocks brute-forcing the 4-6
+// digit PIN. Generous enough for legitimate staff overrides behind one NAT.
+export const pinVerifyLimiter = rateLimit({ ...common, windowMs: 15 * 60_000, limit: 60 });

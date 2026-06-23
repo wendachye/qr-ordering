@@ -3,6 +3,7 @@
 // so the logic is easy to reason about and reuse.
 
 import type {
+  Combo,
   DiscountType,
   OptionGroup,
   PlaceOrderItem,
@@ -25,6 +26,13 @@ export interface CartLine {
   // Custom (open) line: no backing menu item; `name` + `unitPrice` are the
   // source of truth and there are no options.
   custom?: boolean;
+  // Combo (set meal) line: `comboId` + exactly one pick per group. The `options`
+  // array carries the picks for display + the price estimate; the server
+  // recomputes the authoritative price on submit. No menu-item options/add-ons
+  // and no override/discount apply to a combo line.
+  combo?: boolean;
+  comboId?: string;
+  comboSelections?: { groupId: string; optionId: string }[];
   name: string;
   quantity: number;
   note?: string;
@@ -64,6 +72,91 @@ export function customCartLine(name: string, price: number, quantity = 1): CartL
     options: [],
     unitPrice: Math.round(price * 100) / 100,
   };
+}
+
+// --- Combos (set meals) ---
+
+// Per-unit price for a combo given the chosen option per group: the fixed base
+// price plus each selected option's priceDelta. The SERVER recomputes + charges
+// this authoritatively; this is only the client-side display estimate.
+export function comboUnitPrice(
+  combo: Combo,
+  selections: { groupId: string; optionId: string }[]
+): number {
+  let price = combo.price;
+  for (const sel of selections) {
+    const group = combo.groups.find((g) => g.id === sel.groupId);
+    const opt = group?.options.find((o) => o.id === sel.optionId);
+    if (opt) price += opt.priceDelta;
+  }
+  return Math.round(price * 100) / 100;
+}
+
+// Default combo selection — the first available option of each group (combos
+// require exactly one pick per group). Returns a map of groupId -> optionId.
+export function defaultComboSelection(combo: Combo): Record<string, string> {
+  const sel: Record<string, string> = {};
+  for (const g of combo.groups) {
+    const first = g.options.find((o) => o.isAvailable) ?? g.options[0];
+    if (first) sel[g.id] = first.id;
+  }
+  return sel;
+}
+
+// Every group must have a valid pick for the combo to be orderable.
+export function isComboSelectionValid(
+  combo: Combo,
+  selection: Record<string, string>
+): boolean {
+  return combo.groups.every((g) => {
+    const optId = selection[g.id];
+    return !!optId && g.options.some((o) => o.id === optId);
+  });
+}
+
+// Build a cart line for a combo from the chosen option per group. The `options`
+// array holds the picks (group name -> chosen option name + delta) for display;
+// `comboSelections` is what gets forwarded to the API. Pass `lineId` to preserve
+// an existing line's id when EDITING (so it updates in place rather than adding).
+export function comboCartLine(
+  combo: Combo,
+  selection: Record<string, string>,
+  quantity = 1,
+  note?: string,
+  lineId?: string
+): CartLine {
+  const comboSelections: { groupId: string; optionId: string }[] = [];
+  const options: SelectedOption[] = [];
+  for (const g of combo.groups) {
+    const optId = selection[g.id];
+    const opt = g.options.find((o) => o.id === optId);
+    if (!opt) continue;
+    comboSelections.push({ groupId: g.id, optionId: opt.id });
+    options.push({ group: g.name, choice: opt.name, priceDelta: opt.priceDelta });
+  }
+  return {
+    lineId: lineId ?? nextLineId(),
+    combo: true,
+    comboId: combo.id,
+    comboSelections,
+    menuItemId: "",
+    name: combo.name,
+    quantity,
+    note: note?.trim() ? note.trim() : undefined,
+    optionChoiceIds: [],
+    options,
+    unitPrice: comboUnitPrice(combo, comboSelections),
+  };
+}
+
+// Rebuild a combo selection map (groupId -> optionId) from an existing cart
+// line — used to seed the picker when EDITING a combo line.
+export function comboSelectionFromLine(line: CartLine): Record<string, string> {
+  const sel: Record<string, string> = {};
+  for (const s of line.comboSelections ?? []) {
+    sel[s.groupId] = s.optionId;
+  }
+  return sel;
 }
 
 // Pre-select the first choice of each REQUIRED single-select group (maxSelect===1).
@@ -190,6 +283,16 @@ export function cartItemCount(lines: CartLine[]): number {
 // truth so every order-entry screen forwards the same staff fields (override,
 // takeaway, discount) — keeps the POS and the table workspace in lockstep.
 export function cartLineToPlaceOrderItem(l: CartLine): PlaceOrderItem {
+  if (l.combo) {
+    // Combo line: send the picks; the server recomputes + charges the price.
+    // Mutually exclusive with menuItemId/customName — no override/takeaway here.
+    return {
+      comboId: l.comboId,
+      comboSelections: l.comboSelections,
+      quantity: l.quantity,
+      note: l.note,
+    };
+  }
   if (l.custom) {
     return {
       customName: l.name,

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { AdminShell } from "@/components/layout/AdminShell";
 import {
   Select,
   SelectContent,
@@ -20,6 +19,7 @@ import { useToast } from "@/components/common/Toast";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { MenuBrowser } from "@/components/pos/MenuBrowser";
 import { OptionPicker } from "@/components/pos/OptionPicker";
+import { ComboPicker } from "@/components/pos/ComboPicker";
 import { CustomItemDialog } from "@/components/pos/CustomItemDialog";
 import { CartPanel } from "@/components/pos/CartPanel";
 import { ordersApi, tablesApi, posMenuApi, sessionsApi } from "@/lib/endpoints";
@@ -31,7 +31,7 @@ import {
   cartLineToPlaceOrderItem,
   type CartLine,
 } from "@/lib/pos";
-import type { PlaceOrderResponse, PublicMenuItem } from "@/lib/types";
+import type { Combo, PlaceOrderResponse, PublicMenuItem } from "@/lib/types";
 
 export default function NewOrderPage() {
   const router = useRouter();
@@ -76,17 +76,31 @@ export default function NewOrderPage() {
   const { cart, setCart, note: orderNote, setNote: setOrderNote, clearDraft } =
     useDraftCart(tableCode ? `table:${tableCode}` : "");
   const [picking, setPicking] = useState<PublicMenuItem | null>(null);
+  // A combo being added (opens the combo picker).
+  const [pickingCombo, setPickingCombo] = useState<Combo | null>(null);
   const [customOpen, setCustomOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
-  // A cart line being edited (reopens the picker seeded from that line).
+  // A cart line being edited (reopens the picker seeded from that line). Combo
+  // lines route to a separate state so they reopen the combo picker.
   const [editingLine, setEditingLine] = useState<CartLine | null>(null);
+  const [editingComboLine, setEditingComboLine] = useState<CartLine | null>(null);
   const menuItems = useMemo(
     () => menuQuery.data?.categories.flatMap((c) => c.items) ?? [],
     [menuQuery.data]
   );
+  const combos = menuQuery.data?.combos ?? [];
   const editingItem = editingLine
     ? menuItems.find((m) => m.id === editingLine.menuItemId) ?? null
     : null;
+  // The combo definition backing the combo line being edited (for the picker).
+  const editingCombo = editingComboLine
+    ? combos.find((c) => c.id === editingComboLine.comboId) ?? null
+    : null;
+  // Route an Edit click to the right picker by line kind.
+  const editLine = (line: CartLine) => {
+    if (line.combo) setEditingComboLine(line);
+    else setEditingLine(line);
+  };
 
   // "Order again": if ?from=<sessionId> is present, pre-fill the cart from that
   // past session once the menu loads. Staff review + place (so createOrder
@@ -154,6 +168,15 @@ export default function NewOrderPage() {
     setCart((prev) => prev.map((l) => (l.lineId === line.lineId ? line : l)));
     setEditingLine(null);
   };
+  // Combo add / save — separate close handlers so the combo picker state clears.
+  const addComboLine = (line: CartLine) => {
+    setCart((prev) => [...prev, line]);
+    setPickingCombo(null);
+  };
+  const updateComboLine = (line: CartLine) => {
+    setCart((prev) => prev.map((l) => (l.lineId === line.lineId ? line : l)));
+    setEditingComboLine(null);
+  };
   const changeQty = (lineId: string, qty: number) =>
     setCart((prev) =>
       prev.map((l) => (l.lineId === lineId ? { ...l, quantity: qty } : l))
@@ -162,11 +185,11 @@ export default function NewOrderPage() {
     setCart((prev) => prev.filter((l) => l.lineId !== lineId));
 
   return (
-    <AdminShell>
+    <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-4">
           <Link
-            href="/admin/floor"
+            href="/admin/tables"
             className="inline-flex items-center gap-1 text-base font-semibold text-accent-700 hover:text-accent-800"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -221,9 +244,9 @@ export default function NewOrderPage() {
           onRetry={() => tablesQuery.refetch()}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_22rem] xl:grid-cols-[1fr_26rem]">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_20rem] lg:grid-cols-[1fr_22rem] xl:grid-cols-[1fr_26rem]">
           {/* Menu (left) */}
-          <div className="min-h-[60vh] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:h-[calc(100vh-12rem)]">
+          <div className="min-h-[60vh] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:h-[calc(100vh-12rem)]">
             {menuQuery.isLoading ? (
               <LoadingState label="Loading menu…" />
             ) : menuQuery.isError ? (
@@ -241,7 +264,9 @@ export default function NewOrderPage() {
               <MenuBrowser
                 key={tableCode}
                 categories={menuQuery.data?.categories ?? []}
+                combos={combos}
                 onPick={setPicking}
+                onPickCombo={setPickingCombo}
                 onAddCustom={() => setCustomOpen(true)}
               />
             )}
@@ -255,7 +280,7 @@ export default function NewOrderPage() {
               onNoteChange={setOrderNote}
               onQtyChange={changeQty}
               onRemove={removeLine}
-              onEdit={setEditingLine}
+              onEdit={editLine}
               onSubmit={() => placeOrder.mutate()}
               submitting={placeOrder.isPending}
               onClear={() => setConfirmClear(true)}
@@ -278,6 +303,19 @@ export default function NewOrderPage() {
         onSave={updateLine}
       />
 
+      {/* Combo picker (one pick per group; also reopens to edit a combo line) */}
+      <ComboPicker
+        combo={editingComboLine ? editingCombo : pickingCombo}
+        open={!!pickingCombo || !!editingComboLine}
+        editing={editingComboLine}
+        onClose={() => {
+          setPickingCombo(null);
+          setEditingComboLine(null);
+        }}
+        onAdd={addComboLine}
+        onSave={updateComboLine}
+      />
+
       <CustomItemDialog
         open={customOpen}
         onClose={() => setCustomOpen(false)}
@@ -297,6 +335,6 @@ export default function NewOrderPage() {
         }}
         onCancel={() => setConfirmClear(false)}
       />
-    </AdminShell>
+    </>
   );
 }

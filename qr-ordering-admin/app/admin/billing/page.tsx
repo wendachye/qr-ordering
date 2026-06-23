@@ -2,8 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
-import { AdminShell } from "@/components/layout/AdminShell";
-import { SettingsTabs } from "@/components/layout/SettingsTabs";
+import { SettingsTabs } from "@/components/settings/SettingsTabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoadingState } from "@/components/common/LoadingState";
@@ -71,11 +70,7 @@ export default function BillingPage() {
   });
 
   return (
-    <AdminShell>
-      <div className="mb-4">
-        <h1 className="text-3xl font-black text-slate-900">Settings</h1>
-        <p className="mt-1 text-slate-500">Manage your subscription and plan.</p>
-      </div>
+    <>
       <SettingsTabs />
 
       {query.isLoading ? (
@@ -189,6 +184,6 @@ export default function BillingPage() {
           </div>
         </div>
       ) : null}
-    </AdminShell>
+    </>
   );
 }

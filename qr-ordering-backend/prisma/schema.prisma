@@ -24,6 +24,9 @@ model Store {
   bannerImageUrls String[] @default([])
   bannerTitle     String?
   bannerSubtitle  String?
+  // Restaurant logo / brand mark (a single image), shown on the customer menu
+  // header + the receipt. Distinct from the hero banner slideshow.
+  logoUrl         String?
   takeawayCharge Decimal @default(0) @db.Decimal(10, 2)
   // Service charge + tax (e.g. SST) as percentages, e.g. 10.00 / 6.00. Menu
   // prices are treated as tax-inclusive: reports back out these portions from
@@ -43,6 +46,17 @@ model Store {
   discountPinRequired Boolean @default(true)
   overridePinRequired Boolean @default(true)
   paymentMethods String[] @default(["Cash", "Visa", "Mastercard", "GrabPay", "Touch 'n Go"])
+  // --- Malaysia e-Invoice (MyInvois / LHDN) — seller (supplier) details + toggle.
+  einvoiceEnabled      Boolean @default(false)
+  // 'sandbox' (LHDN pre-production, default) | 'production'.
+  einvoiceMode         String  @default("sandbox")
+  sellerTin            String? // taxpayer identification number (TIN)
+  sellerRegistrationNo String? // SSM / business registration number (BRN)
+  sellerSstNo          String? // SST registration number
+  sellerMsic           String? // MSIC business-activity code
+  sellerAddress        String?
+  sellerEmail          String?
+  sellerPhone          String?
   // --- Loyalty program (per store). Members earn points-per-spend and/or
   // stamps; redeem as a bill discount or from a reward catalog. ---
   loyaltyEnabled      Boolean @default(false)
@@ -83,8 +97,13 @@ model Store {
   tables     Table[]
   categories MenuCategory[]
   items      MenuItem[]
+  stockAdjustments StockAdjustment[]
+  invoices       Invoice[]
+  invoiceCounter InvoiceCounter?
   orders     Order[]
   sessions   TableSession[]
+  payments   Payment[]
+  combos     Combo[]
   adminUsers AdminUser[]
   vouchers   Voucher[]
   members    Member[]
@@ -160,9 +179,23 @@ model MenuItem {
   // POS-only ("secret") item: orderable by staff in the admin POS, hidden from
   // the customer menu + public API. Default false = visible to customers.
   posOnly     Boolean  @default(false)
+  // Availability window: the item only shows on the customer menu + is orderable
+  // by diners within these. Empty days = every day; null from/to = all day. Times
+  // are the venue-local "HH:MM" wall clock and may wrap past midnight (from > to,
+  // e.g. 22:00–02:00). Staff can still order off-schedule items in the POS.
+  availableDays Int[]   @default([]) // 0=Sun .. 6=Sat
+  availableFrom String?
+  availableTo   String?
   sortOrder   Int      @default(0)
   isFeatured  Boolean  @default(false)
   featuredOrder Int    @default(0)
+  // --- Item-level inventory (MVP) ---
+  // trackStock off (default) = unlimited, the current behaviour. When on, each
+  // sale decrements stockQty; at 0 the item auto-86s (isAvailable flips to
+  // false). lowStockThreshold (null = no alert) flags an item running low.
+  trackStock        Boolean @default(false)
+  stockQty          Int     @default(0)
+  lowStockThreshold Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -170,10 +203,142 @@ model MenuItem {
   category     MenuCategory  @relation(fields: [categoryId], references: [id])
   orderItems   OrderItem[]
   optionGroups OptionGroup[]
+  comboOptions ComboOption[]
+  stockAdjustments StockAdjustment[]
 
   @@index([storeId])
   @@index([categoryId])
   @@index([storeId, isFeatured])
+}
+
+// Immutable stock-movement ledger for a tracked menu item: every sale, restock,
+// manual set, waste write-off, or void-restore. balanceAfter snapshots the
+// resulting stockQty for audit. reason: sale | restock | set | waste | void_restore.
+model StockAdjustment {
+  id           String   @id @default(cuid())
+  storeId      String
+  menuItemId   String
+  // Negative for a sale / waste, positive for a restock / void-restore.
+  delta        Int
+  reason       String
+  note         String?
+  balanceAfter Int
+  // Staff who made a manual adjustment; null for automatic (sale) moves.
+  actorId      String?
+  actorEmail   String?
+  createdAt    DateTime @default(now())
+
+  store    Store    @relation(fields: [storeId], references: [id])
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([storeId, createdAt])
+  @@index([menuItemId, createdAt])
+}
+
+// A tax invoice for a settled tab — the document submitted to MyInvois (LHDN).
+// Numbering is sequential + gapless per store (see InvoiceCounter). The built
+// MyInvois/UBL payload is snapshotted in `document`; submission identifiers come
+// back on submit. Buyer TIN is captured for B2B; B2C invoices may omit it.
+model Invoice {
+  id        String  @id @default(cuid())
+  storeId   String
+  sessionId String? @unique
+  number    String
+
+  buyerName           String?
+  buyerTin            String?
+  buyerRegistrationNo String?
+  buyerEmail          String?
+  buyerPhone          String?
+  buyerAddress        String?
+
+  currency      String  @default("MYR")
+  subtotal      Decimal @db.Decimal(12, 2)
+  serviceCharge Decimal @default(0) @db.Decimal(12, 2)
+  taxTotal      Decimal @default(0) @db.Decimal(12, 2)
+  total         Decimal @db.Decimal(12, 2)
+  // The full MyInvois/UBL document we build for submission + line/tax detail.
+  document      Json
+
+  // draft | submitted | valid | invalid | cancelled
+  status          String    @default("draft")
+  // MyInvois identifiers returned on submission.
+  submissionUid   String?
+  longId          String?
+  validationUrl   String?
+  qrCode          String?
+  rejectionReason String?
+  submittedAt     DateTime?
+  validatedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store   Store         @relation(fields: [storeId], references: [id])
+  session TableSession? @relation(fields: [sessionId], references: [id])
+
+  @@unique([storeId, number])
+  @@index([storeId, createdAt])
+  @@index([status])
+}
+
+// Per-store gapless invoice sequence. Incremented atomically when an invoice is
+// issued; `year` lets the sequence reset per fiscal year (number prefix).
+model InvoiceCounter {
+  storeId String @id
+  lastSeq Int    @default(0)
+  year    Int    @default(0)
+  store   Store  @relation(fields: [storeId], references: [id])
+}
+
+// A combo / set meal: a fixed-price product that bundles one pick from each of
+// its groups (e.g. "Bento set = 1 main + 1 side + 1 drink"). Each option maps to
+// a menu item; a premium pick can carry a priceDelta on top of the base price.
+// Orders snapshot the chosen components onto the line, so editing a combo later
+// never rewrites history.
+model Combo {
+  id          String   @id @default(cuid())
+  storeId     String
+  name        String
+  description String?
+  imageUrls   String[] @default([])
+  price       Decimal  @db.Decimal(10, 2)
+  isAvailable Boolean  @default(true)
+  posOnly     Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store  Store        @relation(fields: [storeId], references: [id])
+  groups ComboGroup[]
+
+  @@index([storeId])
+}
+
+model ComboGroup {
+  id        String        @id @default(cuid())
+  comboId   String
+  name      String // e.g. "Main", "Side", "Drink"
+  sortOrder Int           @default(0)
+  combo     Combo         @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  options   ComboOption[]
+
+  @@index([comboId])
+}
+
+model ComboOption {
+  id         String  @id @default(cuid())
+  groupId    String
+  menuItemId String
+  // Upcharge for a premium pick (on top of the combo's base price).
+  priceDelta Decimal @default(0) @db.Decimal(10, 2)
+  sortOrder  Int     @default(0)
+
+  group    ComboGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  menuItem MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+  @@index([menuItemId])
 }
 
 model OptionGroup {
@@ -307,10 +472,12 @@ model TableSession {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  store  Store   @relation(fields: [storeId], references: [id])
-  table  Table   @relation(fields: [tableId], references: [id])
-  orders Order[]
-  member Member? @relation(fields: [memberId], references: [id])
+  store    Store     @relation(fields: [storeId], references: [id])
+  table    Table     @relation(fields: [tableId], references: [id])
+  orders   Order[]
+  payments Payment[]
+  member   Member?   @relation(fields: [memberId], references: [id])
+  invoice  Invoice?
 
   @@unique([storeId, sessionNumber])
   @@index([storeId])
@@ -319,12 +486,39 @@ model TableSession {
   @@index([memberId])
 }
 
+// One tender against a tab. A tab settles in one Payment (single method) or
+// several (split / partial pay). `amount` is money toward the bill; `tip` is on
+// top. Cash `tendered` is captured for change. Rows are append-only; a mistaken
+// tender is `voided` rather than deleted so the audit/Z-report stays truthful.
+model Payment {
+  id        String   @id @default(cuid())
+  storeId   String
+  sessionId String
+  method    String // snapshot of one of Store.paymentMethods
+  amount    Decimal  @db.Decimal(10, 2) // tendered toward the bill (excl. tip)
+  tip       Decimal  @default(0) @db.Decimal(10, 2)
+  tendered  Decimal? @db.Decimal(10, 2) // cash given (for change calc; display only)
+  reference String? // card approval / e-wallet ref (optional)
+  voided    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  store   Store        @relation(fields: [storeId], references: [id])
+  session TableSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([sessionId])
+}
+
 model AdminUser {
   id        String   @id @default(cuid())
   storeId   String
   email     String   @unique
   password  String
   name      String?
+  // Staff role within the store (RBAC). Existing accounts default to OWNER.
+  role      Role     @default(OWNER)
+  // Deactivated staff can't log in; kept for attribution/audit (not deleted).
+  isActive  Boolean  @default(true)
   // Platform operator who can edit the global Plan definitions (super-admin).
   isPlatformAdmin Boolean @default(false)
   // Brute-force lockout: failed attempts counter + a temporary lock window.
@@ -569,6 +763,15 @@ model AuditLog {
   @@index([createdAt])
   @@index([entity, entityId])
   @@index([actorId])
+}
+
+// Staff role within a store (RBAC). OWNER = full access; MANAGER = operations +
+// settings + staff; CASHIER = POS + payments + reports; WAITER = order entry only.
+enum Role {
+  OWNER
+  MANAGER
+  CASHIER
+  WAITER
 }
 
 enum OrderStatus {

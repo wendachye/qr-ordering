@@ -1,6 +1,8 @@
 import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../lib/response';
 import { salePriceOf } from '../../lib/pricing';
+import { isItemAvailableNow } from '../../lib/availability';
+import { buildCombosForMenu } from '../menu/combo.service';
 import { currentStoreId } from '../../lib/tenant';
 
 /** Loads an active table by its public code, together with its store. */
@@ -28,6 +30,7 @@ export async function getTableByCode(tableCode: string) {
       id: table.store.id,
       name: table.store.name,
       slug: table.store.slug,
+      logoUrl: table.store.logoUrl,
     },
   };
 }
@@ -40,6 +43,13 @@ export async function getTableByCode(tableCode: string) {
 async function buildStoreMenu(storeId: string, opts: { includePosOnly: boolean }) {
   // Customer menu hides POS-only items; the POS menu includes them.
   const posFilter = opts.includePosOnly ? {} : { posOnly: false };
+  // The customer menu also hides items outside their availability window; the POS
+  // shows everything (staff can order off-schedule). `availableNow` is flagged so
+  // the POS can badge an off-schedule item.
+  const now = new Date();
+  const hideUnscheduled = !opts.includePosOnly;
+  const scheduledIn = (it: { availableDays: number[]; availableFrom: string | null; availableTo: string | null }) =>
+    !hideUnscheduled || isItemAvailableNow(it, now);
 
   const [settings, categories, featuredItems] = await Promise.all([
     prisma.store.findUnique({
@@ -93,6 +103,7 @@ async function buildStoreMenu(storeId: string, opts: { includePosOnly: boolean }
     price: Number(item.price),
     salePrice: salePriceOf(Number(item.price), item.discountType, Number(item.discountValue ?? 0)),
     isAvailable: item.isAvailable,
+    availableNow: isItemAvailableNow(item, now),
     posOnly: item.posOnly,
     sortOrder: item.sortOrder,
     categoryId: item.categoryId,
@@ -110,9 +121,12 @@ async function buildStoreMenu(storeId: string, opts: { includePosOnly: boolean }
     })),
   });
 
+  const combos = await buildCombosForMenu(storeId, opts);
+
   return {
     featuredTitle: settings?.featuredTitle ?? 'Popular',
     takeawayCharge: Number(settings?.takeawayCharge ?? 0),
+    combos,
     // Customer-menu hero banner. An empty image list / null copy falls back to
     // the default gradient/copy on the client; multiple images rotate.
     banner: {
@@ -121,12 +135,13 @@ async function buildStoreMenu(storeId: string, opts: { includePosOnly: boolean }
       subtitle: settings?.bannerSubtitle ?? null,
     },
     // Master switch: hide the whole strip when the store has it turned off.
-    featured: settings?.featuredEnabled === false ? [] : featuredItems.map(mapItem),
+    featured:
+      settings?.featuredEnabled === false ? [] : featuredItems.filter(scheduledIn).map(mapItem),
     categories: categories.map((c) => ({
       id: c.id,
       name: c.name,
       sortOrder: c.sortOrder,
-      items: c.items.map(mapItem),
+      items: c.items.filter(scheduledIn).map(mapItem),
     })),
   };
 }

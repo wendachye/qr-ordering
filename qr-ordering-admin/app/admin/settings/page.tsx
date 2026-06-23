@@ -1,13 +1,14 @@
 "use client";
 
 import { Store } from "lucide-react";
-import { AdminShell } from "@/components/layout/AdminShell";
-import { SettingsTabs } from "@/components/layout/SettingsTabs";
+import { SettingsTabs } from "@/components/settings/SettingsTabs";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { ApiError } from "@/lib/api";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
-import { InlineText, PaymentMethodsCard } from "@/components/settings/cards";
+import { InlineText } from "@/components/settings/InlineText";
+import { LogoCard } from "@/components/settings/LogoCard";
+import { PaymentMethodsCard } from "@/components/settings/PaymentMethodsCard";
 
 // General settings: store identity + payment methods. Charges/tax live under the
 // Charges tab; the override PIN + PIN-required actions live under Security.
@@ -15,11 +16,7 @@ export default function GeneralSettingsPage() {
   const { query, update } = useStoreSettings();
 
   return (
-    <AdminShell>
-      <div className="mb-4">
-        <h1 className="text-3xl font-black text-slate-900">Settings</h1>
-        <p className="mt-1 text-slate-500">Restaurant details &amp; payment methods</p>
-      </div>
+    <>
       <SettingsTabs />
 
       {query.isLoading ? (
@@ -39,6 +36,11 @@ export default function GeneralSettingsPage() {
             saving={update.isPending}
             onSave={(v) => update.mutate({ storeName: v })}
           />
+          <LogoCard
+            logoUrl={query.data.logoUrl}
+            saving={update.isPending}
+            onSave={(logoUrl) => update.mutate({ logoUrl })}
+          />
           <PaymentMethodsCard
             methods={query.data.paymentMethods}
             saving={update.isPending}
@@ -46,6 +48,6 @@ export default function GeneralSettingsPage() {
           />
         </div>
       ) : null}
-    </AdminShell>
+    </>
   );
 }

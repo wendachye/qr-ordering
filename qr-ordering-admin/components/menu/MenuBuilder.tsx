@@ -22,7 +22,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CategorySection } from "@/components/menu/CategorySection";
-import { useMenuSensors } from "@/components/menu/useMenuSensors";
+import { useMenuSensors } from "@/hooks/useMenuSensors";
 import { useReorderCategories } from "@/hooks/useMenuMutations";
 import type { Category, MenuItem } from "@/lib/types";
 
@@ -162,14 +162,14 @@ export function MenuBuilder({
               className="pl-9"
             />
             {query && (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={() => setQuery("")}
                 aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-slate-700"
+                className="absolute right-2 top-1/2 h-auto -translate-y-1/2 rounded p-1 text-slate-400 hover:bg-transparent hover:text-slate-700"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             )}
           </div>
           {!searching && categories.length > 0 && (
@@ -192,17 +192,17 @@ export function MenuBuilder({
           categories.length > 1 && (
             <div className="flex flex-wrap gap-1.5">
               {categories.map((c) => (
-                <button
+                <Button
                   key={c.id}
-                  type="button"
+                  variant="outline"
                   onClick={() => jumpTo(c.id)}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-medium text-slate-600 transition-colors hover:border-accent-300 hover:bg-accent-50 hover:text-accent-700"
+                  className="inline-flex h-auto items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-medium text-slate-600 transition-colors hover:border-accent-300 hover:bg-accent-50 hover:text-accent-700"
                 >
                   {c.name}
                   <span className="text-xs text-slate-400">
                     {itemsByCat.get(c.id)?.length ?? 0}
                   </span>
-                </button>
+                </Button>
               ))}
             </div>
           )

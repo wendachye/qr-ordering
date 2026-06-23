@@ -1,6 +1,7 @@
 "use client";
 
-import { Pencil, ShoppingBag, Trash2 } from "lucide-react";
+import { Pencil, ShoppingBag, Trash2, UtensilsCrossed } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { QtyStepper } from "./QtyStepper";
 import { formatPrice } from "@/lib/format";
 import { lineDiscountAmount, lineTotal, type CartLine } from "@/lib/pos";
@@ -20,15 +21,15 @@ export function CartLineList({
   onEdit?: (line: CartLine) => void;
 }) {
   return (
-    <ul className="space-y-3">
+    <ul className="space-y-2">
       {lines.map((line) => (
         <li
           key={line.lineId}
-          className="rounded-xl border border-slate-200 bg-white p-3"
+          className="rounded-xl border border-slate-200 bg-white p-2.5"
         >
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className="font-semibold text-slate-900">{line.name}</p>
+              <p className="font-semibold leading-tight text-slate-900">{line.name}</p>
               {line.options.length > 0 && (
                 <p className="mt-0.5 text-sm text-slate-500">
                   {line.options.map((o) => o.choice).join(", ")}
@@ -39,8 +40,17 @@ export function CartLineList({
                   “{line.note}”
                 </p>
               )}
-              {(line.isTakeaway || line.priceOverridden || line.discountType) && (
+              {(line.combo ||
+                line.isTakeaway ||
+                line.priceOverridden ||
+                line.discountType) && (
                 <div className="mt-1 flex flex-wrap gap-1">
+                  {line.combo && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                      <UtensilsCrossed className="h-3 w-3" />
+                      Combo
+                    </span>
+                  )}
                   {line.isTakeaway && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700">
                       <ShoppingBag className="h-3 w-3" />
@@ -65,27 +75,29 @@ export function CartLineList({
                 </div>
               )}
             </div>
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="flex shrink-0 items-center gap-0.5">
               {onEdit && !line.custom && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => onEdit(line)}
                   aria-label={`Edit ${line.name}`}
-                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  className="h-auto w-auto rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
                 >
                   <Pencil className="h-4 w-4" />
-                  Edit
-                </button>
+                </Button>
               )}
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => onRemove(line.lineId)}
                 aria-label={`Remove ${line.name}`}
-                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+                className="h-auto w-auto rounded-lg p-1.5 text-red-500 transition-colors hover:bg-red-50"
               >
                 <Trash2 className="h-4 w-4" />
-                Remove
-              </button>
+              </Button>
             </div>
           </div>
           <div className="mt-2 flex items-center justify-between gap-3">

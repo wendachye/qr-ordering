@@ -21,12 +21,14 @@ export function MenuBanner({
   imageUrls = [],
   title,
   subtitle,
+  logoUrl,
 }: {
   storeName: string;
   tableName: string;
   imageUrls?: string[];
   title?: string | null;
   subtitle?: string | null;
+  logoUrl?: string | null;
 }) {
   const heading = title?.trim() || DEFAULT_TITLE;
   const tagline = subtitle?.trim() || DEFAULT_SUBTITLE;
@@ -94,6 +96,14 @@ export function MenuBanner({
         </>
       )}
 
+      {logoUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={assetUrl(logoUrl)}
+          alt=""
+          className="relative mx-auto mb-3 h-16 w-16 rounded-2xl bg-white object-contain p-1.5 shadow-lg"
+        />
+      )}
       <p className="relative text-xs font-medium uppercase tracking-[0.2em] text-emerald-300/90 drop-shadow">
         {storeName}
       </p>

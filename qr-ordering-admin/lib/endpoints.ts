@@ -7,6 +7,13 @@ import type {
   Entitlements,
   Category,
   CategoryInput,
+  Combo,
+  ComboInput,
+  EinvoiceSettings,
+  EinvoiceSettingsInput,
+  Invoice,
+  InvoiceBuyerInput,
+  InvoiceList,
   SalesReport,
   DiscountType,
   LoginResponse,
@@ -34,7 +41,10 @@ import type {
   PrintHealth,
   PublicMenu,
   ReprintResponse,
+  Role,
   Settings,
+  StaffMember,
+  StockLedgerEntry,
   Table,
   TableInput,
   FloorEntry,
@@ -118,18 +128,6 @@ export const authApi = {
       body: { email, password },
       skipAuthRedirect: true,
     }),
-  // Self-serve restaurant signup — creates a new tenant + first admin, returns a token.
-  register: (payload: {
-    restaurantName: string;
-    email: string;
-    password: string;
-    ownerName?: string;
-  }) =>
-    apiRequest<LoginResponse>("/admin/auth/register", {
-      method: "POST",
-      body: payload,
-      skipAuthRedirect: true,
-    }),
   me: () => apiRequest<AuthUser>("/admin/auth/me", { skipAuthRedirect: true }),
   // Re-confirm the admin's password (gates a price override). Returns { ok }.
   verifyPassword: (password: string) =>
@@ -189,11 +187,43 @@ export const sessionsApi = {
     id: string,
     paymentMethod: string,
     discount?: { discountType: DiscountType; discountValue: number },
-    voucherCode?: string
+    voucherCode?: string,
+    tip?: number
   ) =>
     apiRequest<SessionDetail>(`/admin/sessions/${id}/close`, {
       method: "POST",
-      body: { paymentMethod, ...(discount ?? {}), ...(voucherCode !== undefined ? { voucherCode } : {}) },
+      body: {
+        paymentMethod,
+        ...(discount ?? {}),
+        ...(voucherCode !== undefined ? { voucherCode } : {}),
+        ...(tip && tip > 0 ? { tip } : {}),
+      },
+    }),
+  // Record a tender (full or partial/split). Omit `amount` to settle the whole
+  // remaining balance; a smaller amount keeps the tab open with a balance owing.
+  pay: (
+    id: string,
+    input: {
+      paymentMethod: string;
+      amount?: number;
+      tip?: number;
+      tendered?: number;
+      reference?: string;
+      discount?: { discountType: DiscountType; discountValue: number };
+      voucherCode?: string;
+    }
+  ) =>
+    apiRequest<SessionDetail>(`/admin/sessions/${id}/pay`, {
+      method: "POST",
+      body: {
+        paymentMethod: input.paymentMethod,
+        ...(input.amount != null ? { amount: input.amount } : {}),
+        ...(input.tip && input.tip > 0 ? { tip: input.tip } : {}),
+        ...(input.tendered != null ? { tendered: input.tendered } : {}),
+        ...(input.reference ? { reference: input.reference } : {}),
+        ...(input.discount ?? {}),
+        ...(input.voucherCode !== undefined ? { voucherCode: input.voucherCode } : {}),
+      },
     }),
   cancel: (id: string) =>
     apiRequest<SessionDetail>(`/admin/sessions/${id}/cancel`, { method: "POST" }),
@@ -315,6 +345,53 @@ export const itemsApi = {
     }),
 };
 
+// --- Combos / set meals ---
+export const combosApi = {
+  list: () => apiRequest<Combo[]>("/admin/menu/combos"),
+  create: (input: ComboInput) =>
+    apiRequest<Combo>("/admin/menu/combos", { method: "POST", body: input }),
+  update: (id: string, input: Partial<ComboInput>) =>
+    apiRequest<Combo>(`/admin/menu/combos/${id}`, { method: "PATCH", body: input }),
+  remove: (id: string) =>
+    apiRequest<{ id: string }>(`/admin/menu/combos/${id}`, { method: "DELETE" }),
+};
+
+// --- Inventory (stock tracking + adjustments + ledger) ---
+export const inventoryApi = {
+  // Restock (+delta) or waste (−delta). Returns the new count + availability.
+  adjust: (
+    id: string,
+    input: { delta: number; reason: "restock" | "waste"; note?: string }
+  ) =>
+    apiRequest<{ id: string; stockQty: number; isAvailable: boolean }>(
+      `/admin/inventory/${id}/adjust`,
+      { method: "POST", body: input }
+    ),
+  // Turn tracking on/off, set the absolute count + low-stock threshold.
+  config: (
+    id: string,
+    input: { trackStock?: boolean; stockQty?: number; lowStockThreshold?: number | null }
+  ) =>
+    apiRequest<{ id: string }>(`/admin/inventory/${id}/config`, {
+      method: "PATCH",
+      body: input,
+    }),
+  // Recent stock movements, newest first.
+  ledger: (id: string) =>
+    apiRequest<StockLedgerEntry[]>(`/admin/inventory/${id}/ledger`),
+  // Items at or below their low-stock threshold (or out of stock).
+  lowStock: () =>
+    apiRequest<
+      {
+        id: string;
+        name: string;
+        stockQty: number;
+        lowStockThreshold: number | null;
+        isAvailable: boolean;
+      }[]
+    >("/admin/inventory/low-stock"),
+};
+
 // --- Menu settings (featured section title + takeaway charge) ---
 export const menuSettingsApi = {
   get: () => apiRequest<MenuSettings>("/admin/menu/settings"),
@@ -350,6 +427,7 @@ export const settingsApi = {
   get: () => apiRequest<Settings>("/admin/settings"),
   update: (input: {
     storeName?: string;
+    logoUrl?: string | null;
     takeawayCharge?: number;
     serviceChargeRate?: number;
     taxes?: { name: string; rate: number }[];
@@ -374,6 +452,15 @@ export const settingsApi = {
     ),
 };
 
+// --- Staff accounts (RBAC) ---
+export const staffApi = {
+  list: () => apiRequest<StaffMember[]>("/admin/staff"),
+  create: (input: { email: string; password: string; name?: string; role: Role }) =>
+    apiRequest<StaffMember>("/admin/staff", { method: "POST", body: input }),
+  update: (id: string, input: { name?: string | null; role?: Role; isActive?: boolean }) =>
+    apiRequest<StaffMember>(`/admin/staff/${id}`, { method: "PATCH", body: input }),
+};
+
 // --- Vouchers (discount / promo codes) ---
 export const vouchersApi = {
   list: () => apiRequest<Voucher[]>("/admin/vouchers"),
@@ -383,6 +470,32 @@ export const vouchersApi = {
     apiRequest<Voucher>(`/admin/vouchers/${id}`, { method: "PATCH", body: input }),
   remove: (id: string) =>
     apiRequest<{ id: string; deactivated: boolean }>(`/admin/vouchers/${id}`, { method: "DELETE" }),
+};
+
+// --- Malaysia e-Invoice (MyInvois) ---
+// Settings routes need "settings:manage"; invoice routes need "reports:view".
+export const einvoiceApi = {
+  getSettings: () => apiRequest<EinvoiceSettings>("/admin/einvoice/settings"),
+  updateSettings: (input: EinvoiceSettingsInput) =>
+    apiRequest<EinvoiceSettings>("/admin/einvoice/settings", { method: "PATCH", body: input }),
+  listInvoices: (params?: { limit?: number; offset?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.limit != null) qs.set("limit", String(params.limit));
+    if (params?.offset != null) qs.set("offset", String(params.offset));
+    const q = qs.toString();
+    return apiRequest<InvoiceList>(`/admin/einvoice/invoices${q ? `?${q}` : ""}`);
+  },
+  getInvoice: (id: string) => apiRequest<Invoice>(`/admin/einvoice/invoices/${id}`),
+  submitInvoice: (id: string) =>
+    apiRequest<Invoice>(`/admin/einvoice/invoices/${id}/submit`, { method: "POST" }),
+  // The issued invoice for a settled tab, or null if none has been issued yet.
+  sessionInvoice: (sessionId: string) =>
+    apiRequest<Invoice | null>(`/admin/einvoice/sessions/${sessionId}/invoice`),
+  issueForSession: (sessionId: string, buyer: InvoiceBuyerInput) =>
+    apiRequest<Invoice>(`/admin/einvoice/sessions/${sessionId}/issue`, {
+      method: "POST",
+      body: buyer,
+    }),
 };
 
 // --- Reports ---

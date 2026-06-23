@@ -2,10 +2,22 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Plus, Search, X } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { assetUrl } from "@/lib/assets";
 import { formatPrice } from "@/lib/format";
-import type { PublicMenuCategory, PublicMenuItem } from "@/lib/types";
+import type { Combo, PublicMenuCategory, PublicMenuItem } from "@/lib/types";
+
+// Synthetic tab id for the combos / set-meals section (kept distinct from any
+// real category id, which are cuids).
+const COMBOS_TAB = "__combos__";
+
+// A rendered grid cell — either a menu item or a combo. `categoryName` captions
+// the card in search mode (its category, or "Combos").
+type GridEntry =
+  | { kind: "item"; item: PublicMenuItem; categoryName?: string; hay?: string }
+  | { kind: "combo"; combo: Combo; categoryName?: string; hay?: string };
 
 // Normalise for search: strip diacritics + lowercase so "creme" matches "crème".
 // The class escapes combining diacritical marks (U+0300–U+036F) by codepoint so
@@ -28,11 +40,17 @@ function norm(s: string): string {
 // the menu changes.
 export function MenuBrowser({
   categories,
+  combos = [],
   onPick,
+  onPickCombo,
   onAddCustom,
 }: {
   categories: PublicMenuCategory[];
+  // Set meals / combos surfaced as their own "Combos" section/tab.
+  combos?: Combo[];
   onPick: (item: PublicMenuItem) => void;
+  // Tapping an available combo opens the combo picker (handled by the parent).
+  onPickCombo?: (combo: Combo) => void;
   // When provided, a "Custom" button sits beside the search box for adding an
   // off-menu (open) line — name + price typed by staff.
   onAddCustom?: () => void;
@@ -41,21 +59,35 @@ export function MenuBrowser({
     () => categories.filter((c) => c.items.length > 0),
     [categories]
   );
+  // Combos only appear when the parent wires the picker + there are some.
+  const showCombos = !!onPickCombo && combos.length > 0;
   const [activeId, setActiveId] = useState<string>(nonEmpty[0]?.id ?? "");
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Pre-normalised search index (recomputed only when the menu changes).
-  const index = useMemo(
-    () =>
-      nonEmpty.flatMap((c) =>
+  // Items + combos share one index so a query spans both; entries carry a
+  // discriminator so the grid renders the right card.
+  const index = useMemo<GridEntry[]>(
+    () => [
+      ...nonEmpty.flatMap((c) =>
         c.items.map((item) => ({
+          kind: "item" as const,
           item,
           categoryName: c.name,
           hay: norm(`${item.name} ${item.description ?? ""}`),
         }))
       ),
-    [nonEmpty]
+      ...(showCombos
+        ? combos.map((combo) => ({
+            kind: "combo" as const,
+            combo,
+            categoryName: "Combos",
+            hay: norm(`${combo.name} ${combo.description ?? ""}`),
+          }))
+        : []),
+    ],
+    [nonEmpty, combos, showCombos]
   );
   const tokens = useMemo(
     () => norm(query).split(/\s+/).filter(Boolean),
@@ -63,34 +95,42 @@ export function MenuBrowser({
   );
   const searching = tokens.length > 0;
   const results = useMemo(
-    () => (searching ? index.filter((e) => tokens.every((t) => e.hay.includes(t))) : []),
+    () =>
+      searching
+        ? index.filter((e) => tokens.every((t) => (e.hay ?? "").includes(t)))
+        : [],
     [searching, index, tokens]
   );
 
   // Keep a valid active tab if the menu changes (e.g. switching tables).
   const active = nonEmpty.find((c) => c.id === activeId) ?? nonEmpty[0] ?? null;
+  const onCombosTab = showCombos && activeId === COMBOS_TAB;
 
-  if (nonEmpty.length === 0) {
+  if (nonEmpty.length === 0 && !showCombos) {
     return (
       <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-3 text-slate-400">
         <p>No items on this menu.</p>
         {onAddCustom && (
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={onAddCustom}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-accent-200 bg-white px-3 py-2 text-sm font-semibold text-accent-700 transition-colors hover:bg-accent-50"
+            className="h-auto inline-flex items-center gap-1.5 rounded-lg border border-accent-200 bg-white px-3 py-2 text-sm font-semibold text-accent-700 transition-colors hover:bg-accent-50"
           >
             <Plus className="h-4 w-4" />
             Custom item
-          </button>
+          </Button>
         )}
       </div>
     );
   }
 
-  const shown: { item: PublicMenuItem; categoryName?: string }[] = searching
+  // What the grid shows: search results, the combos tab, or the active category.
+  const shown: GridEntry[] = searching
     ? results
-    : (active?.items ?? []).map((item) => ({ item }));
+    : onCombosTab
+      ? combos.map((combo) => ({ kind: "combo" as const, combo }))
+      : (active?.items ?? []).map((item) => ({ kind: "item" as const, item }));
 
   return (
     <div className="flex h-full flex-col">
@@ -99,7 +139,7 @@ export function MenuBrowser({
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
+            <Input
               ref={inputRef}
               type="search"
               value={query}
@@ -109,48 +149,70 @@ export function MenuBrowser({
               className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30"
             />
             {searching && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => {
                   setQuery("");
                   inputRef.current?.focus();
                 }}
                 aria-label="Clear search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                className="absolute right-2 top-1/2 h-auto w-auto -translate-y-1/2 rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             )}
           </div>
           {onAddCustom && (
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={onAddCustom}
               className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-accent-200 bg-white px-3 text-sm font-semibold text-accent-700 transition-colors hover:bg-accent-50"
             >
               <Plus className="h-4 w-4" />
               Custom
-            </button>
+            </Button>
           )}
         </div>
 
         {!searching && (
           <div className="mt-3 flex flex-wrap gap-2">
-            {nonEmpty.map((cat) => (
-              <button
-                key={cat.id}
+            {showCombos && (
+              <Button
                 type="button"
-                onClick={() => setActiveId(cat.id)}
+                variant={onCombosTab ? "default" : "outline"}
+                onClick={() => setActiveId(COMBOS_TAB)}
                 className={cn(
-                  "whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
-                  active?.id === cat.id
+                  "h-auto whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
+                  onCombosTab
                     ? "bg-accent-600 text-white"
                     : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
                 )}
               >
-                {cat.name}
-              </button>
-            ))}
+                Combos
+              </Button>
+            )}
+            {nonEmpty.map((cat) => {
+              const isActive = !onCombosTab && active?.id === cat.id;
+              return (
+                <Button
+                  key={cat.id}
+                  type="button"
+                  variant={isActive ? "default" : "outline"}
+                  onClick={() => setActiveId(cat.id)}
+                  className={cn(
+                    "h-auto whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
+                    isActive
+                      ? "bg-accent-600 text-white"
+                      : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                  )}
+                >
+                  {cat.name}
+                </Button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -181,14 +243,23 @@ export function MenuBrowser({
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-            {shown.map(({ item, categoryName }) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                categoryName={categoryName}
-                onPick={onPick}
-              />
-            ))}
+            {shown.map((entry) =>
+              entry.kind === "combo" ? (
+                <ComboCard
+                  key={`combo-${entry.combo.id}`}
+                  combo={entry.combo}
+                  categoryName={entry.categoryName}
+                  onPick={onPickCombo!}
+                />
+              ) : (
+                <ItemCard
+                  key={entry.item.id}
+                  item={entry.item}
+                  categoryName={entry.categoryName}
+                  onPick={onPick}
+                />
+              )
+            )}
           </div>
         )}
       </div>
@@ -209,11 +280,13 @@ function ItemCard({
   const thumb = item.imageUrls?.[0];
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       disabled={soldOut}
       onClick={() => onPick(item)}
       className={cn(
+        "h-auto p-0 whitespace-normal hover:bg-transparent",
         "group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left transition-shadow",
         soldOut
           ? "cursor-not-allowed opacity-60"
@@ -297,6 +370,103 @@ function ItemCard({
           )}
         </div>
       </div>
-    </button>
+    </Button>
+  );
+}
+
+// A combo / set-meal card — mirrors ItemCard but for the fixed base-price combo
+// shape (price shown as a "from" base, since premium picks can upcharge). Tapping
+// opens the combo picker via onPick.
+function ComboCard({
+  combo,
+  categoryName,
+  onPick,
+}: {
+  combo: Combo;
+  categoryName?: string;
+  onPick: (combo: Combo) => void;
+}) {
+  const soldOut = !combo.isAvailable;
+  const thumb = combo.imageUrls?.[0];
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      disabled={soldOut}
+      onClick={() => onPick(combo)}
+      className={cn(
+        "h-auto p-0 whitespace-normal hover:bg-transparent",
+        "group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left transition-shadow",
+        soldOut
+          ? "cursor-not-allowed opacity-60"
+          : "hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+      )}
+    >
+      <div className="relative aspect-[4/3] w-full bg-slate-100">
+        {thumb ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={assetUrl(thumb)}
+            alt={combo.name}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-slate-300">
+            <svg
+              className="h-8 w-8"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="9" cy="9" r="1.5" />
+              <path d="m21 15-5-5L5 21" />
+            </svg>
+          </div>
+        )}
+        <span className="absolute left-2 top-2 rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">
+          Combo
+        </span>
+        {soldOut && (
+          <span className="absolute right-2 top-2 rounded-full bg-slate-900/80 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">
+            Sold out
+          </span>
+        )}
+        {combo.posOnly && !soldOut && (
+          <span className="absolute right-2 top-2 rounded-full bg-violet-600 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">
+            Staff
+          </span>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col p-3">
+        {categoryName && (
+          <p className="mb-0.5 truncate text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            {categoryName}
+          </p>
+        )}
+        <p className="line-clamp-2 font-semibold leading-snug text-slate-900">
+          {combo.name}
+        </p>
+        {categoryName && combo.description && (
+          <p className="mt-0.5 line-clamp-1 text-xs text-slate-400">
+            {combo.description}
+          </p>
+        )}
+        <div className="mt-auto flex items-center justify-between pt-2">
+          <span className="font-bold text-slate-900">
+            {formatPrice(combo.price)}
+          </span>
+          {combo.groups.length > 0 && (
+            <span className="text-xs font-medium text-slate-400">
+              {combo.groups.length}{" "}
+              {combo.groups.length === 1 ? "choice" : "choices"}
+            </span>
+          )}
+        </div>
+      </div>
+    </Button>
   );
 }

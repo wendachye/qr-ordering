@@ -13,10 +13,10 @@ import {
 import { Star, Pencil } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { FeaturedItemRow } from "@/components/menu/FeaturedItemRow";
-import { useMenuSensors } from "@/components/menu/useMenuSensors";
+import { useMenuSensors } from "@/hooks/useMenuSensors";
 import { useReorderFeatured } from "@/hooks/useMenuMutations";
-import { cn } from "@/lib/cn";
 import type { MenuItem } from "@/lib/types";
 
 // The curated strip shown at the top of the customer menu. Items here keep
@@ -68,26 +68,12 @@ export function FeaturedSection({
             </Button>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
               Show on menu
-              <button
-                type="button"
-                role="switch"
-                aria-checked={enabled}
+              <Switch
+                checked={enabled}
                 aria-label="Show the featured strip on the customer menu"
                 disabled={toggling}
-                onClick={onToggleEnabled}
-                className={cn(
-                  "relative h-7 w-12 shrink-0 rounded-full transition-colors",
-                  enabled ? "bg-accent-600" : "bg-slate-300",
-                  toggling && "opacity-50"
-                )}
-              >
-                <span
-                  className={cn(
-                    "absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all",
-                    enabled ? "left-6" : "left-1"
-                  )}
-                />
-              </button>
+                onCheckedChange={onToggleEnabled}
+              />
             </label>
           </div>
         </div>

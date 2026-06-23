@@ -21,7 +21,7 @@ import {
   type ZodOpenApiPathsObject,
 } from 'zod-openapi';
 
-import { loginSchema, registerSchema, passwordVerifySchema } from '../validators/auth';
+import { loginSchema, passwordVerifySchema } from '../validators/auth';
 import {
   createOrderSchema,
   createAdminOrderSchema,
@@ -213,15 +213,6 @@ const paths: ZodOpenApiPathsObject = {
   },
 
   // Admin auth
-  '/api/v1/admin/auth/register': {
-    post: op({
-      tags: ['Auth'],
-      summary: 'Register a new restaurant (tenant) + owner',
-      body: registerSchema,
-      status: 201,
-      errorCodes: ['400', '409', '429'],
-    }),
-  },
   '/api/v1/admin/auth/login': {
     post: op({
       tags: ['Auth'],

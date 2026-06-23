@@ -120,9 +120,15 @@ function toItemDto(item: {
   discountValue: unknown;
   isAvailable: boolean;
   posOnly: boolean;
+  availableDays: number[];
+  availableFrom: string | null;
+  availableTo: string | null;
   sortOrder: number;
   isFeatured: boolean;
   featuredOrder: number;
+  trackStock: boolean;
+  stockQty: number;
+  lowStockThreshold: number | null;
   createdAt: Date;
   updatedAt: Date;
   category?: { name: string } | null;
@@ -149,9 +155,15 @@ function toItemDto(item: {
     salePrice: salePriceOf(Number(item.price), item.discountType, Number(item.discountValue ?? 0)),
     isAvailable: item.isAvailable,
     posOnly: item.posOnly,
+    availableDays: item.availableDays,
+    availableFrom: item.availableFrom,
+    availableTo: item.availableTo,
     sortOrder: item.sortOrder,
     isFeatured: item.isFeatured,
     featuredOrder: item.featuredOrder,
+    trackStock: item.trackStock,
+    stockQty: item.stockQty,
+    lowStockThreshold: item.lowStockThreshold,
     optionGroups: (item.optionGroups ?? []).map((g) => ({
       id: g.id,
       name: g.name,
@@ -239,6 +251,9 @@ export async function createItem(input: CreateItemInput) {
       discountValue: input.discountType ? (input.discountValue ?? 0) : 0,
       isAvailable: input.isAvailable,
       posOnly: input.posOnly,
+      availableDays: input.availableDays ?? [],
+      availableFrom: input.availableFrom ?? null,
+      availableTo: input.availableTo ?? null,
       sortOrder: (agg._max.sortOrder ?? -1) + 1,
       ...(input.optionGroups?.length
         ? { optionGroups: optionGroupsCreate(input.optionGroups) }
@@ -279,6 +294,9 @@ export async function updateItem(id: string, input: UpdateItemInput) {
         discountValue: input.discountValue,
         isAvailable: input.isAvailable,
         posOnly: input.posOnly,
+        availableDays: input.availableDays,
+        availableFrom: input.availableFrom,
+        availableTo: input.availableTo,
         sortOrder: input.sortOrder,
         ...(input.optionGroups && input.optionGroups.length
           ? { optionGroups: optionGroupsCreate(input.optionGroups) }

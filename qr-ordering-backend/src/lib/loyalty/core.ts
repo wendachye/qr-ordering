@@ -1,5 +1,7 @@
 import { Prisma } from '@prisma/client';
 
+import { ApiError } from '../response';
+
 // Shared loyalty primitives: phone normalisation, tier math, the points-ledger
 // invariant, and DTO mappers. Reused by the admin module, settlement, the
 // public (customer) surface, and the daily jobs.
@@ -170,4 +172,157 @@ export function parseBirthday(raw: string | null | undefined): Date | null {
   if (!raw) return null;
   const d = new Date(`${raw}T00:00:00.000Z`);
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/* ------------------------- Settlement (earn / redeem) ------------------------- */
+
+// Points earned for a spend at a tier multiplier (floored; never negative).
+export function pointsForSpend(
+  netSpend: number,
+  earnRatePoints: number,
+  earnMultiplier: number,
+): number {
+  if (!(netSpend > 0) || !(earnRatePoints > 0)) return 0;
+  // toFixed(6) collapses float noise (e.g. 0.29 × 100 = 28.9999996) before floor,
+  // so an exact integer product isn't under-earned by a point at high earn rates.
+  return Math.max(0, Math.floor(Number((netSpend * earnRatePoints * (earnMultiplier || 1)).toFixed(6))));
+}
+
+type SettleConfig = {
+  earnRatePoints: number;
+  tiers: TierDef[];
+  tierBasis: string;
+};
+
+// Burn any locked points redemption + grant earned points when a member's tab
+// settles. Called exactly once, inside the OPEN→CLOSED transition, so it is
+// idempotent by construction. Writes the REDEEM/EARN ledger rows (keeping the
+// balance==ledger invariant via applyPoints), bumps lifetimeSpend, recomputes
+// the tier, and stamps session.pointsEarned. Returns the points earned.
+export async function settleLoyaltyAtClose(
+  tx: Prisma.TransactionClient,
+  args: {
+    storeId: string;
+    sessionId: string;
+    memberId: string;
+    pointsRedeemed: number; // locked on the session by the redeem endpoint
+    netSpend: number; // post-discount net the member pays (excl. tip)
+    config: SettleConfig;
+  },
+): Promise<number> {
+  const member = await tx.member.findUniqueOrThrow({ where: { id: args.memberId } });
+
+  // Redeem: burn the locked points. Guard against a balance drained elsewhere
+  // between locking the redemption and settling.
+  if (args.pointsRedeemed > 0) {
+    if (member.pointsBalance < args.pointsRedeemed) {
+      throw ApiError.badRequest(
+        'Member no longer has enough points to redeem — remove the redemption',
+      );
+    }
+    await applyPoints(tx, {
+      memberId: member.id,
+      storeId: args.storeId,
+      type: 'REDEEM',
+      points: -args.pointsRedeemed,
+      reason: 'Redeemed at settlement',
+      sessionId: args.sessionId,
+    });
+  }
+
+  // Earn at the member's CURRENT tier multiplier (a tier upgrade applies next
+  // visit), on the net they actually paid (the redemption discount is excluded
+  // because it's already netted out of netSpend).
+  const basis =
+    args.config.tierBasis === 'LIFETIME_SPEND' ? Number(member.lifetimeSpend) : member.lifetimePoints;
+  const mult = tierFor(basis, args.config.tiers).earnMultiplier;
+  const earned = pointsForSpend(args.netSpend, args.config.earnRatePoints, mult);
+  if (earned > 0) {
+    await applyPoints(tx, {
+      memberId: member.id,
+      storeId: args.storeId,
+      type: 'EARN',
+      points: earned,
+      reason: 'Earned on settled bill',
+      sessionId: args.sessionId,
+    });
+  }
+
+  if (args.netSpend > 0) {
+    await tx.member.update({
+      where: { id: member.id },
+      data: { lifetimeSpend: { increment: new Prisma.Decimal(round2(args.netSpend)) } },
+    });
+  }
+  const fresh = await tx.member.findUniqueOrThrow({ where: { id: member.id } });
+  await recomputeTier(tx, fresh, { tierBasis: args.config.tierBasis, tiers: args.config.tiers });
+  await tx.tableSession.update({ where: { id: args.sessionId }, data: { pointsEarned: earned } });
+  return earned;
+}
+
+// Reverse the loyalty effects of a settled tab when it is re-opened: claw back
+// earned points (balance + lifetimePoints), restore redeemed points (balance),
+// and unwind lifetimeSpend. Mirrors settleLoyaltyAtClose; writes ADJUST ledger
+// rows so the reversal is auditable and the balance==ledger invariant holds.
+export async function reverseLoyaltyAtReopen(
+  tx: Prisma.TransactionClient,
+  args: {
+    storeId: string;
+    sessionId: string;
+    memberId: string | null;
+    pointsEarned: number;
+    pointsRedeemed: number;
+    netSpend: number;
+    config: { tiers: TierDef[]; tierBasis: string };
+  },
+): Promise<void> {
+  if (!args.memberId) return;
+  if (args.pointsEarned === 0 && args.pointsRedeemed === 0 && args.netSpend === 0) return;
+  const member = await tx.member.findUnique({ where: { id: args.memberId } });
+  if (!member) return;
+  // Don't let clawing back earned points drive the balance negative (the member
+  // spent them elsewhere before this reopen) — reject so staff adjust manually.
+  if (member.pointsBalance + args.pointsRedeemed < args.pointsEarned) {
+    throw ApiError.badRequest(
+      'Member has already spent the points earned on this tab — adjust manually before reopening',
+    );
+  }
+
+  if (args.pointsEarned > 0) {
+    await tx.pointsLedger.create({
+      data: {
+        memberId: member.id,
+        storeId: args.storeId,
+        type: 'ADJUST',
+        points: -args.pointsEarned,
+        reason: 'Reopen — reverse earned points',
+        sessionId: args.sessionId,
+      },
+    });
+  }
+  if (args.pointsRedeemed > 0) {
+    await tx.pointsLedger.create({
+      data: {
+        memberId: member.id,
+        storeId: args.storeId,
+        type: 'ADJUST',
+        points: args.pointsRedeemed,
+        reason: 'Reopen — restore redeemed points',
+        sessionId: args.sessionId,
+      },
+    });
+  }
+  await tx.member.update({
+    where: { id: member.id },
+    // Net ledger delta keeps balance==ledger; lifetimePoints/lifetimeSpend are
+    // cumulative bases (clamped at 0, not part of the ledger-sum invariant).
+    data: {
+      pointsBalance: { increment: args.pointsRedeemed - args.pointsEarned },
+      lifetimePoints: Math.max(0, member.lifetimePoints - args.pointsEarned),
+      lifetimeSpend: new Prisma.Decimal(round2(Math.max(0, Number(member.lifetimeSpend) - args.netSpend))),
+      lastActivityAt: new Date(),
+    },
+  });
+  const fresh = await tx.member.findUniqueOrThrow({ where: { id: member.id } });
+  await recomputeTier(tx, fresh, { tierBasis: args.config.tierBasis, tiers: args.config.tiers });
 }

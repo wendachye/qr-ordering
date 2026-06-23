@@ -11,7 +11,8 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
-// Self-serve restaurant signup: creates a new tenant (Store) + its first admin.
+// Tenant provisioning input for registerStore. There is no public signup route
+// (the super-admin creates tenants); this contract backs the seed + test factory.
 export const registerSchema = z.object({
   restaurantName: z.string().trim().min(2, 'Restaurant name is required').max(80),
   email,

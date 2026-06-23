@@ -17,25 +17,30 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { can, ROLE_LABELS, type Permission } from "@/lib/permissions";
 import { outletsApi } from "@/lib/endpoints";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { initials } from "@/lib/initials";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Top-level sections. "Menu" is now a single drag-and-drop builder page.
-const MAIN_NAV = [
-  { href: "/admin/floor", label: "Tables", icon: LayoutGrid },
-  { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed },
-  { href: "/admin/reports", label: "Reports", icon: BarChart3 },
-  { href: "/admin/promotions", label: "Promotions", icon: Megaphone },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
+// Top-level sections. "Menu" is now a single drag-and-drop builder page. Each
+// item names the permission that reveals it (RBAC); Tables is always shown.
+const MAIN_NAV: { href: string; label: string; icon: typeof LayoutGrid; perm?: Permission }[] = [
+  { href: "/admin/tables", label: "Tables", icon: LayoutGrid },
+  { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed, perm: "menu:manage" },
+  { href: "/admin/reports", label: "Reports", icon: BarChart3, perm: "reports:view" },
+  { href: "/admin/promotions", label: "Promotions", icon: Megaphone, perm: "menu:manage" },
+  { href: "/admin/settings", label: "Settings", icon: Settings, perm: "settings:manage" },
 ];
 
 // Platform operator (super-admin) sees a distinct console instead of a single
@@ -46,10 +51,10 @@ const PLATFORM_NAV = [
   { href: "/platform/audit", label: "Audit", icon: ScrollText },
 ];
 
-// Paths in the live floor flow (tiles, a session, per-table history, the POS) —
-// keep "Floor" highlighted while drilled into any of them.
-const FLOOR_PATHS = [
-  "/admin/floor",
+// Paths in the live Tables flow (tiles, a session, per-table history, the POS) —
+// keep "Tables" highlighted while drilled into any of them.
+const TABLES_PATHS = [
+  "/admin/tables",
   "/admin/sessions",
   "/admin/history",
   "/admin/orders",
@@ -67,11 +72,14 @@ function OutletSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50">
+        <Button
+          variant="ghost"
+          className="inline-flex h-auto items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-700"
+        >
           <Store className="h-4 w-4 text-slate-400" />
           <span className="max-w-[9rem] truncate">{current?.name ?? "Outlet"}</span>
           <ChevronsUpDown className="h-3.5 w-3.5 text-slate-400" />
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
         {data.clientName && (
@@ -98,15 +106,64 @@ function OutletSwitcher() {
   );
 }
 
+// The signed-in account, collapsed to a compact avatar that opens identity +
+// sign-out. The email and role live inside the menu rather than inline, keeping
+// the header short.
+function AccountMenu() {
+  const { user, logout } = useAuth();
+  if (!user) return null;
+  const label = user.name ?? user.email;
+  const roleLabel = user.isPlatformAdmin
+    ? "Platform admin"
+    : user.role
+      ? ROLE_LABELS[user.role]
+      : null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          aria-label="Account menu"
+          className="h-auto rounded-full p-0 outline-none transition hover:bg-transparent hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent-500/40 focus-visible:ring-offset-2"
+        >
+          <Avatar className="size-9">
+            <AvatarFallback>{initials(label)}</AvatarFallback>
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60">
+        <DropdownMenuLabel className="font-normal">
+          <p className="truncate font-semibold text-slate-900">{label}</p>
+          {/* Only when there's a real name above — otherwise the label already is the email. */}
+          {user.name && (
+            <p className="truncate text-xs font-normal text-slate-500">{user.email}</p>
+          )}
+          {roleLabel && (
+            <span className="mt-1.5 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+              {roleLabel}
+            </span>
+          )}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => logout()}>
+          <LogOut />
+          Log out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function AdminNav() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   const inMenu = pathname.startsWith("/admin/menu");
 
   const mainActive = (href: string) => {
     if (href === "/admin/menu") return inMenu;
-    if (href === "/admin/floor") return FLOOR_PATHS.some((p) => pathname.startsWith(p));
+    if (href === "/admin/tables") return TABLES_PATHS.some((p) => pathname.startsWith(p));
     // Billing lives under Settings (account area) — keep Settings lit on both.
     if (href === "/admin/settings")
       return pathname.startsWith("/admin/settings") || pathname.startsWith("/admin/billing");
@@ -118,7 +175,7 @@ export function AdminNav() {
       {/* Top-level nav */}
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
         <Link
-          href={user?.isPlatformAdmin ? "/platform/clients" : "/admin/floor"}
+          href={user?.isPlatformAdmin ? "/platform/clients" : "/admin/tables"}
           className="flex items-center gap-2"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-600 text-lg font-black text-white">
@@ -130,7 +187,10 @@ export function AdminNav() {
         </Link>
 
         <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
-          {(user?.isPlatformAdmin ? PLATFORM_NAV : MAIN_NAV).map((item) => {
+          {(user?.isPlatformAdmin
+            ? PLATFORM_NAV
+            : MAIN_NAV.filter((item) => !item.perm || can(user?.role, item.perm))
+          ).map((item) => {
             const Icon = item.icon;
             const active = user?.isPlatformAdmin
               ? pathname.startsWith(item.href)
@@ -140,12 +200,12 @@ export function AdminNav() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 text-base font-semibold transition-colors",
+                  "inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2.5 text-base font-semibold transition-colors lg:px-4",
                   active ? "bg-accent-50 text-accent-700" : "text-slate-600 hover:bg-slate-100"
                 )}
               >
                 <Icon className="h-5 w-5" />
-                {item.label}
+                <span className="hidden lg:inline">{item.label}</span>
               </Link>
             );
           })}
@@ -153,15 +213,7 @@ export function AdminNav() {
 
         <div className="flex items-center gap-3">
           <OutletSwitcher />
-          {user && (
-            <span className="hidden text-sm text-slate-500 md:inline">
-              {user.name ?? user.email}
-            </span>
-          )}
-          <Button variant="secondary" size="sm" onClick={logout}>
-            <LogOut />
-            Log out
-          </Button>
+          <AccountMenu />
         </div>
       </div>
     </header>

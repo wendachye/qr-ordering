@@ -15,7 +15,7 @@ import {
 import { SoldOutToggle } from "@/components/menu/SoldOutToggle";
 import { FeatureToggle } from "@/components/menu/FeatureToggle";
 import { ItemThumb } from "@/components/menu/ItemThumb";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format";
 import type { MenuItem } from "@/lib/types";
 
@@ -58,16 +58,16 @@ export function SortableItemRow({
         {disableDrag ? (
           <span aria-hidden className="w-7" />
         ) : (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             ref={setActivatorNodeRef}
             {...attributes}
             {...listeners}
             aria-label={`Drag to reorder ${item.name}`}
-            className="touch-none cursor-grab rounded p-1 text-slate-300 hover:text-slate-500 active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-auto p-1 hover:bg-transparent touch-none cursor-grab rounded text-slate-300 hover:text-slate-500 active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <GripVertical className="h-5 w-5" />
-          </button>
+          </Button>
         )}
 
         <ItemThumb item={item} />

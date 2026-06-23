@@ -72,7 +72,7 @@ generated from its Zod validators at `GET /api/openapi.json`, with **Swagger UI 
 
 **Multi-tenant SaaS & platform**
 - Tenant isolation: JWT carries the tenant, an `AsyncLocalStorage` request context scopes every query, and every by-id route is IDOR-guarded
-- Clients → multiple outlets; owner can **switch outlets**; self-serve restaurant onboarding
+- Clients → multiple outlets; owner can **switch outlets**; tenants are provisioned by the super-admin (no self-serve signup)
 - Super-admin console: manage clients & outlets, **impersonate** (view-as) an outlet, plans/entitlements
 - Operator **audit log** for platform actions and impersonation
 - **Stripe billing**: subscription plans, free trial, entitlements (SaaS billing — distinct from diner payment, which is settled in-store)
@@ -175,64 +175,76 @@ when `NODE_ENV=production`.
 
 ## Roadmap
 
-Legend: ✅ shipped · 🟡 in progress · ⬜ planned. The platform is production-grade today for
-ordering, POS, reporting, multi-tenancy and billing. Recent additions: **POS-only ("secret")
-menu items** (orderable by staff, hidden from the customer menu), per-table **draft orders**
-(parked unsent, with "Clear all"), the live **Tables** view with table setup under Settings →
-Tables, **plan-detail billing cards**, and **entitlement gating** enforced end-to-end.
+Production-grade today for ordering, POS, menu, reporting, tax/SC, multi-tenancy and billing.
+**Recently shipped:** combos / set meals, item-level inventory (auto-86 + restore-on-void),
+Malaysia e-Invoice (MyInvois — sandbox), loyalty **earn/redeem at settlement**, a realtime SSE
+floor, and immediate staff-token revocation.
 
-### Up next — priority order
-1. **Loyalty P3 — earn & redeem at settlement** — the biggest functional unlock: turns the dormant
-   loyalty schema + CRUD into a working program. Needs careful money-math + an adversarial review.
-2. **Loyalty P4 — loyalty admin UI** — manage config / members / rewards and attach + redeem at the POS.
-3. **Consolidate CI to the repo root** — quick devops win so GitHub Actions actually runs the suites.
+Everything below is **pending**, sized **value · effort** (S < 1d · M 1–3d · L 1–2wk · XL > 2wk).
 
-### Subscriptions & billing
-- ✅ **Stripe billing** — plans, free trial, Checkout, Billing Portal, webhook-synced status,
-  and a trial / past-due / inactive banner. Where Stripe isn't configured (dev / self-hosted),
-  a tenant can **apply a plan directly** from the billing page (no payment collected).
-- ✅ **Plan-detail billing UI** — the billing tab renders each plan's price, feature list and limits
-  with "Current plan" / "Most popular" badges, sourced from the operator-editable `Plan` catalogue.
-- ✅ **Entitlement enforcement (backend)** — gated feature routers (loyalty, vouchers, multi-day
-  reports, multiple taxes + service charge) return `403 PLAN_FEATURE_LOCKED`, and table / menu-item
-  creation is capped at the plan limit (`403 PLAN_LIMIT_REACHED`); an active trial grants full Pro.
-  `GET /api/v1/admin/entitlements` exposes the resolved tier + features + limits + live usage.
-- ✅ **Entitlement gating (admin UI)** — a `useEntitlements()` hook + reusable upgrade prompt lock the
-  gated controls *before* the 403: month / custom-range reports, the Vouchers tab, and service charge
-  / multiple taxes in Settings, plus live "X / N" usage on Tables and Menu.
-- ⬜ **Annual plans, proration, and per-client invoicing** once a multi-outlet client wants a
-  single subscription across its outlets.
+### 🎯 Next up — priority order
+1. **Loyalty till UI (P4)** — attach/enrol a member by phone, show balance/tier, redeem at
+   checkout. *Surfaces the shipped earn/redeem backend.* · high · M
+2. **KDS + prep lifecycle** — extend `OrderStatus` to `NEW→PREPARING→READY→SERVED` + a kitchen
+   display. The state machine every later kitchen feature (and mobile order-status) hangs off. · high · L
+3. **Cash management** — MYR **5-sen (BNM) rounding** + shift / blind cash-up (X/Z) + drawer kick. · high · L
 
-### Loyalty (phased)
-- ✅ **P1–P2** — schema + migration, program config, and member/reward CRUD backed by a points
-  ledger.
-- ⬜ **P3 — earn & redeem at settlement** — accrue points when a tab is paid and redeem a
-  reward against the bill, with the ledger as the source of truth (plus an adversarial review
-  of the math and edge cases: voids, reopens, partial payments). ← **highest-value unlock**
-- ⬜ **P4 — admin UI** — manage config / members / rewards, attach + redeem a member at the
-  POS, and a loyalty report.
-- ⬜ **P5 — diner self-serve** — public phone-OTP endpoints so a customer can enrol and check
-  their balance from the mobile app without staff.
-- ⬜ **P6 — tiers, expiry & bonuses** — membership tiers, point expiry (a scheduled job),
-  birthday / bonus campaigns, and correct reversal when a settled tab is reopened.
+### Payments (the keystone gate)
+The `lib/payments.ts` capture seam is ready; the real blocker is **company registration + PSP
+merchant onboarding** (lead time) — start it in parallel so the adapter can land when business grows.
+- ⬜ Real **DuitNow QR** payment adapter (PSP: Fiuu / iPay88 / Billplz) — unblocks the rest of this section. · high · L
+- ⬜ **Pay-at-table** self-checkout on the diner app (view bill → pay → receipt) + **mobile tip entry**. · high · L
+- ⬜ **FPX + e-wallet** (TNG / GrabPay / Boost / ShopeePay) via the same seam. · high · L
+- ⬜ Card acquiring (terminal / SoftPOS) + configurable card surcharge. · med · L
 
-### Platform & operations
-- ⬜ **Consolidate CI to the repo root** — the per-app `.github/workflows/ci.yml` files are
-  nested in subfolders, so GitHub Actions doesn't pick them up; move them to a root
-  `.github/workflows/` with `paths:` filters (one job per app). *Quick win — do it soon.*
-- ⬜ **Split the operator console** into its own deployment at the first external tenant or a
-  second operator (today it's intentionally embedded at `/platform/*`).
-- ⬜ **Audit columns + soft-delete** across tenant tables (the operator audit log already
-  covers platform actions) — design parked in
-  [`qr-ordering-backend/docs/audit-soft-delete-plan.md`](./qr-ordering-backend/docs/audit-soft-delete-plan.md).
+### Kitchen & cash operations
+- ⬜ **Live order status** on the diner app (`KITCHEN→READY→SERVED` over SSE). · high · M *(after KDS)*
+- ⬜ End-of-day reconciliation (drawer-to-Z close-out, by method + variance). · high · M
+- ⬜ Printer config UI + multi-printer **station routing** + failover. · med · M–L
+- ⬜ Prep-SLA timers / late-ticket escalation; course firing (hold & fire). · med · M
+- ⬜ Reservations & waitlist; spatial floor / table-plan editor. · med · L
 
-### Product polish
-- ⬜ **Denser table-workspace right panel** for high-item-count tabs.
-- ⬜ **Realtime floor** — optional WebSocket/SSE to replace the 5-second polling on the floor.
+### Malaysia compliance
+- ⬜ **Real MyInvois production submission** — OAuth2 + UBL 2.1 signing + cert, consolidated B2C,
+  cancel / credit-note (72h). Legally required as the 2026 mandate widens; the module is a
+  **sandbox stub** today (production throws). · high · XL
+- ⬜ **SST-02 filing export** + accounting export (AutoCount / SQL Account / Xero). · med · M–L
+- ⬜ PDPA data-subject tooling (export / erase, with a fiscal-retention carve-out). · med · M
+
+### Loyalty (remaining phases)
+- ⬜ **P5 — diner self-serve** — public phone-OTP enrol + balance / rewards on the mobile app. · med · M
+- ⬜ **P6 — tiers, expiry & bonuses** — point expiry (scheduled job), birthday / bonus campaigns,
+  stamp cards, catalog-reward burn. · med · L
+- ⬜ Gift cards / stored value; member-get-member referrals. · med · L
+
+### Diner experience
+- ⬜ **Menu search + Halal / dietary filter chips** (the tag vocabulary already exists). · high · M
+- ⬜ Cart upsell / "frequently added"; call-staff / request-bill button. · med · M
+- ⬜ **Multi-language** menu UI (BM / 中文 / Tamil). · med · L
+- ⬜ Accessibility: restore pinch-zoom, dialog focus trap, tablist semantics. · med · S
+- ⬜ Split-by-diner; post-visit feedback + Google-review funnel. · med · M–L
+
+### Platform, scale & integrations
+- ⬜ **Consolidate CI to the repo root** — the per-app `.github/workflows/ci.yml` files are nested,
+  so GitHub Actions never runs them; move to a root `.github/workflows/` with `paths:` filters. *Quick win.* · high · M
+- ⬜ **MFA (TOTP)** for OWNER / platform-admin. · med · M
+- ⬜ **Per-outlet shared brand catalogue** — menu / price / stock overrides on one catalogue (today
+  each outlet is a separate menu copy). Best done *before* the 2nd tenant locks in the per-Store assumption. · high · XL
+- ⬜ **SSE → Redis pub/sub** for horizontal scale (the floor bus is single-process today). · med · M
+- ⬜ **Print-agent per-store provisioning** — `getDueJobs` is global today; scope per tenant when a
+  2nd printing tenant onboards. · med · M
+- ⬜ Public partner API (scoped keys) + signed webhooks; **delivery-aggregator ingestion**
+  (Grab / foodpanda / ShopeeFood). · med–high · L–XL
+- ⬜ Cross-outlet BI / analytics dashboard; white-label diner-app branding. · high · L
+- ⬜ Billing depth: **annual plans, proration, per-client invoicing**, in-app dunning. · med · M
+- ⬜ Menu versioning + scheduled publish; offline-POS resilience. · med · L–XL
+- ⬜ **Audit columns + soft-delete** across tenant tables (platform actions already audited) — design
+  parked in [`qr-ordering-backend/docs/audit-soft-delete-plan.md`](./qr-ordering-backend/docs/audit-soft-delete-plan.md).
+- ⬜ Split the operator console into its own deployment at the first external tenant / 2nd operator
+  (today intentionally embedded at `/platform/*`).
 
 ### API & docs
-- 🟡 **Typed responses in the OpenAPI spec** — request bodies are generated from the Zod
-  validators; response bodies are currently the generic `{ success, data }` envelope and are
-  being filled in per-endpoint.
-- ⬜ **`/api/v2`** if/when a breaking change lands — the API is already versioned under
-  `/api/v1`, so a new version is additive (mount a `v2` router; clients pin their version).
+- 🟡 **Typed responses in the OpenAPI spec** — request bodies are generated from the Zod validators;
+  response bodies are currently the generic `{ success, data }` envelope, being filled in per-endpoint.
+- ⬜ **`/api/v2`** if/when a breaking change lands — the API is already versioned under `/api/v1`,
+  so a new version is additive (mount a `v2` router; clients pin their version).

@@ -32,7 +32,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       return;
     }
     if (misplacedOperator) router.replace("/platform/clients");
-    else if (misplacedTenant) router.replace("/admin/floor");
+    else if (misplacedTenant) router.replace("/admin/tables");
   }, [status, misplacedOperator, misplacedTenant, router]);
 
   if (status !== "authenticated" || misplaced) {

@@ -1,10 +1,22 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { categoriesApi, itemsApi, menuSettingsApi } from "@/lib/endpoints";
+import {
+  categoriesApi,
+  combosApi,
+  inventoryApi,
+  itemsApi,
+  menuSettingsApi,
+} from "@/lib/endpoints";
 import { useToast } from "@/components/common/Toast";
 import { ApiError } from "@/lib/api";
-import type { Category, CategoryInput, MenuItem, MenuItemInput } from "@/lib/types";
+import type {
+  Category,
+  CategoryInput,
+  ComboInput,
+  MenuItem,
+  MenuItemInput,
+} from "@/lib/types";
 
 export function useCategoryMutations() {
   const queryClient = useQueryClient();
@@ -103,6 +115,90 @@ export function useItemMutations() {
   });
 
   return { create, update, remove, move };
+}
+
+export function useComboMutations() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["combos"] });
+  const onError = (err: unknown) =>
+    toast(err instanceof ApiError ? err.message : "Action failed.", "error");
+
+  const create = useMutation({
+    mutationFn: (input: ComboInput) => combosApi.create(input),
+    onSuccess: () => {
+      invalidate();
+      toast("Combo created.", "success");
+    },
+    onError,
+  });
+
+  const update = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Partial<ComboInput> }) =>
+      combosApi.update(id, input),
+    onSuccess: () => {
+      invalidate();
+      toast("Combo updated.", "success");
+    },
+    onError,
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => combosApi.remove(id),
+    onSuccess: () => {
+      invalidate();
+      toast("Combo deleted.", "success");
+    },
+    onError,
+  });
+
+  return { create, update, remove };
+}
+
+export function useInventoryMutations() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Stock changes flow through the items list (count + auto-86 availability).
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["items"] });
+  const onError = (err: unknown) =>
+    toast(err instanceof ApiError ? err.message : "Action failed.", "error");
+
+  const adjust = useMutation({
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: { delta: number; reason: "restock" | "waste"; note?: string };
+    }) => inventoryApi.adjust(id, input),
+    onSuccess: (_res, { id, input }) => {
+      invalidate();
+      // Refresh the open dialog's "Recent movements" ledger too.
+      queryClient.invalidateQueries({ queryKey: ["inventory-ledger", id] });
+      toast(input.reason === "restock" ? "Stock added." : "Stock removed.", "success");
+    },
+    onError,
+  });
+
+  const config = useMutation({
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: { trackStock?: boolean; stockQty?: number; lowStockThreshold?: number | null };
+    }) => inventoryApi.config(id, input),
+    onSuccess: (_res, { id }) => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ["inventory-ledger", id] });
+      toast("Inventory updated.", "success");
+    },
+    onError,
+  });
+
+  return { adjust, config };
 }
 
 // --- Drag-and-drop reorder (optimistic) ---

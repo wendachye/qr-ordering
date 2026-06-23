@@ -113,9 +113,11 @@ export async function getSalesReport(fromInput?: string, toInput?: string) {
         discountAmount: true,
         voucherCode: true,
         voucherDiscount: true,
+        loyaltyDiscount: true,
         openedAt: true,
         closedAt: true,
         table: { select: { name: true } },
+        payments: { where: { voided: false }, select: { tip: true } },
         orders: {
           where: { status: { not: 'CANCELLED' } },
           select: {
@@ -159,6 +161,8 @@ export async function getSalesReport(fromInput?: string, toInput?: string) {
   let diningSessions = 0;
   let takeawayChargeTotal = 0;
   let voucherDiscountTotal = 0;
+  let loyaltyDiscountTotal = 0; // points redeemed as bill discounts
+  let tipsTotal = 0; // gratuity collected on top of the bill (not sales)
 
   const voucherByCode = new Map<string, { count: number; amount: number }>();
   const byCategory = new Map<string, { quantity: number; revenue: number }>();
@@ -233,7 +237,9 @@ export async function getSalesReport(fromInput?: string, toInput?: string) {
       vc.amount += voucherDiscount;
       voucherByCode.set(s.voucherCode, vc);
     }
-    const tabNet = round2(tabRevenue - billDiscount - voucherDiscount);
+    const loyaltyDiscount = Number(s.loyaltyDiscount);
+    loyaltyDiscountTotal += loyaltyDiscount;
+    const tabNet = round2(tabRevenue - billDiscount - voucherDiscount - loyaltyDiscount);
 
     // Split the tab's NET (after its bill discount) across channels pro-rata by
     // each channel's share of the tab, so dine-in + takeaway reconciles to net.
@@ -249,6 +255,7 @@ export async function getSalesReport(fromInput?: string, toInput?: string) {
     pay.amount += tabNet;
     byPayment.set(method, pay);
 
+    tipsTotal += s.payments.reduce((x, p) => x + Number(p.tip), 0);
     covers += s.pax ?? 0;
     tablesUsed.add(s.tableId);
     billNumbers.push(s.sessionNumber);
@@ -296,7 +303,7 @@ export async function getSalesReport(fromInput?: string, toInput?: string) {
 
   const tabsSettled = settledSessions.length;
   const netSales = round2(
-    grossSales - itemDiscountTotal - billDiscountTotal - voucherDiscountTotal,
+    grossSales - itemDiscountTotal - billDiscountTotal - voucherDiscountTotal - loyaltyDiscountTotal,
   );
   const totalDiscounts = round2(itemDiscountTotal + billDiscountTotal);
   const categoryRevenueTotal = round2(grossSales - itemDiscountTotal); // == sum of line revenue
@@ -354,6 +361,10 @@ export async function getSalesReport(fromInput?: string, toInput?: string) {
       totalTax,
       totalCollected: netSales,
       takeawayCharges: round2(takeawayChargeTotal),
+      // Gratuity collected on top of net sales (staff money, not revenue). The
+      // drawer holds netSales + tips.
+      tips: round2(tipsTotal),
+      grandTotalCollected: round2(netSales + tipsTotal),
     },
     counts: {
       tabsSettled,

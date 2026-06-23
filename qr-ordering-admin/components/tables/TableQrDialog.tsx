@@ -54,16 +54,11 @@ export function TableQrDialog({
             <Button onClick={copy} className="w-full sm:w-auto">
               {copied ? "Copied!" : "Copy link"}
             </Button>
-            <a
-              href={link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto"
-            >
-              <Button variant="secondary" className="w-full">
+            <Button asChild variant="secondary" className="w-full sm:w-auto">
+              <a href={link} target="_blank" rel="noopener noreferrer">
                 Open link
-              </Button>
-            </a>
+              </a>
+            </Button>
           </div>
 
           <p className="text-center text-xs text-slate-400">

@@ -1,10 +1,11 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
 import { tablesApi } from "@/lib/endpoints";
 import { useToast } from "@/components/common/Toast";
 import { ApiError } from "@/lib/api";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 
 // Large pill toggle for a table's Active/Inactive state (PATCH isActive).
 // Mirrors the menu SoldOutToggle styling.
@@ -32,14 +33,13 @@ export function TableActiveToggle({
   });
 
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={isActive}
+    <Button
+      variant="ghost"
+      aria-pressed={isActive}
       disabled={mutation.isPending}
       onClick={() => mutation.mutate(!isActive)}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50",
+        "inline-flex h-auto items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50",
         isActive
           ? "bg-green-100 text-green-800 hover:bg-green-200"
           : "bg-slate-200 text-slate-600 hover:bg-slate-300"
@@ -52,6 +52,6 @@ export function TableActiveToggle({
         )}
       />
       {isActive ? "Active" : "Inactive"}
-    </button>
+    </Button>
   );
 }

@@ -103,6 +103,37 @@ export function applyVoucher(tableCode: string, code: string): Promise<AppliedVo
   });
 }
 
+// A settled tab's diner-facing receipt (GET /public/receipt/:id).
+export type Receipt = {
+  receiptNumber: number;
+  storeName: string;
+  logoUrl: string | null;
+  tableName: string;
+  pax: number | null;
+  openedAt: string;
+  closedAt: string | null;
+  charges: { serviceChargeRate: number; taxes: { name: string; rate: number }[] };
+  items: { name: string; quantity: number; unitPrice: number; totalPrice: number }[];
+  subtotal: number;
+  serviceCharge: number;
+  taxes: { name: string; rate: number; amount: number }[];
+  totalTax: number;
+  discount: number;
+  voucherCode: string | null;
+  voucherDiscount: number;
+  net: number;
+  tip: number;
+  total: number;
+  payments: { method: string; amount: number; tip: number; tendered: number | null }[];
+  change: number;
+  paymentMethod: string | null;
+};
+
+/** GET /public/receipt/:id — the receipt for a settled tab. */
+export function getReceipt(id: string): Promise<Receipt> {
+  return request<Receipt>(`/public/receipt/${encodeURIComponent(id)}`);
+}
+
 /** A unique key for de-duplicating an order submission (server-side idempotency). */
 export function newIdempotencyKey(): string {
   try {

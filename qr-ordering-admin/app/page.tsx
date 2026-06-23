@@ -11,7 +11,7 @@ export default function HomePage() {
   const { status } = useAuth();
 
   useEffect(() => {
-    if (status === "authenticated") router.replace("/admin/floor");
+    if (status === "authenticated") router.replace("/admin/tables");
     else if (status === "unauthenticated") router.replace("/admin/login");
   }, [status, router]);
 

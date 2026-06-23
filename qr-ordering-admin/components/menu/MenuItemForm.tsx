@@ -16,9 +16,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FieldError } from "@/components/ui/field-error";
 import { MultiCombobox } from "@/components/ui/multi-combobox";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/components/common/Toast";
 import { uploadImage, ApiError } from "@/lib/api";
 import { assetUrl } from "@/lib/assets";
@@ -63,6 +64,7 @@ type GroupDraft = {
   name: string;
   required: boolean;
   multiple: boolean;
+  min: string;
   max: string;
   choices: ChoiceDraft[];
 };
@@ -88,6 +90,13 @@ export function MenuItemForm({
   const [imageUrls, setImageUrls] = useState<string[]>(initial?.imageUrls ?? []);
   const [uploading, setUploading] = useState(false);
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
+  // Availability window: days (0=Sun..6=Sat; empty = every day) + venue-local
+  // from/to (blank = all day; may wrap past midnight).
+  const [availDays, setAvailDays] = useState<number[]>(initial?.availableDays ?? []);
+  const [availFrom, setAvailFrom] = useState<string>(initial?.availableFrom ?? "");
+  const [availTo, setAvailTo] = useState<string>(initial?.availableTo ?? "");
+  const toggleDay = (d: number) =>
+    setAvailDays((p) => (p.includes(d) ? p.filter((x) => x !== d) : [...p, d].sort()));
   const [discountType, setDiscountType] = useState<"PERCENT" | "FIXED" | null>(
     initial?.discountType ?? null
   );
@@ -102,6 +111,7 @@ export function MenuItemForm({
       name: g.name,
       required: g.required,
       multiple: g.maxSelect > 1,
+      min: String(g.minSelect),
       max: String(g.maxSelect),
       choices: g.choices.map((c) => ({
         name: c.name,
@@ -112,7 +122,14 @@ export function MenuItemForm({
   const addGroup = () =>
     setGroups((p) => [
       ...p,
-      { name: "", required: true, multiple: false, max: "2", choices: [{ name: "", price: "" }] },
+      {
+        name: "",
+        required: true,
+        multiple: false,
+        min: "1",
+        max: "2",
+        choices: [{ name: "", price: "" }],
+      },
     ]);
   const removeGroup = (gi: number) => setGroups((p) => p.filter((_, i) => i !== gi));
   const patchGroup = (gi: number, patch: Partial<GroupDraft>) =>
@@ -229,10 +246,18 @@ export function MenuItemForm({
           .map((c) => ({ name: c.name.trim(), priceDelta: Math.max(0, Number(c.price) || 0) }))
           .filter((c) => c.name.length > 0);
         const maxSelect = g.multiple ? Math.max(1, Math.min(20, parseInt(g.max, 10) || 1)) : 1;
+        // Optional → no minimum. Single required → 1. Multi-select required → the
+        // staff-set "at least" floor, clamped to [1, maxSelect].
+        const minSelect =
+          g.multiple && g.required
+            ? Math.max(1, Math.min(maxSelect, parseInt(g.min, 10) || 1))
+            : g.required
+              ? 1
+              : 0;
         return {
           name: g.name.trim(),
           required: g.required,
-          minSelect: g.required ? 1 : 0,
+          minSelect,
           maxSelect,
           choices,
         };
@@ -249,6 +274,9 @@ export function MenuItemForm({
       discountValue: discountType ? Number(discountValue) || 0 : 0,
       isAvailable: v.isAvailable,
       posOnly: v.posOnly,
+      availableDays: availDays,
+      availableFrom: availFrom.trim() || null,
+      availableTo: availTo.trim() || null,
       optionGroups,
     });
   };
@@ -337,22 +365,22 @@ export function MenuItemForm({
                     Cover
                   </span>
                 )}
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
                   onClick={() => removeAt(idx)}
                   aria-label="Remove image"
-                  className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-slate-900/70 text-lg leading-none text-white transition-colors hover:bg-red-600"
+                  className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-slate-900/70 p-0 text-lg leading-none text-white transition-colors hover:bg-red-600 hover:text-white"
                 >
                   ×
-                </button>
+                </Button>
                 {idx > 0 && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => makeCover(idx)}
-                    className="absolute inset-x-0 bottom-0 bg-slate-900/70 py-1 text-xs font-semibold text-white opacity-0 transition-opacity hover:bg-slate-900/90 group-hover:opacity-100"
+                    className="absolute inset-x-0 bottom-0 h-auto rounded-none bg-slate-900/70 py-1 text-xs font-semibold text-white opacity-0 transition-opacity hover:bg-slate-900/90 hover:text-white group-hover:opacity-100"
                   >
                     Make cover
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
@@ -426,23 +454,23 @@ export function MenuItemForm({
                 ["FIXED", "$ off"],
               ] as const
             ).map(([val, label]) => (
-              <button
+              <Button
                 key={val || "none"}
-                type="button"
+                variant="ghost"
                 onClick={() => {
                   const t = (val || null) as "PERCENT" | "FIXED" | null;
                   setDiscountType(t);
                   if (!t) setDiscountValue("");
                 }}
                 className={cn(
-                  "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
+                  "h-auto rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
                   (discountType ?? "") === val
-                    ? "bg-accent-600 text-white"
+                    ? "bg-accent-600 text-white hover:bg-accent-600 hover:text-white"
                     : "text-slate-600 hover:bg-slate-100"
                 )}
               >
                 {label}
-              </button>
+              </Button>
             ))}
           </div>
           {discountType && (
@@ -457,7 +485,7 @@ export function MenuItemForm({
                 value={discountValue}
                 onChange={(e) => setDiscountValue(e.target.value)}
                 placeholder={discountType === "PERCENT" ? "%" : "RM"}
-                className="w-24"
+                className="h-10 w-24"
               />
               {discountType === "PERCENT" && (
                 <span className="text-sm font-medium text-slate-500">%</span>
@@ -500,28 +528,31 @@ export function MenuItemForm({
                     value={g.name}
                     onChange={(e) => patchGroup(gi, { name: e.target.value })}
                     placeholder="Group name (e.g. Size, Spice level)"
-                    className="flex-1 bg-white"
+                    className="h-10 flex-1 bg-white"
                   />
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => removeGroup(gi)}
                     aria-label={`Remove group ${gi + 1}`}
-                    className="shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                    className="h-auto shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
                   >
                     <Trash2 className="h-4 w-4" />
-                  </button>
+                  </Button>
                 </div>
 
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-600">
-                    <input
-                      type="checkbox"
+                  <Label
+                    htmlFor={`group-${gi}-required`}
+                    className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-600"
+                  >
+                    <Checkbox
+                      id={`group-${gi}-required`}
                       checked={g.required}
-                      onChange={(e) => patchGroup(gi, { required: e.target.checked })}
-                      className="h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+                      onCheckedChange={(v) => patchGroup(gi, { required: v === true })}
+                      className="h-4 w-4"
                     />
                     Required
-                  </label>
+                  </Label>
                   <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
                     {(
                       [
@@ -529,34 +560,50 @@ export function MenuItemForm({
                         ["multiple", "Choose many"],
                       ] as const
                     ).map(([val, label]) => (
-                      <button
+                      <Button
                         key={val}
-                        type="button"
+                        variant="ghost"
                         onClick={() => patchGroup(gi, { multiple: val === "multiple" })}
                         className={cn(
-                          "rounded-md px-3 py-1 text-sm font-semibold transition-colors",
+                          "h-auto rounded-md px-3 py-1 text-sm font-semibold transition-colors",
                           (g.multiple ? "multiple" : "single") === val
-                            ? "bg-accent-600 text-white"
+                            ? "bg-accent-600 text-white hover:bg-accent-600 hover:text-white"
                             : "text-slate-600 hover:bg-slate-100"
                         )}
                       >
                         {label}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                   {g.multiple && (
-                    <label className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
-                      Up to
-                      <Input
-                        type="number"
-                        min="1"
-                        max="20"
-                        value={g.max}
-                        onChange={(e) => patchGroup(gi, { max: e.target.value })}
-                        aria-label="Maximum choices"
-                        className="h-9 w-16 bg-white"
-                      />
-                    </label>
+                    <>
+                      {g.required && (
+                        <Label className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
+                          At least
+                          <Input
+                            type="number"
+                            min="1"
+                            max="20"
+                            value={g.min}
+                            onChange={(e) => patchGroup(gi, { min: e.target.value })}
+                            aria-label="Minimum choices"
+                            className="h-9 w-16 bg-white"
+                          />
+                        </Label>
+                      )}
+                      <Label className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
+                        Up to
+                        <Input
+                          type="number"
+                          min="1"
+                          max="20"
+                          value={g.max}
+                          onChange={(e) => patchGroup(gi, { max: e.target.value })}
+                          aria-label="Maximum choices"
+                          className="h-9 w-16 bg-white"
+                        />
+                      </Label>
+                    </>
                   )}
                 </div>
 
@@ -567,7 +614,7 @@ export function MenuItemForm({
                         value={c.name}
                         onChange={(e) => patchChoice(gi, ci, { name: e.target.value })}
                         placeholder="Choice (e.g. Large)"
-                        className="min-w-0 flex-1 bg-white"
+                        className="h-10 min-w-0 flex-1 bg-white"
                       />
                       <div className="flex items-center gap-1">
                         <span className="text-sm font-medium text-slate-500">+RM</span>
@@ -582,58 +629,58 @@ export function MenuItemForm({
                           className="h-10 w-20 bg-white"
                         />
                       </div>
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
                         onClick={() => removeChoice(gi, ci)}
                         aria-label={`Remove choice ${ci + 1}`}
-                        className="shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                        className="h-auto shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
                       >
                         <X className="h-4 w-4" />
-                      </button>
+                      </Button>
                     </div>
                   ))}
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() => addChoice(gi)}
-                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent-700 transition-colors hover:text-accent-800"
+                    className="inline-flex h-auto items-center gap-1.5 p-0 text-sm font-semibold text-accent-700 transition-colors hover:bg-transparent hover:text-accent-800"
                   >
                     <Plus className="h-4 w-4" />
                     Add choice
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
           </div>
         )}
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={addGroup}
-          className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-accent-300 hover:text-accent-700"
+          className="mt-2 inline-flex h-auto items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-accent-300 hover:bg-transparent hover:text-accent-700"
         >
           <Plus className="h-4 w-4" />
           Add option group
-        </button>
+        </Button>
         {optionsError && <FieldError>{optionsError}</FieldError>}
       </div>
 
-      <label className="flex cursor-pointer items-center gap-3">
-        <input
-          type="checkbox"
+      <Label htmlFor="item-available" className="flex cursor-pointer items-center gap-3">
+        <Checkbox
+          id="item-available"
           checked={isAvailable}
-          onChange={(e) => setValue("isAvailable", e.target.checked)}
-          className="h-5 w-5 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+          onCheckedChange={(v) => setValue("isAvailable", v === true)}
+          className="h-5 w-5"
         />
         <span className="text-base font-medium text-slate-700">
           Available (uncheck to mark sold out)
         </span>
-      </label>
+      </Label>
 
-      <label className="flex cursor-pointer items-start gap-3">
-        <input
-          type="checkbox"
+      <Label htmlFor="item-visible" className="flex cursor-pointer items-start gap-3">
+        <Checkbox
+          id="item-visible"
           checked={!posOnly}
-          onChange={(e) => setValue("posOnly", !e.target.checked)}
-          className="mt-0.5 h-5 w-5 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+          onCheckedChange={(v) => setValue("posOnly", v !== true)}
+          className="mt-0.5 h-5 w-5"
         />
         <span className="text-base font-medium text-slate-700">
           Visible to customers
@@ -642,7 +689,68 @@ export function MenuItemForm({
             customer menu.
           </span>
         </span>
-      </label>
+      </Label>
+
+      {/* Availability schedule (customer menu) */}
+      <div className="rounded-xl border border-slate-200 p-4">
+        <p className="text-base font-medium text-slate-700">Availability schedule</p>
+        <p className="mt-0.5 text-sm text-slate-400">
+          Limit when this item shows on the customer menu (e.g. a breakfast or happy-hour item).
+          All days on + blank times = always available. Staff can still order it in the POS.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label, d) => (
+            <Button
+              key={d}
+              variant="ghost"
+              onClick={() => toggleDay(d)}
+              className={cn(
+                "h-9 w-12 rounded-lg border text-sm font-semibold transition-colors",
+                availDays.includes(d)
+                  ? "border-accent-500 bg-accent-50 text-accent-700 hover:bg-accent-50 hover:text-accent-700"
+                  : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+              )}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-slate-400">
+          {availDays.length === 0 ? "Available every day" : "Only on the highlighted days"}
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Label className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
+            From
+            <Input
+              type="time"
+              value={availFrom}
+              onChange={(e) => setAvailFrom(e.target.value)}
+              className="h-9 w-36 bg-white"
+            />
+          </Label>
+          <Label className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
+            to
+            <Input
+              type="time"
+              value={availTo}
+              onChange={(e) => setAvailTo(e.target.value)}
+              className="h-9 w-36 bg-white"
+            />
+          </Label>
+          {(availFrom || availTo) && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setAvailFrom("");
+                setAvailTo("");
+              }}
+              className="h-auto p-0 text-sm font-semibold text-slate-500 hover:bg-transparent hover:text-slate-700"
+            >
+              Clear times
+            </Button>
+          )}
+        </div>
+      </div>
 
       <div className="flex justify-end gap-3 pt-2">
         <Button variant="secondary" onClick={onCancel} disabled={submitting || uploading}>

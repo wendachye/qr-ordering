@@ -1,15 +1,17 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Lock, Plus, ShoppingBag, Trash2, Utensils } from "lucide-react";
 import { ModalDialog } from "@/components/ui/modal-dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { QtyStepper } from "./QtyStepper";
 import { settingsApi } from "@/lib/endpoints";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format";
 import {
   defaultSelection,
@@ -261,9 +263,10 @@ function PickerBody({
               ["FIXED", "$ off"],
             ] as const
           ).map(([val, label]) => (
-            <button
+            <Button
               key={val || "none"}
               type="button"
+              variant={discountType === val ? "default" : "ghost"}
               onClick={() => {
                 // Clear the value on a real type change so an RM amount is never
                 // silently reinterpreted as a percentage (or kept after "None").
@@ -271,14 +274,14 @@ function PickerBody({
                 setDiscountType(val);
               }}
               className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
+                "h-auto rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
                 discountType === val
                   ? "bg-accent-600 text-white"
                   : "text-slate-600 hover:bg-slate-100"
               )}
             >
               {label}
-            </button>
+            </Button>
           ))}
         </div>
         {discountType !== "" && (
@@ -286,7 +289,7 @@ function PickerBody({
             {discountType === "FIXED" && (
               <span className="text-sm font-medium text-slate-500">$</span>
             )}
-            <input
+            <Input
               type="number"
               min="0"
               step={discountType === "PERCENT" ? "1" : "0.10"}
@@ -351,12 +354,14 @@ function PickerBody({
                   const isSelected = selected.includes(choice.id);
                   const disabled = !single && !isSelected && atCap;
                   return (
-                    <button
+                    <Button
                       key={choice.id}
                       type="button"
+                      variant="ghost"
                       disabled={disabled}
                       onClick={() => choose(group.id, choice.id)}
                       className={cn(
+                        "h-auto whitespace-normal hover:bg-transparent",
                         "flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
                         isSelected
                           ? "border-accent-500 bg-accent-50"
@@ -396,7 +401,7 @@ function PickerBody({
                           +{formatPrice(choice.priceDelta)}
                         </span>
                       )}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -422,15 +427,14 @@ function PickerBody({
             />
           </div>
           {takeaway && takeawayCharge > 0 && (
-            <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
-              <input
-                type="checkbox"
+            <Label className="mt-2 flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+              <Checkbox
                 checked={applyCharge}
-                onChange={(e) => setApplyCharge(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+                onCheckedChange={(c) => setApplyCharge(c === true)}
+                className="h-4 w-4"
               />
               Add packaging charge (+{formatPrice(takeawayCharge)} / item)
-            </label>
+            </Label>
           )}
         </div>
 
@@ -440,14 +444,15 @@ function PickerBody({
           <div className="mb-1 flex items-center justify-between gap-2">
             <Label className="mb-0">Price</Label>
             {showUnlock && !pwOpen && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => setPwOpen(true)}
-                className="inline-flex items-center gap-1 text-sm font-semibold text-accent-700 hover:text-accent-800"
+                className="h-auto p-0 hover:bg-transparent inline-flex items-center gap-1 text-sm font-semibold text-accent-700 hover:text-accent-800"
               >
                 <Lock className="h-3.5 w-3.5" />
                 {unlockLabel}
-              </button>
+              </Button>
             )}
           </div>
 
@@ -455,7 +460,7 @@ function PickerBody({
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
               <p className="text-xs font-semibold text-amber-800">{unlockHint}</p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <input
+                <Input
                   type="password"
                   inputMode="numeric"
                   value={pwValue}
@@ -494,7 +499,7 @@ function PickerBody({
             overridden ? (
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-medium text-slate-500">RM</span>
-                <input
+                <Input
                   type="number"
                   min="0"
                   step="0.10"
@@ -502,27 +507,29 @@ function PickerBody({
                   onChange={(e) => setOverridePrice(e.target.value)}
                   className="h-10 w-28 rounded-lg border border-amber-300 bg-amber-50 px-3 text-base font-bold text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30"
                 />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={clearOverride}
-                  className="text-xs font-semibold text-slate-500 underline hover:text-slate-700"
+                  className="h-auto p-0 hover:bg-transparent text-xs font-semibold text-slate-500 underline hover:text-slate-700"
                 >
                   Use menu price ({formatPrice(basePrice)})
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm text-slate-500">{formatPrice(basePrice)} each</p>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={() => {
                     setOverridden(true);
                     setOverridePrice(basePrice.toFixed(2));
                   }}
-                  className="text-sm font-semibold text-accent-700 hover:text-accent-800"
+                  className="h-auto p-0 hover:bg-transparent text-sm font-semibold text-accent-700 hover:text-accent-800"
                 >
                   Override price
-                </button>
+                </Button>
               </div>
             )
           ) : (
@@ -556,7 +563,7 @@ function PickerBody({
             <div className="space-y-2">
               {addons.map((a, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <input
+                  <Input
                     value={a.name}
                     onChange={(e) => updateAddon(i, { name: e.target.value })}
                     placeholder="e.g. Add 2 eggs, extra vegetables"
@@ -565,7 +572,7 @@ function PickerBody({
                   />
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-medium text-slate-500">RM</span>
-                    <input
+                    <Input
                       type="number"
                       min="0"
                       step="0.10"
@@ -576,26 +583,29 @@ function PickerBody({
                       className="h-10 w-20 rounded-lg border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500/30"
                     />
                   </div>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => removeAddon(i)}
                     aria-label={`Remove add-on ${i + 1}`}
-                    className="shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                    className="h-auto w-auto shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
                   >
                     <Trash2 className="h-4 w-4" />
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
           )}
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={addAddon}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-accent-300 hover:text-accent-700"
+            className="h-auto mt-2 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-accent-300 hover:text-accent-700"
           >
             <Plus className="h-4 w-4" />
             Add add-on
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -651,11 +661,12 @@ function ServeToggle({
   label: string;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant={active ? "default" : "outline"}
       onClick={onClick}
       className={cn(
-        "inline-flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-base font-semibold transition-colors",
+        "h-auto inline-flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-base font-semibold transition-colors",
         active
           ? "border-accent-500 bg-accent-50 text-accent-700"
           : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -663,6 +674,6 @@ function ServeToggle({
     >
       {icon}
       {label}
-    </button>
+    </Button>
   );
 }

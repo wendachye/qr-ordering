@@ -3,10 +3,11 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ItemThumb } from "@/components/menu/ItemThumb";
 import { FeatureToggle } from "@/components/menu/FeatureToggle";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/format";
 import type { MenuItem } from "@/lib/types";
 
@@ -32,16 +33,16 @@ export function FeaturedItemRow({ item }: { item: MenuItem }) {
       className={cn("border-slate-200", isDragging && "opacity-50")}
     >
       <CardContent className="flex items-center gap-3 p-3">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           ref={setActivatorNodeRef}
           {...attributes}
           {...listeners}
           aria-label={`Drag to reorder ${item.name}`}
-          className="touch-none cursor-grab rounded p-1 text-slate-300 hover:text-slate-500 active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-auto p-1 hover:bg-transparent touch-none cursor-grab rounded text-slate-300 hover:text-slate-500 active:cursor-grabbing focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <GripVertical className="h-5 w-5" />
-        </button>
+        </Button>
 
         <ItemThumb item={item} />
 

@@ -13,7 +13,11 @@ import { adminVouchersRouter } from '../modules/admin/adminVouchers.routes';
 import { adminLoyaltyRouter } from '../modules/admin/adminLoyalty.routes';
 import { adminPlatformRouter } from '../modules/admin/platform.routes';
 import { adminOutletsRouter } from '../modules/admin/adminOutlets.routes';
+import { adminStaffRouter } from '../modules/admin/adminStaff.routes';
+import { adminRealtimeRouter } from '../modules/admin/realtime.routes';
 import { menuRouter } from '../modules/menu/menu.routes';
+import { inventoryRouter } from '../modules/inventory/inventory.routes';
+import { einvoiceRouter } from '../modules/einvoice/einvoice.routes';
 import { uploadsRouter } from '../modules/uploads/uploads.routes';
 import { printAgentRouter } from '../modules/print-jobs/printJobs.routes';
 import { billingRouter } from '../modules/billing/billing.routes';
@@ -49,7 +53,11 @@ apiRouter.use('/admin/vouchers', adminVouchersRouter);
 apiRouter.use('/admin/loyalty', adminLoyaltyRouter);
 apiRouter.use('/admin/platform', adminPlatformRouter);
 apiRouter.use('/admin/outlets', adminOutletsRouter);
+apiRouter.use('/admin/staff', adminStaffRouter);
+apiRouter.use('/admin/realtime', adminRealtimeRouter);
 apiRouter.use('/admin/menu', menuRouter);
+apiRouter.use('/admin/inventory', inventoryRouter);
+apiRouter.use('/admin/einvoice', einvoiceRouter);
 apiRouter.use('/admin/uploads', uploadsRouter);
 
 // Local print agent API

@@ -3,6 +3,8 @@ import { z } from 'zod';
 // Store-level settings editable from the admin Settings module.
 export const settingsUpdateSchema = z.object({
   storeName: z.string().trim().min(1, 'Name is required').max(80).optional(),
+  // Restaurant logo URL ('' / null clears it).
+  logoUrl: z.string().trim().max(1000).nullable().optional(),
   featuredTitle: z.string().trim().min(1).max(40).optional(),
   takeawayCharge: z.coerce.number().min(0).max(10000).optional(),
   // Service charge as a percentage (0–100). 0 = not applied.

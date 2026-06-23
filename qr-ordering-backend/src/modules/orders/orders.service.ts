@@ -6,6 +6,9 @@ import { buildKitchenPayload } from '../../lib/printPayload';
 import { config } from '../../config/env';
 import { ordersPlacedTotal } from '../../lib/metrics';
 import { effectiveItemPrice } from '../../lib/pricing';
+import { isItemAvailableNow } from '../../lib/availability';
+import { floorEvents } from '../../lib/floorEvents';
+import { applyStockDeductions } from '../inventory/inventory.service';
 import type { CreateAdminOrderInput } from '../../validators/order';
 
 const MAX_ATTEMPTS = 5;
@@ -88,8 +91,76 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
   });
   const byId = new Map(menuItems.map((m) => [m.id, m]));
 
+  // Combos referenced in the order, with their groups + options (scoped to store).
+  const comboIds = [
+    ...new Set(input.items.map((i) => i.comboId).filter((id): id is string => !!id)),
+  ];
+  const combos = comboIds.length
+    ? await prisma.combo.findMany({
+        where: { id: { in: comboIds }, storeId: table.storeId },
+        include: {
+          groups: {
+            orderBy: { sortOrder: 'asc' },
+            include: {
+              options: {
+                orderBy: { sortOrder: 'asc' },
+                include: { menuItem: { select: { name: true, isAvailable: true } } },
+              },
+            },
+          },
+        },
+      })
+    : [];
+  const comboById = new Map(combos.map((c) => [c.id, c]));
+
   // 3. Validate each line + options; recompute price server-side
   const lines = input.items.map((line) => {
+    // Combo / set meal: a fixed base price + one pick per group (premium picks add
+    // a delta). The chosen components are snapshotted onto the line.
+    if (line.comboId) {
+      const combo = comboById.get(line.comboId);
+      if (!combo || !combo.isAvailable) throw ApiError.badRequest('That combo is not on this menu');
+      if (!ctx.admin && combo.posOnly) throw ApiError.badRequest('That combo is not on this menu');
+      const picks = new Map((line.comboSelections ?? []).map((s) => [s.groupId, s.optionId]));
+      let unit = new Prisma.Decimal(combo.price);
+      const selectedOptions: { group: string; choice: string; priceDelta: number }[] = [];
+      const optionStrings: string[] = [];
+      // The chosen component menu items — deducted from stock on sale.
+      const componentMenuItemIds: string[] = [];
+      for (const g of combo.groups) {
+        const opt = g.options.find((o) => o.id === picks.get(g.id));
+        if (!opt) throw ApiError.badRequest(`Choose a "${g.name}" for "${combo.name}"`);
+        if (!opt.menuItem.isAvailable) throw ApiError.badRequest(`"${opt.menuItem.name}" is sold out`);
+        componentMenuItemIds.push(opt.menuItemId);
+        const delta = new Prisma.Decimal(opt.priceDelta);
+        unit = unit.add(delta);
+        selectedOptions.push({ group: g.name, choice: opt.menuItem.name, priceDelta: Number(delta) });
+        optionStrings.push(
+          delta.greaterThan(0)
+            ? `${g.name}: ${opt.menuItem.name} (+${delta.toFixed(2)})`
+            : `${g.name}: ${opt.menuItem.name}`,
+        );
+      }
+      unit = unit.toDecimalPlaces(2);
+      return {
+        menuItemId: null as string | null,
+        name: combo.name,
+        quantity: line.quantity,
+        unitPrice: unit,
+        takeawayCharge: new Prisma.Decimal(0),
+        isTakeaway: false,
+        priceOverridden: false,
+        discountType: null as string | null,
+        discountValue: new Prisma.Decimal(0),
+        discountAmount: new Prisma.Decimal(0),
+        totalPrice: unit.mul(line.quantity).toDecimalPlaces(2),
+        note: line.note?.trim() ? line.note.trim() : null,
+        selectedOptions,
+        optionStrings,
+        componentMenuItemIds,
+      };
+    }
+
     // Custom (open) item — admin only: an ad-hoc line with a name + price, no
     // menu lookup or options.
     if (ctx.admin && !line.menuItemId && line.customName) {
@@ -130,12 +201,17 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
         note: line.note?.trim() ? line.note.trim() : null,
         selectedOptions: [] as { group: string; choice: string; priceDelta: number }[],
         optionStrings: [] as string[],
+        componentMenuItemIds: [] as string[],
       };
     }
 
     const mi = line.menuItemId ? byId.get(line.menuItemId) : undefined;
     if (!mi) throw ApiError.badRequest(`Menu item "${line.menuItemId ?? '?'}" is not on this menu`);
     if (!mi.isAvailable) throw ApiError.badRequest(`"${mi.name}" is sold out`);
+    // Off-schedule items are blocked for diners, but staff can still order them.
+    if (!ctx.admin && !isItemAvailableNow(mi)) {
+      throw ApiError.badRequest(`"${mi.name}" isn't available right now`);
+    }
 
     const submitted = line.optionChoiceIds ?? [];
     const submittedSet = new Set(submitted);
@@ -258,8 +334,19 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
       note: line.note?.trim() ? line.note.trim() : null,
       selectedOptions,
       optionStrings,
+      componentMenuItemIds: [] as string[],
     };
   });
+
+  // Inventory: total quantity to deduct per menu item — menu-item lines plus
+  // each combo's chosen component items. Only tracked items move (in the order tx).
+  const deductions = new Map<string, number>();
+  for (const l of lines) {
+    if (l.menuItemId) deductions.set(l.menuItemId, (deductions.get(l.menuItemId) ?? 0) + l.quantity);
+    for (const cid of l.componentMenuItemIds) {
+      deductions.set(cid, (deductions.get(cid) ?? 0) + l.quantity);
+    }
+  }
 
   const subtotal = lines.reduce((acc, l) => acc.add(l.totalPrice), new Prisma.Decimal(0));
   const total = subtotal; // no taxes/service charge in MVP
@@ -339,10 +426,16 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
           },
         });
 
+        // Inventory: decrement tracked items (incl. combo components) atomically
+        // with the order. Rejects (rolls back) if a tracked item is short.
+        await applyStockDeductions(tx, table.storeId, deductions);
+
         return created;
       });
 
       ordersPlacedTotal.inc();
+      // Push a live floor update (covers customer + staff orders).
+      floorEvents.emit(table.storeId);
 
       return {
         id: order.id,

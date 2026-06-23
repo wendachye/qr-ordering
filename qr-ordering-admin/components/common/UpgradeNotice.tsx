@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Lock } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 
 // A small "this is a Pro feature" prompt with a link to the billing page. Used
 // to surface a locked entitlement before the staff member hits the backend 403.

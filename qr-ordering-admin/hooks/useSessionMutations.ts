@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ordersApi, sessionsApi } from "@/lib/endpoints";
 import { useToast } from "@/components/common/Toast";
 import { ApiError } from "@/lib/api";
+import { formatPrice } from "@/lib/format";
 import type { DiscountType, SessionDetail } from "@/lib/types";
 
 // Session-level mutations for the floor + session-detail pages. Invalidates the
@@ -28,18 +29,49 @@ export function useSessionMutations() {
       paymentMethod,
       discount,
       voucherCode,
+      tip,
     }: {
       id: string;
       paymentMethod: string;
       discount?: { discountType: DiscountType; discountValue: number };
       voucherCode?: string;
-    }) => sessionsApi.close(id, paymentMethod, discount, voucherCode),
+      tip?: number;
+    }) => sessionsApi.close(id, paymentMethod, discount, voucherCode, tip),
     onSuccess: (s) => {
       invalidate(s.id);
       toast(
         s.paymentMethod ? `Paid by ${s.paymentMethod} — tab settled.` : "Tab settled.",
         "success"
       );
+    },
+    onError,
+  });
+
+  // Record a tender — full or partial/split. A partial tender leaves the tab open
+  // with a balance; the final tender closes it.
+  const pay = useMutation({
+    mutationFn: ({
+      id,
+      ...input
+    }: {
+      id: string;
+      paymentMethod: string;
+      amount?: number;
+      tip?: number;
+      tendered?: number;
+      discount?: { discountType: DiscountType; discountValue: number };
+      voucherCode?: string;
+    }) => sessionsApi.pay(id, input),
+    onSuccess: (s) => {
+      invalidate(s.id);
+      if (s.status === "CLOSED") {
+        toast(
+          s.paymentMethod ? `Paid by ${s.paymentMethod} — tab settled.` : "Tab settled.",
+          "success"
+        );
+      } else {
+        toast(`Payment recorded — ${formatPrice(s.balanceDue)} still owing.`, "success");
+      }
     },
     onError,
   });
@@ -133,5 +165,5 @@ export function useSessionMutations() {
     },
   });
 
-  return { close, cancel, reprint, reopen, setPax, voidItem, move, combine };
+  return { close, pay, cancel, reprint, reopen, setPax, voidItem, move, combine };
 }

@@ -1,10 +1,11 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
 import { itemsApi } from "@/lib/endpoints";
 import { useToast } from "@/components/common/Toast";
 import { ApiError } from "@/lib/api";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 
 // A clear, large toggle for the item availability (sold-out) state.
 export function SoldOutToggle({
@@ -31,14 +32,13 @@ export function SoldOutToggle({
   });
 
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={isAvailable}
+    <Button
+      variant="ghost"
+      aria-pressed={isAvailable}
       disabled={mutation.isPending}
       onClick={() => mutation.mutate(!isAvailable)}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50",
+        "inline-flex h-auto items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50",
         isAvailable
           ? "bg-green-100 text-green-800 hover:bg-green-200"
           : "bg-red-100 text-red-800 hover:bg-red-200"
@@ -51,6 +51,6 @@ export function SoldOutToggle({
         )}
       />
       {isAvailable ? "Available" : "Sold out"}
-    </button>
+    </Button>
   );
 }

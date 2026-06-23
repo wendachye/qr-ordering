@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { AdminShell } from "@/components/layout/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModalDialog } from "@/components/ui/modal-dialog";
@@ -14,20 +13,24 @@ import { FeaturedSection } from "@/components/menu/FeaturedSection";
 import { BannerSettingsCard } from "@/components/menu/BannerSettingsCard";
 import { CategoryForm } from "@/components/menu/CategoryForm";
 import { MenuItemForm } from "@/components/menu/MenuItemForm";
+import { ComboManager } from "@/components/menu/ComboManager";
+import { ComboForm } from "@/components/menu/ComboForm";
+import { InventoryManager } from "@/components/menu/InventoryManager";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useToast } from "@/components/common/Toast";
-import { categoriesApi, itemsApi, menuSettingsApi } from "@/lib/endpoints";
+import { categoriesApi, combosApi, itemsApi, menuSettingsApi } from "@/lib/endpoints";
 import {
   useCategoryMutations,
+  useComboMutations,
   useItemMutations,
   useRenameFeaturedTitle,
   useToggleFeaturedEnabled,
 } from "@/hooks/useMenuMutations";
 import { ApiError } from "@/lib/api";
-import type { Category, MenuItem } from "@/lib/types";
+import type { Category, Combo, MenuItem } from "@/lib/types";
 import { useEntitlements } from "@/hooks/useEntitlements";
 import { UpgradeNotice } from "@/components/common/UpgradeNotice";
 
@@ -36,9 +39,11 @@ type ItemDialog =
   | { mode: "create"; categoryId: string }
   | { mode: "edit"; item: MenuItem }
   | null;
+type ComboDialog = { mode: "create" } | { mode: "edit"; combo: Combo } | null;
 type DeleteTarget =
   | { kind: "category"; category: Category }
   | { kind: "item"; item: MenuItem }
+  | { kind: "combo"; combo: Combo }
   | null;
 
 export default function MenuBuilderPage() {
@@ -46,13 +51,16 @@ export default function MenuBuilderPage() {
   const itemsQuery = useQuery({ queryKey: ["items"], queryFn: () => itemsApi.list() });
   const settingsQuery = useQuery({ queryKey: ["menu-settings"], queryFn: menuSettingsApi.get });
 
+  const combosQuery = useQuery({ queryKey: ["combos"], queryFn: combosApi.list });
   const categoryMut = useCategoryMutations();
   const itemMut = useItemMutations();
+  const comboMut = useComboMutations();
   const { toast } = useToast();
   const { limits } = useEntitlements();
 
   const [categoryDialog, setCategoryDialog] = useState<CategoryDialog>(null);
   const [itemDialog, setItemDialog] = useState<ItemDialog>(null);
+  const [comboDialog, setComboDialog] = useState<ComboDialog>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [moveTarget, setMoveTarget] = useState<MenuItem | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -62,6 +70,8 @@ export default function MenuBuilderPage() {
   const toggleFeatured = useToggleFeaturedEnabled();
 
   const categories = categoriesQuery.data ?? [];
+  const combos = combosQuery.data ?? [];
+  const allItems = itemsQuery.data ?? [];
   const featuredTitle = settingsQuery.data?.featuredTitle ?? "Popular";
   const featuredEnabled = settingsQuery.data?.featuredEnabled ?? true;
   // Plan menu-item cap (null = unlimited).
@@ -101,11 +111,16 @@ export default function MenuBuilderPage() {
     (itemsQuery.error instanceof ApiError && itemsQuery.error.message) ||
     "Could not load the menu.";
 
-  const deleteBusy = categoryMut.remove.isPending || itemMut.remove.isPending;
+  const deleteBusy =
+    categoryMut.remove.isPending || itemMut.remove.isPending || comboMut.remove.isPending;
   const confirmDelete = () => {
     if (!deleteTarget) return;
     if (deleteTarget.kind === "category") {
       categoryMut.remove.mutate(deleteTarget.category.id, {
+        onSuccess: () => setDeleteTarget(null),
+      });
+    } else if (deleteTarget.kind === "combo") {
+      comboMut.remove.mutate(deleteTarget.combo.id, {
         onSuccess: () => setDeleteTarget(null),
       });
     } else {
@@ -116,29 +131,7 @@ export default function MenuBuilderPage() {
   };
 
   return (
-    <AdminShell>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900">Menu</h1>
-          <p className="mt-1 text-slate-500">
-            Your menu, the featured strip, and the customer-menu banner
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {tab === "menu" && limits.maxMenuItems != null && (
-            <span className="text-sm font-medium text-slate-500">
-              {itemCount} / {limits.maxMenuItems} items
-            </span>
-          )}
-          {tab === "menu" && categories.length > 0 && (
-            <Button onClick={() => setCategoryDialog({ mode: "create" })}>
-              <Plus />
-              Add category
-            </Button>
-          )}
-        </div>
-      </div>
-
+    <>
       {isLoading ? (
         <LoadingState label="Loading menu…" />
       ) : isError ? (
@@ -151,11 +144,36 @@ export default function MenuBuilderPage() {
         />
       ) : (
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="menu">Menu</TabsTrigger>
-            <TabsTrigger value="featured">Featured</TabsTrigger>
-            <TabsTrigger value="banner">Banner</TabsTrigger>
-          </TabsList>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <TabsList>
+              <TabsTrigger value="menu">Menu</TabsTrigger>
+              <TabsTrigger value="combos">Combos</TabsTrigger>
+              <TabsTrigger value="inventory">Inventory</TabsTrigger>
+              <TabsTrigger value="featured">Featured</TabsTrigger>
+              <TabsTrigger value="banner">Banner</TabsTrigger>
+            </TabsList>
+            {tab === "menu" && (
+              <div className="flex items-center gap-3">
+                {limits.maxMenuItems != null && (
+                  <span className="text-sm font-medium text-slate-500">
+                    {itemCount} / {limits.maxMenuItems} items
+                  </span>
+                )}
+                {categories.length > 0 && (
+                  <Button size="xs" onClick={() => setCategoryDialog({ mode: "create" })}>
+                    <Plus />
+                    Add category
+                  </Button>
+                )}
+              </div>
+            )}
+            {tab === "combos" && combos.length > 0 && (
+              <Button size="xs" onClick={() => setComboDialog({ mode: "create" })}>
+                <Plus />
+                Add combo
+              </Button>
+            )}
+          </div>
 
           <TabsContent value="menu">
             {atItemLimit && (
@@ -201,6 +219,32 @@ export default function MenuBuilderPage() {
                 }
               />
             )}
+          </TabsContent>
+
+          <TabsContent value="combos">
+            {combosQuery.isLoading ? (
+              <LoadingState label="Loading combos…" />
+            ) : combosQuery.isError ? (
+              <ErrorState
+                message={
+                  combosQuery.error instanceof ApiError
+                    ? combosQuery.error.message
+                    : "Could not load combos."
+                }
+                onRetry={() => combosQuery.refetch()}
+              />
+            ) : (
+              <ComboManager
+                combos={combos}
+                onAdd={() => setComboDialog({ mode: "create" })}
+                onEdit={(combo) => setComboDialog({ mode: "edit", combo })}
+                onDelete={(combo) => setDeleteTarget({ kind: "combo", combo })}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="inventory">
+            <InventoryManager items={allItems} />
           </TabsContent>
 
           <TabsContent value="featured">
@@ -279,16 +323,51 @@ export default function MenuBuilderPage() {
         )}
       </ModalDialog>
 
-      {/* Delete confirm (category or item) */}
+      {/* Combo add/edit */}
+      <ModalDialog
+        open={!!comboDialog}
+        onClose={() => setComboDialog(null)}
+        title={comboDialog?.mode === "edit" ? "Edit combo" : "Add combo"}
+        className="sm:max-w-3xl"
+      >
+        {comboDialog && (
+          <ComboForm
+            initial={comboDialog.mode === "edit" ? comboDialog.combo : undefined}
+            items={allItems}
+            submitting={comboMut.create.isPending || comboMut.update.isPending}
+            onCancel={() => setComboDialog(null)}
+            onSubmit={(values) => {
+              if (comboDialog.mode === "edit") {
+                comboMut.update.mutate(
+                  { id: comboDialog.combo.id, input: values },
+                  { onSuccess: () => setComboDialog(null) }
+                );
+              } else {
+                comboMut.create.mutate(values, { onSuccess: () => setComboDialog(null) });
+              }
+            }}
+          />
+        )}
+      </ModalDialog>
+
+      {/* Delete confirm (category, item or combo) */}
       <ConfirmDialog
         open={!!deleteTarget}
-        title={deleteTarget?.kind === "category" ? "Delete category?" : "Delete item?"}
+        title={
+          deleteTarget?.kind === "category"
+            ? "Delete category?"
+            : deleteTarget?.kind === "combo"
+              ? "Delete combo?"
+              : "Delete item?"
+        }
         message={
           deleteTarget?.kind === "category"
             ? `Delete "${deleteTarget.category.name}"? A category with items can't be deleted — remove its items first.`
-            : deleteTarget?.kind === "item"
-              ? `Delete "${deleteTarget.item.name}"? Items referenced by past orders can't be deleted (mark them sold out instead).`
-              : ""
+            : deleteTarget?.kind === "combo"
+              ? `Delete the "${deleteTarget.combo.name}" combo? This can't be undone.`
+              : deleteTarget?.kind === "item"
+                ? `Delete "${deleteTarget.item.name}"? Items referenced by past orders can't be deleted (mark them sold out instead).`
+                : ""
         }
         confirmLabel="Delete"
         destructive
@@ -317,9 +396,9 @@ export default function MenuBuilderPage() {
               categories
                 .filter((c) => c.id !== moveTarget.categoryId)
                 .map((c) => (
-                  <button
+                  <Button
                     key={c.id}
-                    type="button"
+                    variant="ghost"
                     disabled={itemMut.move.isPending}
                     onClick={() =>
                       itemMut.move.mutate(
@@ -327,13 +406,13 @@ export default function MenuBuilderPage() {
                         { onSuccess: () => setMoveTarget(null) }
                       )
                     }
-                    className="flex w-full items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-left text-base font-medium text-slate-800 transition-colors hover:border-accent-300 hover:bg-accent-50 disabled:opacity-50"
+                    className="h-auto whitespace-normal flex w-full items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-left text-base font-medium text-slate-800 transition-colors hover:border-accent-300 hover:bg-accent-50 disabled:opacity-50"
                   >
                     <span>{c.name}</span>
                     {!c.isActive && (
                       <span className="text-xs text-slate-400">Inactive</span>
                     )}
-                  </button>
+                  </Button>
                 ))
             )}
           </div>
@@ -381,6 +460,6 @@ export default function MenuBuilderPage() {
           </div>
         </form>
       </ModalDialog>
-    </AdminShell>
+    </>
   );
 }

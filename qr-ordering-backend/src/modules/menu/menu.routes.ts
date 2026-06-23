@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { Request } from 'express';
 import { z } from 'zod';
 
-import { requireAdmin } from '../../middleware/auth';
+import { requireAdmin, requirePermission } from '../../middleware/auth';
 import { requireActiveSubscription } from '../../middleware/subscription';
 import { sendCreated, sendOk } from '../../lib/response';
 import {
@@ -35,10 +35,17 @@ import {
   updateMenuSettings,
 } from './menu.service';
 import { getPosMenuForTable } from '../public/public.service';
+import { createComboSchema, updateComboSchema } from '../../validators/combo';
+import { createCombo, deleteCombo, listCombos, updateCombo } from './combo.service';
 
 export const menuRouter = Router();
 
 menuRouter.use(requireAdmin, requireActiveSubscription);
+// Reads (GET) are open to any staff (the POS needs the menu); any mutation
+// requires the 'menu:manage' permission (owner / manager).
+menuRouter.use((req, res, next) =>
+  req.method === 'GET' ? next() : requirePermission('menu:manage')(req, res, next),
+);
 
 // GET /api/admin/menu/pos-menu?tableCode=...  — the customer-shaped menu plus
 // POS-only ("secret") items, for the staff POS order screens.
@@ -118,6 +125,20 @@ menuRouter.patch('/items/featured/reorder', async (req, res) => {
 menuRouter.patch('/items/:id/feature', async (req: Request<{ id: string }>, res) => {
   const { isFeatured } = featureSchema.parse(req.body);
   sendOk(res, await setItemFeatured(req.params.id, isFeatured));
+});
+
+// --- Combos / set meals ---
+menuRouter.get('/combos', async (_req, res) => {
+  sendOk(res, await listCombos());
+});
+menuRouter.post('/combos', async (req, res) => {
+  sendCreated(res, await createCombo(createComboSchema.parse(req.body)));
+});
+menuRouter.patch('/combos/:id', async (req: Request<{ id: string }>, res) => {
+  sendOk(res, await updateCombo(req.params.id, updateComboSchema.parse(req.body)));
+});
+menuRouter.delete('/combos/:id', async (req: Request<{ id: string }>, res) => {
+  sendOk(res, await deleteCombo(req.params.id));
 });
 
 // GET/PATCH /api/admin/menu/settings  { featuredTitle }

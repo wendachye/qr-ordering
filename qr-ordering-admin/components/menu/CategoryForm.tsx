@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FieldError } from "@/components/ui/field-error";
 import type { Category, CategoryInput } from "@/lib/types";
 
@@ -51,15 +52,15 @@ export function CategoryForm({
         <FieldError>{errors.name?.message}</FieldError>
       </div>
 
-      <label className="flex cursor-pointer items-center gap-3">
-        <input
-          type="checkbox"
+      <Label htmlFor="cat-active" className="flex cursor-pointer items-center gap-3">
+        <Checkbox
+          id="cat-active"
           checked={isActive}
-          onChange={(e) => setValue("isActive", e.target.checked)}
-          className="h-5 w-5 rounded border-slate-300 text-accent-600 focus:ring-accent-500"
+          onCheckedChange={(v) => setValue("isActive", v === true)}
+          className="h-5 w-5"
         />
         <span className="text-base font-medium text-slate-700">Active</span>
-      </label>
+      </Label>
 
       <div className="flex justify-end gap-3 pt-2">
         <Button variant="secondary" onClick={onCancel} disabled={submitting}>
