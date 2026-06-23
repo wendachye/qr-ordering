@@ -46,6 +46,17 @@ model Store {
   discountPinRequired Boolean @default(true)
   overridePinRequired Boolean @default(true)
   paymentMethods String[] @default(["Cash", "Visa", "Mastercard", "GrabPay", "Touch 'n Go"])
+  // --- Malaysia e-Invoice (MyInvois / LHDN) — seller (supplier) details + toggle.
+  einvoiceEnabled      Boolean @default(false)
+  // 'sandbox' (LHDN pre-production, default) | 'production'.
+  einvoiceMode         String  @default("sandbox")
+  sellerTin            String? // taxpayer identification number (TIN)
+  sellerRegistrationNo String? // SSM / business registration number (BRN)
+  sellerSstNo          String? // SST registration number
+  sellerMsic           String? // MSIC business-activity code
+  sellerAddress        String?
+  sellerEmail          String?
+  sellerPhone          String?
   // --- Loyalty program (per store). Members earn points-per-spend and/or
   // stamps; redeem as a bill discount or from a reward catalog. ---
   loyaltyEnabled      Boolean @default(false)
@@ -86,6 +97,9 @@ model Store {
   tables     Table[]
   categories MenuCategory[]
   items      MenuItem[]
+  stockAdjustments StockAdjustment[]
+  invoices       Invoice[]
+  invoiceCounter InvoiceCounter?
   orders     Order[]
   sessions   TableSession[]
   payments   Payment[]
@@ -175,6 +189,13 @@ model MenuItem {
   sortOrder   Int      @default(0)
   isFeatured  Boolean  @default(false)
   featuredOrder Int    @default(0)
+  // --- Item-level inventory (MVP) ---
+  // trackStock off (default) = unlimited, the current behaviour. When on, each
+  // sale decrements stockQty; at 0 the item auto-86s (isAvailable flips to
+  // false). lowStockThreshold (null = no alert) flags an item running low.
+  trackStock        Boolean @default(false)
+  stockQty          Int     @default(0)
+  lowStockThreshold Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -183,10 +204,91 @@ model MenuItem {
   orderItems   OrderItem[]
   optionGroups OptionGroup[]
   comboOptions ComboOption[]
+  stockAdjustments StockAdjustment[]
 
   @@index([storeId])
   @@index([categoryId])
   @@index([storeId, isFeatured])
+}
+
+// Immutable stock-movement ledger for a tracked menu item: every sale, restock,
+// manual set, waste write-off, or void-restore. balanceAfter snapshots the
+// resulting stockQty for audit. reason: sale | restock | set | waste | void_restore.
+model StockAdjustment {
+  id           String   @id @default(cuid())
+  storeId      String
+  menuItemId   String
+  // Negative for a sale / waste, positive for a restock / void-restore.
+  delta        Int
+  reason       String
+  note         String?
+  balanceAfter Int
+  // Staff who made a manual adjustment; null for automatic (sale) moves.
+  actorId      String?
+  actorEmail   String?
+  createdAt    DateTime @default(now())
+
+  store    Store    @relation(fields: [storeId], references: [id])
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([storeId, createdAt])
+  @@index([menuItemId, createdAt])
+}
+
+// A tax invoice for a settled tab — the document submitted to MyInvois (LHDN).
+// Numbering is sequential + gapless per store (see InvoiceCounter). The built
+// MyInvois/UBL payload is snapshotted in `document`; submission identifiers come
+// back on submit. Buyer TIN is captured for B2B; B2C invoices may omit it.
+model Invoice {
+  id        String  @id @default(cuid())
+  storeId   String
+  sessionId String? @unique
+  number    String
+
+  buyerName           String?
+  buyerTin            String?
+  buyerRegistrationNo String?
+  buyerEmail          String?
+  buyerPhone          String?
+  buyerAddress        String?
+
+  currency      String  @default("MYR")
+  subtotal      Decimal @db.Decimal(12, 2)
+  serviceCharge Decimal @default(0) @db.Decimal(12, 2)
+  taxTotal      Decimal @default(0) @db.Decimal(12, 2)
+  total         Decimal @db.Decimal(12, 2)
+  // The full MyInvois/UBL document we build for submission + line/tax detail.
+  document      Json
+
+  // draft | submitted | valid | invalid | cancelled
+  status          String    @default("draft")
+  // MyInvois identifiers returned on submission.
+  submissionUid   String?
+  longId          String?
+  validationUrl   String?
+  qrCode          String?
+  rejectionReason String?
+  submittedAt     DateTime?
+  validatedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store   Store         @relation(fields: [storeId], references: [id])
+  session TableSession? @relation(fields: [sessionId], references: [id])
+
+  @@unique([storeId, number])
+  @@index([storeId, createdAt])
+  @@index([status])
+}
+
+// Per-store gapless invoice sequence. Incremented atomically when an invoice is
+// issued; `year` lets the sequence reset per fiscal year (number prefix).
+model InvoiceCounter {
+  storeId String @id
+  lastSeq Int    @default(0)
+  year    Int    @default(0)
+  store   Store  @relation(fields: [storeId], references: [id])
 }
 
 // A combo / set meal: a fixed-price product that bundles one pick from each of
@@ -375,6 +477,7 @@ model TableSession {
   orders   Order[]
   payments Payment[]
   member   Member?   @relation(fields: [memberId], references: [id])
+  invoice  Invoice?
 
   @@unique([storeId, sessionNumber])
   @@index([storeId])

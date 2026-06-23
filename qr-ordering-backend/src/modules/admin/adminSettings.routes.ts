@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import { requireAdmin, requirePermission } from '../../middleware/auth';
+import { pinVerifyLimiter } from '../../middleware/rateLimit';
 import { sendOk } from '../../lib/response';
 import { setPinSchema, settingsUpdateSchema, verifyPinSchema } from '../../validators/settings';
 import {
@@ -32,8 +33,9 @@ adminSettingsRouter.post('/pin', requirePermission('settings:manage'), async (re
   sendOk(res, await setOverridePin(req.admin!.id, currentPassword, pin));
 });
 
-// POST /api/admin/settings/pin/verify — authorise a price override.
-adminSettingsRouter.post('/pin/verify', async (req, res) => {
+// POST /api/admin/settings/pin/verify — authorise a price override. Rate-limited
+// per IP (returns 200 even for a wrong PIN, so this is the brute-force guard).
+adminSettingsRouter.post('/pin/verify', pinVerifyLimiter, async (req, res) => {
   const { pin } = verifyPinSchema.parse(req.body);
   sendOk(res, await verifyOverridePin(pin));
 });

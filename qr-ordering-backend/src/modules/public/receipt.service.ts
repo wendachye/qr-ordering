@@ -33,6 +33,7 @@ export async function getReceipt(sessionId: string) {
         orderBy: { createdAt: 'asc' },
         select: { method: true, amount: true, tip: true, tendered: true },
       },
+      member: { select: { name: true } },
     },
   });
   if (!session) throw ApiError.notFound('Receipt not found');
@@ -51,7 +52,8 @@ export async function getReceipt(sessionId: string) {
   const gross = round2(items.reduce((acc, it) => acc + it.totalPrice, 0));
   const discount = round2(Number(session.discountAmount));
   const voucherDiscount = round2(Number(session.voucherDiscount));
-  const net = round2(gross - discount - voucherDiscount);
+  const loyaltyDiscount = round2(Number(session.loyaltyDiscount));
+  const net = round2(gross - discount - voucherDiscount - loyaltyDiscount);
 
   // Tax-inclusive back-out: decompose the collected net into a subtotal, the
   // service charge, and each configured tax (mirrors the sales report).
@@ -104,6 +106,9 @@ export async function getReceipt(sessionId: string) {
     discount,
     voucherCode: session.voucherCode,
     voucherDiscount,
+    loyaltyDiscount,
+    pointsEarned: session.pointsEarned,
+    memberName: session.member?.name ?? null,
     net,
     tip,
     total,

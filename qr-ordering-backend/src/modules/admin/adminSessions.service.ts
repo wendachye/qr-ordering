@@ -5,6 +5,14 @@ import { ApiError } from '../../lib/response';
 import { compareNatural } from '../../lib/sort';
 import { getDefaultStoreId } from '../../lib/store';
 import { floorEvents } from '../../lib/floorEvents';
+import { getPaymentAdapter } from '../../lib/payments';
+import { restoreStock } from '../inventory/inventory.service';
+import { loadConfig, enrolMember } from './loyalty.service';
+import {
+  normPhone,
+  settleLoyaltyAtClose,
+  reverseLoyaltyAtReopen,
+} from '../../lib/loyalty/core';
 import { voucherDiscountAmount, voucherError } from './vouchers.service';
 
 type SelectedOption = { group: string; choice: string; priceDelta: number };
@@ -38,6 +46,7 @@ export async function getFloor() {
         tableId: true,
         discountAmount: true,
         voucherDiscount: true,
+        loyaltyDiscount: true,
         payments: { where: { voided: false }, select: { amount: true } },
         orders: {
           where: { status: { not: 'CANCELLED' } },
@@ -66,7 +75,10 @@ export async function getFloor() {
     const amountPaid =
       Math.round(s.payments.reduce((acc, p) => acc + Number(p.amount), 0) * 100) / 100;
     const net =
-      Math.round((total - Number(s.discountAmount) - Number(s.voucherDiscount)) * 100) / 100;
+      Math.round(
+        (total - Number(s.discountAmount) - Number(s.voucherDiscount) - Number(s.loyaltyDiscount)) *
+          100,
+      ) / 100;
     const balanceDue = Math.round((net - amountPaid) * 100) / 100;
     return {
       table: t,
@@ -110,6 +122,7 @@ export async function getSession(id: string) {
         },
       },
       payments: { orderBy: { createdAt: 'asc' } },
+      member: { select: { id: true, phone: true, name: true, pointsBalance: true, tier: true } },
     },
   });
   if (!session) throw ApiError.notFound('Session not found');
@@ -148,7 +161,9 @@ export async function getSession(id: string) {
   const total = billable.reduce((acc, r) => acc + r.total, 0);
   const discount = Number(session.discountAmount);
   const voucherDiscount = Number(session.voucherDiscount);
-  const netTotal = Math.round((total - discount - voucherDiscount) * 100) / 100;
+  const loyaltyDiscount = Number(session.loyaltyDiscount);
+  const netTotal =
+    Math.round((total - discount - voucherDiscount - loyaltyDiscount) * 100) / 100;
 
   // Tenders against the tab. A tab settles in one payment (single method) or
   // several (split / partial). `amountPaid` is money toward the bill; tips are
@@ -184,6 +199,20 @@ export async function getSession(id: string) {
     // Voucher applied to the tab (attached by a customer or at settlement).
     voucherCode: session.voucherCode,
     voucherDiscount,
+    // Loyalty member attached to the tab + a locked points redemption (0 until
+    // redeemed) and what was earned once the tab settled.
+    member: session.member
+      ? {
+          id: session.member.id,
+          phone: session.member.phone,
+          name: session.member.name,
+          pointsBalance: session.member.pointsBalance,
+          tier: session.member.tier,
+        }
+      : null,
+    loyaltyDiscount,
+    pointsRedeemed: session.pointsRedeemed,
+    pointsEarned: session.pointsEarned,
     netTotal,
     // Tenders: the payment ledger + the running paid / tip totals and what's
     // still owed (> 0 while a tab is part-paid).
@@ -231,6 +260,9 @@ export async function recordPayment(
         discountType: true,
         discountValue: true,
         discountAmount: true,
+        memberId: true,
+        loyaltyDiscount: true,
+        pointsRedeemed: true,
       },
     });
     if (!s) throw ApiError.notFound('Session not found');
@@ -310,8 +342,10 @@ export async function recordPayment(
       });
     }
 
-    // Net to collect (≥ 0) and what's outstanding after prior tenders.
-    let net = gross.sub(discountAmount).sub(voucherDiscount);
+    // Net to collect (≥ 0) and what's outstanding after prior tenders. A locked
+    // loyalty redemption reduces the bill like a discount (set out-of-band by the
+    // redeem endpoint, before any tender — see redeemPointsOnSession).
+    let net = gross.sub(discountAmount).sub(voucherDiscount).sub(s.loyaltyDiscount);
     if (net.isNegative()) net = new Prisma.Decimal(0);
     const paidSoFar = prior.reduce((acc, p) => acc.add(p.amount), new Prisma.Decimal(0));
     const balance = net.sub(paidSoFar);
@@ -333,6 +367,46 @@ export async function recordPayment(
         ? new Prisma.Decimal(input.tendered).toDecimalPlaces(2)
         : null;
 
+    // If this tender will settle the tab and a redemption is locked, re-validate
+    // the member still has the points BEFORE capturing — so a balance drained on
+    // another tab fails cleanly here instead of rolling back a captured tender at
+    // the settle step below.
+    const willSettle = paidSoFar
+      .add(applied)
+      .greaterThanOrEqualTo(net.sub(new Prisma.Decimal('0.005')));
+    if (willSettle && s.memberId && s.pointsRedeemed > 0) {
+      const mem = await tx.member.findUnique({
+        where: { id: s.memberId },
+        select: { pointsBalance: true },
+      });
+      if (mem && mem.pointsBalance < s.pointsRedeemed) {
+        throw ApiError.badRequest(
+          'Member no longer has enough points to redeem — clear the redemption first',
+        );
+      }
+    }
+
+    // Payment-capture seam: a real gateway/terminal would capture here. The
+    // default 'manual' adapter is a no-op (capture handled out-of-band — cash /
+    // EDC terminal / counter QR), so this is behaviour-identical today. NOTE: a
+    // *networked* provider should capture BEFORE opening this transaction (don't
+    // hold the DB tx across a network round-trip) — make that refactor when
+    // wiring the first real adapter.
+    const capture = await getPaymentAdapter().capture({
+      storeId,
+      sessionId: id,
+      method: input.paymentMethod,
+      amount: Number(applied.toDecimalPlaces(2)),
+      tip: Number(tip),
+      tendered: tendered ? Number(tendered) : null,
+      reference: input.reference?.trim() || null,
+    });
+    // Only a fully captured tender is recorded — a real provider returning
+    // 'pending'/'failed' must not finalize the tab.
+    if (capture.status !== 'captured') {
+      throw ApiError.badRequest(capture.message ?? 'Payment could not be captured');
+    }
+
     await tx.payment.create({
       data: {
         storeId,
@@ -341,7 +415,7 @@ export async function recordPayment(
         amount: applied.toDecimalPlaces(2),
         tip,
         tendered,
-        reference: input.reference?.trim() || null,
+        reference: capture.providerRef,
       },
     });
 
@@ -374,14 +448,41 @@ export async function recordPayment(
     const distinct = [...new Set(methods.map((m) => m.method))];
     const methodSummary = distinct.length === 1 ? distinct[0] : 'Split';
 
-    await tx.tableSession.update({
-      where: { id },
+    // Conditional close: only the transaction that actually flips OPEN→CLOSED
+    // proceeds to the settle side-effects (order completion + loyalty below). Under
+    // READ COMMITTED a racing second tender re-reads status=CLOSED here, matches 0
+    // rows, and the whole tx (including its duplicate Payment row) rolls back —
+    // preventing a double tender + double points earn.
+    const closed = await tx.tableSession.updateMany({
+      where: { id, status: 'OPEN' },
       data: { status: 'CLOSED', closedAt: new Date(), paymentMethod: methodSummary },
     });
+    if (closed.count === 0) throw ApiError.conflict('This table is already closed');
     await tx.order.updateMany({
       where: { sessionId: id, status: 'NEW' },
       data: { status: 'COMPLETED' },
     });
+
+    // Loyalty: burn any locked redemption + earn on the settled net. Runs ONLY on
+    // the OPEN→CLOSED transition (this block), so earn happens exactly once even
+    // across a split/partial payment.
+    if (s.memberId) {
+      const lcfg = await loadConfig(storeId);
+      if (lcfg.loyaltyEnabled && lcfg.pointsEnabled) {
+        await settleLoyaltyAtClose(tx, {
+          storeId,
+          sessionId: id,
+          memberId: s.memberId,
+          pointsRedeemed: s.pointsRedeemed,
+          netSpend: Number(net),
+          config: {
+            earnRatePoints: lcfg.earnRatePoints,
+            tiers: lcfg.tiers,
+            tierBasis: lcfg.tierBasis,
+          },
+        });
+      }
+    }
   });
   floorEvents.emit(storeId);
   return getSession(id);
@@ -416,6 +517,19 @@ export async function cancelSession(id: string) {
       where: { id },
       data: { status: 'CANCELLED', closedAt: new Date() },
     });
+    // Inventory: return stock for not-yet-voided tracked items before cancelling
+    // the orders (a voided item was already restored at void time).
+    const liveItems = await tx.orderItem.findMany({
+      where: {
+        order: { sessionId: id, status: { not: 'CANCELLED' } },
+        voided: false,
+        menuItemId: { not: null },
+      },
+      select: { menuItemId: true, quantity: true },
+    });
+    for (const it of liveItems) {
+      if (it.menuItemId) await restoreStock(tx, storeId, it.menuItemId, it.quantity);
+    }
     await tx.order.updateMany({
       where: { sessionId: id },
       data: { status: 'CANCELLED' },
@@ -444,7 +558,16 @@ export async function reopenSession(id: string) {
   await prisma.$transaction(async (tx) => {
     const s = await tx.tableSession.findFirst({
       where: { id, storeId },
-      select: { status: true, tableId: true },
+      select: {
+        status: true,
+        tableId: true,
+        memberId: true,
+        pointsEarned: true,
+        pointsRedeemed: true,
+        loyaltyDiscount: true,
+        discountAmount: true,
+        voucherDiscount: true,
+      },
     });
     if (!s) throw ApiError.notFound('Session not found');
     if (s.status !== 'CLOSED') throw ApiError.conflict('Only a closed tab can be re-opened');
@@ -453,16 +576,56 @@ export async function reopenSession(id: string) {
       select: { id: true },
     });
     if (openOnTable) throw ApiError.conflict('This table already has an open tab');
+
+    // Reverse the loyalty earn/redeem from the close being undone, BEFORE the
+    // session's loyalty fields are cleared below. Recompute the same net the earn
+    // used — the tab is frozen while closed, so gross is unchanged. Guard on the
+    // member only (not on points): lifetimeSpend is bumped at close whenever the
+    // net was > 0, even when earned floored to 0, so it must always be unwound.
+    if (s.memberId) {
+      const orders = await tx.order.findMany({
+        where: { sessionId: id, status: { not: 'CANCELLED' } },
+        select: { items: { where: { voided: false }, select: { totalPrice: true } } },
+      });
+      const gross = orders.reduce(
+        (a, o) => a + o.items.reduce((x, it) => x + Number(it.totalPrice), 0),
+        0,
+      );
+      const netSpend =
+        Math.round(
+          (gross -
+            Number(s.discountAmount) -
+            Number(s.voucherDiscount) -
+            Number(s.loyaltyDiscount)) *
+            100,
+        ) / 100;
+      const lcfg = await loadConfig(storeId);
+      await reverseLoyaltyAtReopen(tx, {
+        storeId,
+        sessionId: id,
+        memberId: s.memberId,
+        pointsEarned: s.pointsEarned,
+        pointsRedeemed: s.pointsRedeemed,
+        netSpend,
+        config: { tiers: lcfg.tiers, tierBasis: lcfg.tierBasis },
+      });
+    }
+
     await tx.tableSession.update({
       where: { id },
-      // Clear any settled discount so it can't bleed into the re-opened tab's
-      // live net (the discount is re-entered at the next close if still wanted).
+      // Clear the settled discount + loyalty redemption/earn so they can't bleed
+      // into the re-opened tab's live net (re-entered at the next close if still
+      // wanted). The member stays attached.
       data: {
         status: 'OPEN',
         closedAt: null,
         discountType: null,
         discountValue: 0,
         discountAmount: 0,
+        pointsEarned: 0,
+        pointsRedeemed: 0,
+        loyaltyDiscount: 0,
+        rewardRedemptionId: null,
       },
     });
     // Drop the prior tender ledger — those payments settled the now-reversed
@@ -472,6 +635,112 @@ export async function reopenSession(id: string) {
       where: { sessionId: id, status: 'COMPLETED' },
       data: { status: 'NEW' },
     });
+  });
+  floorEvents.emit(storeId);
+  return getSession(id);
+}
+
+/* ------------------------------- Loyalty on a tab ------------------------------- */
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Attach a loyalty member to an OPEN tab (find-or-enrol by phone). */
+export async function attachMemberToSession(id: string, input: { phone: string; name?: string }) {
+  const storeId = await getDefaultStoreId();
+  const s = await prisma.tableSession.findFirst({ where: { id, storeId }, select: { status: true } });
+  if (!s) throw ApiError.notFound('Session not found');
+  if (s.status !== 'OPEN') throw ApiError.conflict('Only an open tab can have a member attached');
+  const phone = normPhone(input.phone);
+  let member = await prisma.member.findUnique({ where: { storeId_phone: { storeId, phone } } });
+  if (!member) {
+    await enrolMember(storeId, { phone: input.phone, name: input.name ?? null });
+    member = await prisma.member.findUniqueOrThrow({ where: { storeId_phone: { storeId, phone } } });
+  } else if (!member.isActive) {
+    throw ApiError.badRequest('That member is deactivated');
+  }
+  await prisma.tableSession.update({ where: { id }, data: { memberId: member.id } });
+  floorEvents.emit(storeId);
+  return getSession(id);
+}
+
+/** Remove the member (and any pending redemption) from an OPEN tab. */
+export async function detachMemberFromSession(id: string) {
+  const storeId = await getDefaultStoreId();
+  const s = await prisma.tableSession.findFirst({ where: { id, storeId }, select: { status: true } });
+  if (!s) throw ApiError.notFound('Session not found');
+  if (s.status !== 'OPEN') throw ApiError.conflict('Only an open tab can be changed');
+  await prisma.tableSession.update({
+    where: { id },
+    data: { memberId: null, pointsRedeemed: 0, loyaltyDiscount: 0, rewardRedemptionId: null },
+  });
+  floorEvents.emit(storeId);
+  return getSession(id);
+}
+
+/**
+ * Lock a points→discount redemption on an OPEN tab. The points aren't spent yet —
+ * they're burned at settlement (mirrors the voucher pattern), so a cancelled tab
+ * costs the member nothing. Disallowed once a tender exists (the bill is locked).
+ */
+export async function redeemPointsOnSession(id: string, points: number) {
+  const storeId = await getDefaultStoreId();
+  await prisma.$transaction(async (tx) => {
+    const s = await tx.tableSession.findFirst({
+      where: { id, storeId },
+      select: { status: true, memberId: true, discountAmount: true, voucherDiscount: true },
+    });
+    if (!s) throw ApiError.notFound('Session not found');
+    if (s.status !== 'OPEN') throw ApiError.conflict('Only an open tab can redeem points');
+    if (!s.memberId) throw ApiError.badRequest('Attach a member to the tab first');
+    const paid = await tx.payment.count({ where: { sessionId: id, voided: false } });
+    if (paid > 0) throw ApiError.conflict('Redeem points before taking payment');
+
+    const cfg = await loadConfig(storeId);
+    if (!cfg.loyaltyEnabled || !cfg.pointsEnabled) throw ApiError.badRequest('Points are not enabled');
+    if (points < cfg.minRedeemPoints) {
+      throw ApiError.badRequest(`Redeem at least ${cfg.minRedeemPoints} points`);
+    }
+    const member = await tx.member.findUniqueOrThrow({ where: { id: s.memberId } });
+    if (member.pointsBalance < points) throw ApiError.badRequest('Member does not have enough points');
+
+    // Money value of the points, capped at maxRedeemPercent of the bill after any
+    // other discount/voucher (and never more than that remaining bill).
+    const orders = await tx.order.findMany({
+      where: { sessionId: id, status: { not: 'CANCELLED' } },
+      select: { items: { where: { voided: false }, select: { totalPrice: true } } },
+    });
+    const gross = orders.reduce(
+      (a, o) => a + o.items.reduce((x, it) => x + Number(it.totalPrice), 0),
+      0,
+    );
+    const remaining = Math.max(0, round2(gross - Number(s.discountAmount) - Number(s.voucherDiscount)));
+    let value = round2(points / cfg.redeemRatePoints);
+    // Hard cap, floored to the cent so the policy bound is never exceeded — and a
+    // 0% cap genuinely disables redemption (rather than allowing the whole bill).
+    const cap = Math.floor(remaining * cfg.maxRedeemPercent) / 100;
+    if (value > cap) {
+      throw ApiError.badRequest(`Redemption is capped at RM${cap.toFixed(2)} on this bill`);
+    }
+    if (value > remaining) value = remaining;
+
+    await tx.tableSession.update({
+      where: { id },
+      data: { pointsRedeemed: points, loyaltyDiscount: new Prisma.Decimal(value) },
+    });
+  });
+  floorEvents.emit(storeId);
+  return getSession(id);
+}
+
+/** Clear a pending points redemption on an OPEN tab. */
+export async function clearRedemptionOnSession(id: string) {
+  const storeId = await getDefaultStoreId();
+  const s = await prisma.tableSession.findFirst({ where: { id, storeId }, select: { status: true } });
+  if (!s) throw ApiError.notFound('Session not found');
+  if (s.status !== 'OPEN') throw ApiError.conflict('Only an open tab can be changed');
+  await prisma.tableSession.update({
+    where: { id },
+    data: { pointsRedeemed: 0, loyaltyDiscount: 0, rewardRedemptionId: null },
   });
   floorEvents.emit(storeId);
   return getSession(id);
@@ -524,11 +793,18 @@ export async function combineSessions(targetId: string, sourceId: string) {
   const [target, source] = await Promise.all([
     prisma.tableSession.findFirst({
       where: { id: targetId, storeId },
-      select: { id: true, status: true, tableId: true, storeId: true },
+      select: { id: true, status: true, tableId: true, storeId: true, memberId: true },
     }),
     prisma.tableSession.findFirst({
       where: { id: sourceId, storeId },
-      select: { id: true, status: true, storeId: true },
+      select: {
+        id: true,
+        status: true,
+        storeId: true,
+        memberId: true,
+        pointsRedeemed: true,
+        loyaltyDiscount: true,
+      },
     }),
   ]);
   if (!target) throw ApiError.notFound('Session not found');
@@ -539,6 +815,14 @@ export async function combineSessions(targetId: string, sourceId: string) {
   if (target.storeId !== source.storeId) {
     throw ApiError.badRequest('Tabs belong to different stores');
   }
+  // Loyalty: a locked redemption on the source would silently vanish on merge.
+  if (source.pointsRedeemed > 0 || Number(source.loyaltyDiscount) > 0) {
+    throw ApiError.conflict('Clear the points redemption on the other tab before combining');
+  }
+  if (source.memberId && target.memberId && source.memberId !== target.memberId) {
+    throw ApiError.conflict('Both tabs have a loyalty member — detach one first');
+  }
+  const carryMemberId = target.memberId ?? source.memberId;
 
   await prisma.$transaction(async (tx) => {
     // Move the source's rounds onto the target table + session.
@@ -555,11 +839,23 @@ export async function combineSessions(targetId: string, sourceId: string) {
     for (let i = 0; i < orders.length; i++) {
       await tx.order.update({ where: { id: orders[i].id }, data: { roundNumber: i + 1 } });
     }
-    // The source tab is now empty → mark merged so its table frees up.
+    // The source tab is now empty → mark merged so its table frees up; clear its
+    // loyalty state so nothing lingers on a session that can never settle.
     await tx.tableSession.update({
       where: { id: sourceId },
-      data: { status: 'MERGED', closedAt: new Date() },
+      data: {
+        status: 'MERGED',
+        closedAt: new Date(),
+        memberId: null,
+        pointsRedeemed: 0,
+        loyaltyDiscount: 0,
+        rewardRedemptionId: null,
+      },
     });
+    // Carry the member onto the combined tab when only the source had one.
+    if (carryMemberId && carryMemberId !== target.memberId) {
+      await tx.tableSession.update({ where: { id: targetId }, data: { memberId: carryMemberId } });
+    }
   });
   floorEvents.emit(storeId);
   return getSession(targetId);

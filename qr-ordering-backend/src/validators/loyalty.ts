@@ -106,6 +106,13 @@ export const attachMemberSchema = z.object({
   name: z.string().trim().max(100).optional(),
 });
 
+// Staff: redeem a member's points as a bill discount on the attached tab.
+export const redeemPointsSchema = z.object({
+  points: z.coerce.number().int().min(1).max(10000000),
+});
+
+export type AttachMemberInput = z.infer<typeof attachMemberSchema>;
+export type RedeemPointsInput = z.infer<typeof redeemPointsSchema>;
 export type CreateMemberInput = z.infer<typeof createMemberSchema>;
 export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;
 export type CreateRewardInput = z.infer<typeof createRewardSchema>;

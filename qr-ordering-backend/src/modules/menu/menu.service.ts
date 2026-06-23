@@ -126,6 +126,9 @@ function toItemDto(item: {
   sortOrder: number;
   isFeatured: boolean;
   featuredOrder: number;
+  trackStock: boolean;
+  stockQty: number;
+  lowStockThreshold: number | null;
   createdAt: Date;
   updatedAt: Date;
   category?: { name: string } | null;
@@ -158,6 +161,9 @@ function toItemDto(item: {
     sortOrder: item.sortOrder,
     isFeatured: item.isFeatured,
     featuredOrder: item.featuredOrder,
+    trackStock: item.trackStock,
+    stockQty: item.stockQty,
+    lowStockThreshold: item.lowStockThreshold,
     optionGroups: (item.optionGroups ?? []).map((g) => ({
       id: g.id,
       name: g.name,

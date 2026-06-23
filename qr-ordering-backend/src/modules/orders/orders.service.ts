@@ -8,6 +8,7 @@ import { ordersPlacedTotal } from '../../lib/metrics';
 import { effectiveItemPrice } from '../../lib/pricing';
 import { isItemAvailableNow } from '../../lib/availability';
 import { floorEvents } from '../../lib/floorEvents';
+import { applyStockDeductions } from '../inventory/inventory.service';
 import type { CreateAdminOrderInput } from '../../validators/order';
 
 const MAX_ATTEMPTS = 5;
@@ -124,10 +125,13 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
       let unit = new Prisma.Decimal(combo.price);
       const selectedOptions: { group: string; choice: string; priceDelta: number }[] = [];
       const optionStrings: string[] = [];
+      // The chosen component menu items — deducted from stock on sale.
+      const componentMenuItemIds: string[] = [];
       for (const g of combo.groups) {
         const opt = g.options.find((o) => o.id === picks.get(g.id));
         if (!opt) throw ApiError.badRequest(`Choose a "${g.name}" for "${combo.name}"`);
         if (!opt.menuItem.isAvailable) throw ApiError.badRequest(`"${opt.menuItem.name}" is sold out`);
+        componentMenuItemIds.push(opt.menuItemId);
         const delta = new Prisma.Decimal(opt.priceDelta);
         unit = unit.add(delta);
         selectedOptions.push({ group: g.name, choice: opt.menuItem.name, priceDelta: Number(delta) });
@@ -153,6 +157,7 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
         note: line.note?.trim() ? line.note.trim() : null,
         selectedOptions,
         optionStrings,
+        componentMenuItemIds,
       };
     }
 
@@ -196,6 +201,7 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
         note: line.note?.trim() ? line.note.trim() : null,
         selectedOptions: [] as { group: string; choice: string; priceDelta: number }[],
         optionStrings: [] as string[],
+        componentMenuItemIds: [] as string[],
       };
     }
 
@@ -328,8 +334,19 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
       note: line.note?.trim() ? line.note.trim() : null,
       selectedOptions,
       optionStrings,
+      componentMenuItemIds: [] as string[],
     };
   });
+
+  // Inventory: total quantity to deduct per menu item — menu-item lines plus
+  // each combo's chosen component items. Only tracked items move (in the order tx).
+  const deductions = new Map<string, number>();
+  for (const l of lines) {
+    if (l.menuItemId) deductions.set(l.menuItemId, (deductions.get(l.menuItemId) ?? 0) + l.quantity);
+    for (const cid of l.componentMenuItemIds) {
+      deductions.set(cid, (deductions.get(cid) ?? 0) + l.quantity);
+    }
+  }
 
   const subtotal = lines.reduce((acc, l) => acc.add(l.totalPrice), new Prisma.Decimal(0));
   const total = subtotal; // no taxes/service charge in MVP
@@ -408,6 +425,10 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
             payload: payload as unknown as Prisma.InputJsonValue,
           },
         });
+
+        // Inventory: decrement tracked items (incl. combo components) atomically
+        // with the order. Rejects (rolls back) if a tracked item is short.
+        await applyStockDeductions(tx, table.storeId, deductions);
 
         return created;
       });

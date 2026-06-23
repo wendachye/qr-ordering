@@ -5,6 +5,7 @@ import { getDefaultStoreId } from '../../lib/store';
 import { floorEvents } from '../../lib/floorEvents';
 import { ApiError } from '../../lib/response';
 import { buildKitchenPayload } from '../../lib/printPayload';
+import { restoreStock } from '../inventory/inventory.service';
 import { getSession } from './adminSessions.service';
 import { verifyOverridePin } from './adminSettings.service';
 import type { UpdateOrderStatusInput } from '../../validators/order';
@@ -170,7 +171,7 @@ export async function reprintOrder(id: string) {
   const storeId = await getDefaultStoreId();
   const order = await prisma.order.findFirst({
     where: { id, storeId },
-    include: { table: true, items: { orderBy: { createdAt: 'asc' } } },
+    include: { table: true, items: { where: { voided: false }, orderBy: { createdAt: 'asc' } } },
   });
   if (!order) throw ApiError.notFound('Order not found');
 
@@ -183,7 +184,12 @@ export async function reprintOrder(id: string) {
       name: i.name,
       quantity: i.quantity,
       note: i.note,
-      options: parseSelectedOptions(i.selectedOptions).map((o) => `${o.group}: ${o.choice}`),
+      // Match the original ticket's option strings (combo/add-on price deltas).
+      options: parseSelectedOptions(i.selectedOptions).map((o) =>
+        o.priceDelta > 0
+          ? `${o.group}: ${o.choice} (+${o.priceDelta.toFixed(2)})`
+          : `${o.group}: ${o.choice}`,
+      ),
       takeaway: i.isTakeaway,
     })),
   });
@@ -267,6 +273,11 @@ export async function voidOrderItem(
       where: { id: item.orderId },
       data: { subtotal, total: subtotal },
     });
+    // Inventory: return the voided item's stock (tracked items only; a combo line
+    // has no menuItemId, so its components aren't auto-restored).
+    if (item.menuItemId) {
+      await restoreStock(tx, storeId, item.menuItemId, item.quantity);
+    }
   });
 
   floorEvents.emit(storeId);

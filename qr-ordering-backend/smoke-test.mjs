@@ -4,7 +4,7 @@
 import process from 'node:process';
 
 const BASE = process.env.SMOKE_BASE_URL ?? 'http://localhost:4000';
-const API = `${BASE}/api`;
+const API = `${BASE}/api/v1`;
 const PRINT_KEY = process.env.PRINT_AGENT_API_KEY ?? 'secret-key';
 const TABLE = 'TBL001';
 

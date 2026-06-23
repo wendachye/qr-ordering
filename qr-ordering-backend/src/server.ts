@@ -61,6 +61,12 @@ async function start(): Promise<void> {
         process.exit(0);
       }
     });
+    // Long-lived SSE streams (admin floor) never end on their own, so without
+    // this server.close()'s callback would wait out the full force-exit backstop
+    // (and exit non-zero). Drop idle keep-alives now and force-close the rest
+    // (incl. SSE) after a short grace so genuine in-flight requests still finish.
+    server.closeIdleConnections();
+    setTimeout(() => server.closeAllConnections(), 2000).unref();
   }
 
   process.on('SIGINT', () => void shutdown('SIGINT'));

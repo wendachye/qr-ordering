@@ -3,6 +3,7 @@ import type { Request } from 'express';
 
 import { requireAdmin, requirePermission } from '../../middleware/auth';
 import { requireActiveSubscription } from '../../middleware/subscription';
+import { requireFeature } from '../../middleware/features';
 import { sendOk } from '../../lib/response';
 import {
   closeSessionSchema,
@@ -12,15 +13,20 @@ import {
   sessionListQuerySchema,
   sessionPaxSchema,
 } from '../../validators/session';
+import { attachMemberSchema, redeemPointsSchema } from '../../validators/loyalty';
 import {
+  attachMemberToSession,
   cancelSession,
+  clearRedemptionOnSession,
   closeSession,
   combineSessions,
+  detachMemberFromSession,
   getFloor,
   getSession,
   listSessions,
   moveSession,
   recordPayment,
+  redeemPointsOnSession,
   reopenSession,
   setSessionPax,
 } from './adminSessions.service';
@@ -100,3 +106,42 @@ adminSessionsRouter.post('/:id/combine', async (req: Request<{ id: string }>, re
 adminSessionsRouter.post('/:id/reopen', async (req: Request<{ id: string }>, res) => {
   sendOk(res, await reopenSession(req.params.id));
 });
+
+// --- Loyalty on a tab (gated by the loyalty feature) ---
+// POST /:id/member — attach a member by phone (enrols on first sight).
+adminSessionsRouter.post(
+  '/:id/member',
+  requirePermission('payment:take'),
+  requireFeature('loyalty'),
+  async (req: Request<{ id: string }>, res) => {
+    sendOk(res, await attachMemberToSession(req.params.id, attachMemberSchema.parse(req.body)));
+  },
+);
+// DELETE /:id/member — remove the member (and any pending redemption).
+adminSessionsRouter.delete(
+  '/:id/member',
+  requirePermission('payment:take'),
+  requireFeature('loyalty'),
+  async (req: Request<{ id: string }>, res) => {
+    sendOk(res, await detachMemberFromSession(req.params.id));
+  },
+);
+// POST /:id/redeem — lock a points→discount redemption (burned at settlement).
+adminSessionsRouter.post(
+  '/:id/redeem',
+  requirePermission('payment:take'),
+  requireFeature('loyalty'),
+  async (req: Request<{ id: string }>, res) => {
+    const { points } = redeemPointsSchema.parse(req.body);
+    sendOk(res, await redeemPointsOnSession(req.params.id, points));
+  },
+);
+// DELETE /:id/redeem — clear the pending redemption.
+adminSessionsRouter.delete(
+  '/:id/redeem',
+  requirePermission('payment:take'),
+  requireFeature('loyalty'),
+  async (req: Request<{ id: string }>, res) => {
+    sendOk(res, await clearRedemptionOnSession(req.params.id));
+  },
+);
