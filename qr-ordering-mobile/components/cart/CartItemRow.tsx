@@ -7,11 +7,13 @@ import { QuantityStepper } from "@/components/common/QuantityStepper";
 
 export function CartItemRow({
   item,
+  stale = false,
   onSetQuantity,
   onRemove,
   onSetNote,
 }: {
   item: CartItem;
+  stale?: boolean;
   onSetQuantity: (lineId: string, quantity: number) => void;
   onRemove: (lineId: string) => void;
   onSetNote: (lineId: string, note: string) => void;
@@ -19,7 +21,16 @@ export function CartItemRow({
   const [noteOpen, setNoteOpen] = useState(Boolean(item.note));
 
   return (
-    <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 last:border-b-0">
+    <div
+      className={`flex flex-col gap-3 border-b border-gray-100 px-4 py-4 last:border-b-0 ${
+        stale ? "bg-amber-50/60" : ""
+      }`}
+    >
+      {stale && (
+        <p className="rounded-lg bg-amber-100 px-2.5 py-1.5 text-xs font-medium text-amber-800">
+          No longer available — please remove this item.
+        </p>
+      )}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-black">{item.name}</h3>
@@ -71,6 +82,7 @@ export function CartItemRow({
           maxLength={200}
           autoFocus={!item.note}
           onChange={(e) => onSetNote(item.lineId, e.target.value)}
+          aria-label="Item note"
           placeholder="Item note (e.g. no cucumber)"
           className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />

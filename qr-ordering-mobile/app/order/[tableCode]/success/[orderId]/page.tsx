@@ -13,9 +13,9 @@ export default async function SuccessPage({
   const { tableCode, orderId } = await params;
   const { n } = await searchParams;
 
-  // Prefer the human-readable order number (passed as ?n=) when available,
-  // otherwise fall back to the order id.
-  const orderLabel = n ? `#${n}` : `#${orderId}`;
+  // Use the human-readable order number (passed as ?n=) when available; with no
+  // number, show none at all — a raw cuid means nothing to the diner.
+  const orderLabel = n ? ` #${n}` : "";
 
   return (
     <MobileShell>
@@ -26,7 +26,7 @@ export default async function SuccessPage({
 
         <div>
           <h1 className="text-2xl font-bold text-black">
-            Order {orderLabel} sent to the kitchen
+            Order{orderLabel} sent to the kitchen
           </h1>
           <p className="mt-3 text-base text-gray-600">
             It&apos;s been added to your table&apos;s tab. Order as many rounds as

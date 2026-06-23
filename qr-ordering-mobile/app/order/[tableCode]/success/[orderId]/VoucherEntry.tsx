@@ -34,7 +34,10 @@ export function VoucherEntry({ tableCode }: { tableCode: string }) {
 
   if (applied) {
     return (
-      <div className="w-full max-w-xs rounded-2xl border border-accent/30 bg-accent/5 px-4 py-3 text-center">
+      <div
+        role="status"
+        className="w-full max-w-xs rounded-2xl border border-accent/30 bg-accent/5 px-4 py-3 text-center"
+      >
         <p className="text-sm font-bold text-black">Voucher {applied.code} applied 🎉</p>
         <p className="mt-0.5 text-sm text-gray-600">
           {applied.estimatedDiscount > 0
@@ -54,6 +57,7 @@ export function VoucherEntry({ tableCode }: { tableCode: string }) {
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
           onKeyDown={(e) => e.key === "Enter" && submit()}
+          aria-label="Voucher code"
           placeholder="Enter code"
           className="min-w-0 flex-1 rounded-xl border border-gray-300 px-3 py-2.5 font-mono text-sm uppercase tracking-wide outline-none focus:border-accent"
         />
@@ -61,7 +65,11 @@ export function VoucherEntry({ tableCode }: { tableCode: string }) {
           {busy ? "…" : "Apply"}
         </Button>
       </div>
-      {error && <p className="mt-1.5 text-sm font-medium text-red-600">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-1.5 text-sm font-medium text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

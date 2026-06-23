@@ -2,19 +2,21 @@
 
 // Zustand cart store with per-table persistence in localStorage.
 //
-// The cart is keyed per table code via a dynamic storage key
-// ("qr-cart:<TABLECODE>"). Switching tables uses a different key, so each
-// table keeps its own cart. We expose a single store but rehydrate it against
-// the active table on mount (see useCartForTable).
+// One store under a single localStorage key ("qr-cart:store"), but each table
+// keeps its OWN cart: `carts` maps tableCode -> lines, and `items` mirrors the
+// active table's lines (what every selector/consumer reads). setTable snapshots
+// the table you're leaving into `carts` and loads the one you're entering, so
+// scanning a different table never wipes the first table's cart.
 //
 // Each cart line carries a stable `lineId`. ALL mutating operations key by
 // `lineId` so two lines of the same item (different notes/options) stay
 // independent. Adding tries to merge into an existing line first (same item +
-// same option choices + same note).
+// same option choices + same note + same unit price).
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { CartItem } from "@/lib/types";
+import { safeUuid } from "@/lib/id";
 
 // `Omit` over a discriminated union must DISTRIBUTE, or it collapses to the
 // members' common keys (dropping menuItemId / comboId / picks). This keeps each
@@ -25,6 +27,8 @@ export type NewCartItem = DistributiveOmit<CartItem, "lineId">;
 export type CartState = {
   tableCode: string | null;
   items: CartItem[];
+  // Per-table carts (tableCode -> lines); `items` mirrors carts[tableCode].
+  carts: Record<string, CartItem[]>;
   // actions
   setTable: (tableCode: string) => void;
   addItem: (item: NewCartItem) => void;
@@ -33,6 +37,8 @@ export type CartState = {
   increment: (lineId: string) => void;
   decrement: (lineId: string) => void;
   setItemNote: (lineId: string, note: string) => void;
+  // Update unit prices for the given lineIds (re-derived against the live menu).
+  repriceLines: (prices: Record<string, number>) => void;
   clear: () => void;
 };
 
@@ -53,6 +59,9 @@ function sameChoiceSet(a: string[], b: string[]): boolean {
 function isMergeable(a: CartItem, b: CartItem): boolean {
   if (a.kind !== b.kind) return false;
   if ((a.note ?? "") !== (b.note ?? "")) return false;
+  // Never merge two lines priced differently (e.g. a sale started/ended between
+  // adds) — the cart total would otherwise show the wrong unit price for both.
+  if (a.price !== b.price) return false;
   if (a.kind === "item" && b.kind === "item") {
     return (
       a.menuItemId === b.menuItemId &&
@@ -71,22 +80,21 @@ function isMergeable(a: CartItem, b: CartItem): boolean {
   return false;
 }
 
-// We persist using a single key but namespace the data by tableCode inside
-// partialize so different tables don't share carts. Simpler + robust across
-// SSR: keep one store, store tableCode alongside items, and reset items when
-// the table changes.
-
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       tableCode: null,
       items: [],
+      carts: {},
 
       setTable: (tableCode) => {
-        const current = get().tableCode;
+        const { tableCode: current, items, carts } = get();
         if (current === tableCode) return;
-        // New/different table: start a fresh cart for it.
-        set({ tableCode, items: [] });
+        // Snapshot the table we're leaving, then load the one we're entering —
+        // each table keeps its own cart instead of clobbering the other.
+        const nextCarts = { ...carts };
+        if (current) nextCarts[current] = items;
+        set({ tableCode, carts: nextCarts, items: nextCarts[tableCode] ?? [] });
       },
 
       addItem: (item) => {
@@ -109,7 +117,7 @@ export const useCartStore = create<CartState>()(
               ...items,
               {
                 ...item,
-                lineId: crypto.randomUUID(),
+                lineId: safeUuid(),
                 quantity: Math.min(99, item.quantity),
               } as CartItem,
             ],
@@ -163,15 +171,37 @@ export const useCartStore = create<CartState>()(
           ),
         }),
 
-      clear: () => set({ items: [] }),
+      repriceLines: (prices) => {
+        let changed = false;
+        const next = get().items.map((i) => {
+          const p = prices[i.lineId];
+          if (p != null && p !== i.price) {
+            changed = true;
+            return { ...i, price: p };
+          }
+          return i;
+        });
+        if (changed) set({ items: next });
+      },
+
+      clear: () => {
+        // Empty the active table's cart (and its snapshot), leaving other
+        // tables' carts intact.
+        const { tableCode, carts } = get();
+        const nextCarts = { ...carts };
+        if (tableCode) delete nextCarts[tableCode];
+        set({ items: [], carts: nextCarts });
+      },
     }),
     {
       name: `${STORAGE_PREFIX}:store`,
       storage: createJSONStorage(() => localStorage),
-      // Persist both the active table and its items so a reload keeps the cart.
+      // Persist the active table, its items, and every table's saved cart so a
+      // reload — or a hop back to another table — keeps each cart.
       partialize: (state) => ({
         tableCode: state.tableCode,
         items: state.items,
+        carts: state.carts,
       }),
     }
   )

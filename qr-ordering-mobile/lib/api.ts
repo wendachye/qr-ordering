@@ -8,9 +8,15 @@ import type {
   OpenTab,
   TableValidation,
 } from "./types";
+import { safeUuid } from "./id";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000/api/v1";
+
+// Abort a request that hasn't responded in this window so a hung connection
+// (flaky venue Wi-Fi) surfaces as a retryable network error instead of pinning
+// the loader / "Submitting…" forever.
+const REQUEST_TIMEOUT_MS = 15_000;
 
 type SuccessEnvelope<T> = { success: true; data: T };
 type ErrorEnvelope = {
@@ -38,6 +44,13 @@ async function request<T>(
   path: string,
   init?: RequestInit
 ): Promise<T> {
+  // A timeout signal, merged with any caller-supplied signal. An abort (timeout
+  // or disconnect) lands in the catch below as a status-0 network error.
+  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  const signal = init?.signal
+    ? AbortSignal.any([init.signal, timeout])
+    : timeout;
+
   let res: Response;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
@@ -47,6 +60,7 @@ async function request<T>(
         ...(init?.headers ?? {}),
       },
       cache: "no-store",
+      signal,
     });
   } catch {
     throw new ApiError(
@@ -144,11 +158,7 @@ export function getReceipt(id: string): Promise<Receipt> {
 
 /** A unique key for de-duplicating an order submission (server-side idempotency). */
 export function newIdempotencyKey(): string {
-  try {
-    return crypto.randomUUID();
-  } catch {
-    return `idem-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-  }
+  return safeUuid();
 }
 
 /** POST /orders — submit an order. An Idempotency-Key de-dupes retries. */
