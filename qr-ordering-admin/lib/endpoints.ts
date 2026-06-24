@@ -5,6 +5,7 @@ import type {
   AuthUser,
   Billing,
   Entitlements,
+  CatalogueInfo,
   Category,
   CategoryInput,
   Combo,
@@ -343,6 +344,16 @@ export const itemsApi = {
       method: "PATCH",
       body: { isAvailable },
     }),
+  // Per-outlet override on a shared catalogue: THIS outlet's own price / sold-out
+  // / offered-here. null on a field clears it (inherit the catalogue value).
+  setOutletState: (
+    id: string,
+    input: { price?: number | null; isAvailable?: boolean | null; isActive?: boolean | null }
+  ) =>
+    apiRequest<MenuItem>(`/admin/menu/items/${id}/outlet-state`, {
+      method: "PATCH",
+      body: input,
+    }),
 };
 
 // --- Combos / set meals ---
@@ -390,6 +401,11 @@ export const inventoryApi = {
         isAvailable: boolean;
       }[]
     >("/admin/inventory/low-stock"),
+};
+
+// --- Brand catalogue (shared-menu identity + how many outlets share it) ---
+export const catalogueApi = {
+  get: () => apiRequest<CatalogueInfo>("/admin/menu/catalogue"),
 };
 
 // --- Menu settings (featured section title + takeaway charge) ---

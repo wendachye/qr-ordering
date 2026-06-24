@@ -264,6 +264,12 @@ export interface MenuItem {
   trackStock: boolean;
   stockQty: number;
   lowStockThreshold: number | null;
+  // Per-outlet overrides on a shared brand catalogue (null = inherits the
+  // catalogue value): THIS outlet's own price / sold-out / offered-here. Set via
+  // the outlet-override panel; only meaningful when the catalogue is shared.
+  outletPrice: number | null;
+  outletAvailable: boolean | null;
+  outletActive: boolean | null;
   // Configurable option groups + choices (same shape as the public menu).
   optionGroups?: OptionGroup[];
   createdAt: string;
@@ -279,6 +285,15 @@ export interface StockLedgerEntry {
   balanceAfter: number;
   actorEmail: string | null;
   createdAt: string;
+}
+
+// GET /admin/menu/catalogue — the brand catalogue this outlet serves + how many
+// outlets share it. `shared` (outletCount > 1) gates the per-outlet override UI.
+export interface CatalogueInfo {
+  id: string;
+  name: string | null;
+  outletCount: number;
+  shared: boolean;
 }
 
 export interface MenuSettings {

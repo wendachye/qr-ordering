@@ -47,6 +47,8 @@ export function CategorySection({
   onEditItem,
   onToggleItemActive,
   onMoveItem,
+  onOutletOverrideItem,
+  shared = false,
 }: {
   category: Category;
   items: MenuItem[];
@@ -60,6 +62,9 @@ export function CategorySection({
   onEditItem: (i: MenuItem) => void;
   onToggleItemActive: (i: MenuItem) => void;
   onMoveItem: (i: MenuItem) => void;
+  // Per-outlet override on a shared catalogue (undefined / shared=false hides it).
+  onOutletOverrideItem?: (i: MenuItem) => void;
+  shared?: boolean;
 }) {
   const sensors = useMenuSensors();
   const reorderItems = useReorderItems();
@@ -186,10 +191,16 @@ export function CategorySection({
                       <SortableItemRow
                         key={item.id}
                         item={item}
+                        shared={shared}
                         disableDrag={searching}
                         onEdit={() => onEditItem(item)}
                         onToggleActive={() => onToggleItemActive(item)}
                         onMove={() => onMoveItem(item)}
+                        onOutletOverride={
+                          onOutletOverrideItem
+                            ? () => onOutletOverrideItem(item)
+                            : undefined
+                        }
                       />
                     ))}
                   </div>

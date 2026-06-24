@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModalDialog } from "@/components/ui/modal-dialog";
@@ -16,11 +16,18 @@ import { MenuItemForm } from "@/components/menu/MenuItemForm";
 import { ComboManager } from "@/components/menu/ComboManager";
 import { ComboForm } from "@/components/menu/ComboForm";
 import { InventoryManager } from "@/components/menu/InventoryManager";
+import { OutletOverrideForm } from "@/components/menu/OutletOverrideForm";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useToast } from "@/components/common/Toast";
-import { categoriesApi, combosApi, itemsApi, menuSettingsApi } from "@/lib/endpoints";
+import {
+  catalogueApi,
+  categoriesApi,
+  combosApi,
+  itemsApi,
+  menuSettingsApi,
+} from "@/lib/endpoints";
 import {
   useCategoryMutations,
   useComboMutations,
@@ -44,6 +51,7 @@ export default function MenuBuilderPage() {
   const categoriesQuery = useQuery({ queryKey: ["categories"], queryFn: categoriesApi.list });
   const itemsQuery = useQuery({ queryKey: ["items"], queryFn: () => itemsApi.list() });
   const settingsQuery = useQuery({ queryKey: ["menu-settings"], queryFn: menuSettingsApi.get });
+  const catalogueQuery = useQuery({ queryKey: ["catalogue"], queryFn: catalogueApi.get });
 
   const combosQuery = useQuery({ queryKey: ["combos"], queryFn: combosApi.list });
   const categoryMut = useCategoryMutations();
@@ -56,6 +64,7 @@ export default function MenuBuilderPage() {
   const [itemDialog, setItemDialog] = useState<ItemDialog>(null);
   const [comboDialog, setComboDialog] = useState<ComboDialog>(null);
   const [moveTarget, setMoveTarget] = useState<MenuItem | null>(null);
+  const [outletTarget, setOutletTarget] = useState<MenuItem | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [tab, setTab] = useState("menu");
@@ -67,6 +76,10 @@ export default function MenuBuilderPage() {
   const allItems = itemsQuery.data ?? [];
   const featuredTitle = settingsQuery.data?.featuredTitle ?? "Popular";
   const featuredEnabled = settingsQuery.data?.featuredEnabled ?? true;
+  // A brand catalogue shared by >1 outlet surfaces the per-outlet override UI.
+  const shared = catalogueQuery.data?.shared ?? false;
+  const catalogueName = catalogueQuery.data?.name ?? "shared";
+  const outletCount = catalogueQuery.data?.outletCount ?? 0;
   // Plan menu-item cap (null = unlimited).
   const itemCount = itemsQuery.data?.length ?? 0;
   const atItemLimit = limits.maxMenuItems != null && itemCount >= limits.maxMenuItems;
@@ -158,6 +171,21 @@ export default function MenuBuilderPage() {
                 Upgrade to add more menu items, or remove some you no longer serve.
               </UpgradeNotice>
             )}
+            {shared && (
+              <div className="mb-4 flex items-start gap-3 rounded-lg border border-accent-200 bg-accent-50 p-3 text-sm text-accent-900">
+                <Store className="mt-0.5 h-4 w-4 shrink-0 text-accent-600" />
+                <p>
+                  This is the <span className="font-semibold">{catalogueName}</span>{" "}
+                  catalogue, shared across{" "}
+                  <span className="font-semibold">
+                    {outletCount} {outletCount === 1 ? "outlet" : "outlets"}
+                  </span>
+                  . Edits here apply to all of them — use{" "}
+                  <span className="font-semibold">Outlet override</span> on an item (its ⋯
+                  menu) to set this outlet&apos;s own price or availability.
+                </p>
+              </div>
+            )}
             {categories.length === 0 ? (
               <EmptyState
                 title="No categories yet"
@@ -186,6 +214,8 @@ export default function MenuBuilderPage() {
                   })
                 }
                 onMoveItem={(item) => setMoveTarget(item)}
+                onOutletOverrideItem={(item) => setOutletTarget(item)}
+                shared={shared}
                 onEditCategory={(category) => setCategoryDialog({ mode: "edit", category })}
                 onToggleActive={(category) =>
                   categoryMut.update.mutate({
@@ -371,6 +401,23 @@ export default function MenuBuilderPage() {
                 ))
             )}
           </div>
+        )}
+      </ModalDialog>
+
+      {/* Per-outlet override (shared catalogue) */}
+      <ModalDialog
+        open={!!outletTarget}
+        onClose={() => setOutletTarget(null)}
+        title={outletTarget ? `Outlet override · ${outletTarget.name}` : "Outlet override"}
+        className="sm:max-w-lg"
+      >
+        {outletTarget && (
+          <OutletOverrideForm
+            key={outletTarget.id}
+            item={outletTarget}
+            outletName={null}
+            onClose={() => setOutletTarget(null)}
+          />
         )}
       </ModalDialog>
 

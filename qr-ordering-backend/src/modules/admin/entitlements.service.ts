@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma';
-import { getDefaultStoreId } from '../../lib/store';
+import { getCurrentCatalogueId, getDefaultStoreId } from '../../lib/store';
 import { resolveEntitlementsForStore } from '../../lib/entitlements';
 
 /**
@@ -10,10 +10,14 @@ import { resolveEntitlementsForStore } from '../../lib/entitlements';
  */
 export async function getEntitlementsState() {
   const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   const ent = await resolveEntitlementsForStore(storeId);
   const [tables, menuItems] = await Promise.all([
     prisma.table.count({ where: { storeId } }),
-    prisma.menuItem.count({ where: { storeId } }),
+    // Menu items are counted per CATALOGUE (matching createItem's limit check) so
+    // a brand's shared menu isn't double-counted once per outlet. Tables stay
+    // per-store (each outlet has its own floor).
+    prisma.menuItem.count({ where: { catalogueId } }),
   ]);
   return {
     tier: ent.tier,

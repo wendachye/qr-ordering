@@ -37,8 +37,10 @@ export function MenuBuilder({
   onEditItem,
   onToggleItemActive,
   onMoveItem,
+  onOutletOverrideItem,
   onEditCategory,
   onToggleActive,
+  shared = false,
 }: {
   categories: Category[];
   itemsByCat: Map<string, MenuItem[]>;
@@ -46,8 +48,12 @@ export function MenuBuilder({
   onEditItem: (i: MenuItem) => void;
   onToggleItemActive: (i: MenuItem) => void;
   onMoveItem: (i: MenuItem) => void;
+  onOutletOverrideItem?: (i: MenuItem) => void;
   onEditCategory: (c: Category) => void;
   onToggleActive: (c: Category) => void;
+  // True when the menu is a brand catalogue shared by >1 outlet — surfaces the
+  // per-item "Outlet override" affordance + override badges.
+  shared?: boolean;
 }) {
   const sensors = useMenuSensors();
   const reorderCategories = useReorderCategories();
@@ -139,6 +145,8 @@ export function MenuBuilder({
           onEditItem={onEditItem}
           onToggleItemActive={onToggleItemActive}
           onMoveItem={onMoveItem}
+          onOutletOverrideItem={onOutletOverrideItem}
+          shared={shared}
         />
       ))}
     </div>

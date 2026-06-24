@@ -552,6 +552,20 @@ export async function getMenuSettings() {
   return toMenuSettingsDto(store);
 }
 
+/**
+ * Identity of the brand catalogue this outlet serves + how many outlets share it.
+ * `shared` (outletCount > 1) drives the admin UI: when a menu is shared across a
+ * brand's outlets, edits apply everywhere and per-outlet overrides become relevant.
+ */
+export async function getCatalogueInfo() {
+  const catalogueId = await getCurrentCatalogueId();
+  const [catalogue, outletCount] = await Promise.all([
+    prisma.catalogue.findUnique({ where: { id: catalogueId }, select: { name: true } }),
+    prisma.store.count({ where: { catalogueId } }),
+  ]);
+  return { id: catalogueId, name: catalogue?.name ?? null, outletCount, shared: outletCount > 1 };
+}
+
 export async function updateMenuSettings(input: {
   featuredTitle?: string;
   featuredEnabled?: boolean;

@@ -2,7 +2,7 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowRightLeft, GripVertical, MoreVertical, Pencil, Power } from "lucide-react";
+import { ArrowRightLeft, GripVertical, MoreVertical, Pencil, Power, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,12 +25,18 @@ export function SortableItemRow({
   onEdit,
   onToggleActive,
   onMove,
+  onOutletOverride,
+  shared = false,
   disableDrag = false,
 }: {
   item: MenuItem;
   onEdit: () => void;
   onToggleActive: () => void;
   onMove: () => void;
+  // Per-outlet override (shared catalogues only): open this outlet's price /
+  // sold-out / offered-here editor for the item.
+  onOutletOverride?: () => void;
+  shared?: boolean;
   // While the list is filtered (search), reordering is meaningless — hide the
   // grip so the order can't be silently changed against the filtered subset.
   disableDrag?: boolean;
@@ -86,6 +92,10 @@ export function SortableItemRow({
               </span>
             )}
             {!item.isActive && <Badge tone="gray">Inactive</Badge>}
+            {shared && item.outletActive === false && (
+              <Badge tone="gray">Hidden here</Badge>
+            )}
+            {shared && item.outletAvailable === false && <Badge tone="red">86 here</Badge>}
           </p>
           {item.description && (
             <p className="mt-0.5 line-clamp-1 text-sm text-slate-500">
@@ -117,6 +127,12 @@ export function SortableItemRow({
           <span className="font-bold text-slate-900">{formatPrice(item.price)}</span>
         )}
 
+        {shared && item.outletPrice != null && (
+          <Badge tone="accent" title="This outlet's price">
+            {formatPrice(item.outletPrice)} here
+          </Badge>
+        )}
+
         <FeatureToggle itemId={item.id} isFeatured={item.isFeatured} />
 
         <SoldOutToggle itemId={item.id} isAvailable={item.isAvailable} />
@@ -136,6 +152,12 @@ export function SortableItemRow({
               <ArrowRightLeft />
               Move to category…
             </DropdownMenuItem>
+            {shared && onOutletOverride && (
+              <DropdownMenuItem onSelect={onOutletOverride}>
+                <Store />
+                Outlet override…
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={onToggleActive}>
               <Power />

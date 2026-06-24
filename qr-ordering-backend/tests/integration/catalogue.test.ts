@@ -246,4 +246,42 @@ describe('shared brand catalogue', () => {
     expect(atA.trackStock).toBe(false);
     expect(atA.isAvailable).toBe(true);
   });
+
+  it('reports catalogue sharing + counts entitlement items per catalogue', async () => {
+    const a = (await registerTenant()).data;
+    const catA = await catalogueOf(a.user.storeId);
+    const category = await prisma.menuCategory.findFirst({ where: { catalogueId: catA } });
+    // A's catalogue: seeded "Sample Dish" + one we add → 2 items.
+    await prisma.menuItem.create({
+      data: {
+        storeId: a.user.storeId,
+        catalogueId: catA,
+        categoryId: category!.id,
+        name: `Extra Dish ${uid()}`,
+        price: 6,
+        sortOrder: 40,
+      },
+    });
+    const info = (s: { token: string }) => api().get('/admin/menu/catalogue').set(auth(s.token));
+    const ent = (s: { token: string }) => api().get('/admin/entitlements').set(auth(s.token));
+
+    // Solo outlet: catalogue not shared; its own item count.
+    const solo = (await info(a)).body.data;
+    expect(solo.shared).toBe(false);
+    expect(solo.outletCount).toBe(1);
+    const aItems = (await ent(a)).body.data.usage.menuItems;
+    expect(aItems).toBe(2);
+
+    // Share A's catalogue with outlet B.
+    const b = (await registerTenant()).data;
+    await prisma.store.update({ where: { id: b.user.storeId }, data: { catalogueId: catA } });
+
+    // Both outlets now report the catalogue shared by 2.
+    expect((await info(a)).body.data).toMatchObject({ shared: true, outletCount: 2 });
+    expect((await info(b)).body.data).toMatchObject({ shared: true, outletCount: 2 });
+
+    // Entitlement item usage is the CATALOGUE's count for both — B sees A's 2
+    // items (per-catalogue), not its own former store count (would be 1).
+    expect((await ent(b)).body.data.usage.menuItems).toBe(2);
+  });
 });

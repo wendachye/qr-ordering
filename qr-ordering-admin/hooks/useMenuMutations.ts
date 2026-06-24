@@ -114,7 +114,24 @@ export function useItemMutations() {
     onError,
   });
 
-  return { create, update, remove, move };
+  // Set/clear THIS outlet's overrides on a shared-catalogue item (price /
+  // sold-out / offered-here). null on a field inherits the catalogue value.
+  const setOutletState = useMutation({
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: { price?: number | null; isAvailable?: boolean | null; isActive?: boolean | null };
+    }) => itemsApi.setOutletState(id, input),
+    onSuccess: () => {
+      invalidate();
+      toast("Outlet override saved.", "success");
+    },
+    onError,
+  });
+
+  return { create, update, remove, move, setOutletState };
 }
 
 export function useComboMutations() {

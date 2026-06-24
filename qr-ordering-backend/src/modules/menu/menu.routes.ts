@@ -22,6 +22,7 @@ import {
   createItem,
   deleteCategory,
   deleteItem,
+  getCatalogueInfo,
   getMenuSettings,
   listCategories,
   listItems,
@@ -54,6 +55,12 @@ menuRouter.use((req, res, next) =>
 menuRouter.get('/pos-menu', async (req, res) => {
   const { tableCode } = z.object({ tableCode: z.string().min(1) }).parse(req.query);
   sendOk(res, await getPosMenuForTable(tableCode));
+});
+
+// GET /api/admin/menu/catalogue — the brand catalogue identity + how many outlets
+// share it (drives the "shared catalogue" labelling + per-outlet override UI).
+menuRouter.get('/catalogue', async (_req, res) => {
+  sendOk(res, await getCatalogueInfo());
 });
 
 /* ----------------------------- Categories ----------------------------- */
