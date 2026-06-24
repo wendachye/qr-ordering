@@ -98,6 +98,21 @@ async function main() {
     await prisma.store.update({ where: { id: store.id }, data: { clientId: client.id } });
   }
 
+  // ----- Catalogue (the shared brand menu this outlet serves) -----
+  // Reuse the store's catalogue when one already exists (1:1 backfill), else
+  // provision a deterministic one so re-seeds are idempotent and catalogue-based
+  // reads (customer menu, admin, orders) resolve. Categories + items below are
+  // stamped with this catalogueId.
+  const catalogueId = store.catalogueId ?? `cat_${store.id}`;
+  await prisma.catalogue.upsert({
+    where: { id: catalogueId },
+    update: {},
+    create: { id: catalogueId, name: store.name, clientId: client.id },
+  });
+  if (store.catalogueId !== catalogueId) {
+    await prisma.store.update({ where: { id: store.id }, data: { catalogueId } });
+  }
+
   // ----- Admin user -----
   const passwordHash = await bcrypt.hash('password123', 10);
   const admin = await prisma.adminUser.upsert({
@@ -179,10 +194,10 @@ async function main() {
     const category = existing
       ? await prisma.menuCategory.update({
           where: { id: existing.id },
-          data: { sortOrder: idx + 1, isActive: true },
+          data: { sortOrder: idx + 1, isActive: true, catalogueId },
         })
       : await prisma.menuCategory.create({
-          data: { storeId: store.id, name, sortOrder: idx + 1 },
+          data: { storeId: store.id, catalogueId, name, sortOrder: idx + 1 },
         });
     categoryIdByName.set(name, category.id);
   }
@@ -415,6 +430,7 @@ async function main() {
           data: {
             price: def.price,
             categoryId,
+            catalogueId,
             sortOrder: def.sortOrder,
             isAvailable: true,
             imageUrls,
@@ -424,6 +440,7 @@ async function main() {
       : await prisma.menuItem.create({
           data: {
             storeId: store.id,
+            catalogueId,
             categoryId,
             name: def.name,
             price: def.price,

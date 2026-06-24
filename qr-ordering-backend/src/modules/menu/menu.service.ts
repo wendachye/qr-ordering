@@ -110,40 +110,57 @@ const itemInclude = {
   },
 } satisfies Prisma.MenuItemInclude;
 
-function toItemDto(item: {
-  id: string;
-  categoryId: string;
-  name: string;
-  description: string | null;
-  imageUrls: string[];
-  tags: string[];
-  price: unknown;
-  discountType: string | null;
-  discountValue: unknown;
-  isAvailable: boolean;
-  isActive: boolean;
-  posOnly: boolean;
-  availableDays: number[];
-  availableFrom: string | null;
-  availableTo: string | null;
-  sortOrder: number;
-  isFeatured: boolean;
-  featuredOrder: number;
-  trackStock: boolean;
-  stockQty: number;
-  lowStockThreshold: number | null;
-  createdAt: Date;
-  updatedAt: Date;
-  category?: { name: string } | null;
-  optionGroups?: {
+/** This outlet's per-store state row for an item (undefined = pure catalogue inherit). */
+async function outletStateOf(menuItemId: string) {
+  const storeId = await getDefaultStoreId();
+  return (
+    (await prisma.menuItemOutletState.findUnique({
+      where: { storeId_menuItemId: { storeId, menuItemId } },
+    })) ?? undefined
+  );
+}
+
+function toItemDto(
+  item: {
     id: string;
+    categoryId: string;
     name: string;
-    required: boolean;
-    minSelect: number;
-    maxSelect: number;
-    choices: { id: string; name: string; priceDelta: unknown }[];
-  }[];
-}) {
+    description: string | null;
+    imageUrls: string[];
+    tags: string[];
+    price: unknown;
+    discountType: string | null;
+    discountValue: unknown;
+    isAvailable: boolean;
+    isActive: boolean;
+    posOnly: boolean;
+    availableDays: number[];
+    availableFrom: string | null;
+    availableTo: string | null;
+    sortOrder: number;
+    isFeatured: boolean;
+    featuredOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+    category?: { name: string } | null;
+    optionGroups?: {
+      id: string;
+      name: string;
+      required: boolean;
+      minSelect: number;
+      maxSelect: number;
+      choices: { id: string; name: string; priceDelta: unknown }[];
+    }[];
+    // The current outlet's per-store state, when resolved by the caller. Stock and
+    // sold-out are per-outlet (MenuItemOutletState); absent = inherit the catalogue.
+  },
+  ov?: {
+    isAvailableOverride?: boolean | null;
+    trackStock?: boolean;
+    stockQty?: number;
+    lowStockThreshold?: number | null;
+  },
+) {
   return {
     id: item.id,
     categoryId: item.categoryId,
@@ -156,7 +173,8 @@ function toItemDto(item: {
     discountType: item.discountType,
     discountValue: Number(item.discountValue ?? 0),
     salePrice: salePriceOf(Number(item.price), item.discountType, Number(item.discountValue ?? 0)),
-    isAvailable: item.isAvailable,
+    // Per-outlet sold-out wins; stock is the outlet's (absent row = untracked).
+    isAvailable: ov?.isAvailableOverride ?? item.isAvailable,
     isActive: item.isActive,
     posOnly: item.posOnly,
     availableDays: item.availableDays,
@@ -165,9 +183,9 @@ function toItemDto(item: {
     sortOrder: item.sortOrder,
     isFeatured: item.isFeatured,
     featuredOrder: item.featuredOrder,
-    trackStock: item.trackStock,
-    stockQty: item.stockQty,
-    lowStockThreshold: item.lowStockThreshold,
+    trackStock: ov?.trackStock ?? false,
+    stockQty: ov?.stockQty ?? 0,
+    lowStockThreshold: ov?.lowStockThreshold ?? null,
     optionGroups: (item.optionGroups ?? []).map((g) => ({
       id: g.id,
       name: g.name,
@@ -232,7 +250,7 @@ export async function listItems(categoryId?: string) {
   return items.map((item) => {
     const ov = states.get(item.id);
     return {
-      ...toItemDto(item),
+      ...toItemDto(item, ov),
       outletPrice: ov?.priceOverride ?? null,
       outletAvailable: ov?.isAvailableOverride ?? null,
       outletActive: ov?.isActiveOverride ?? null,
@@ -330,7 +348,7 @@ export async function updateItem(id: string, input: UpdateItemInput) {
       include: itemInclude,
     });
   });
-  return toItemDto(item);
+  return toItemDto(item, await outletStateOf(id));
 }
 
 // Items are never destroyed — "delete" deactivates (isActive=false), hiding it
@@ -356,7 +374,7 @@ export async function setItemAvailability(id: string, isAvailable: boolean) {
     data: { isAvailable },
     include: itemInclude,
   });
-  return toItemDto(item);
+  return toItemDto(item, await outletStateOf(id));
 }
 
 /**
@@ -392,7 +410,7 @@ export async function setItemOutletState(
   });
   const item = await prisma.menuItem.findUnique({ where: { id }, include: itemInclude });
   return {
-    ...toItemDto(item!),
+    ...toItemDto(item!, state),
     outletPrice: state.priceOverride != null ? Number(state.priceOverride) : null,
     outletAvailable: state.isAvailableOverride ?? null,
     outletActive: state.isActiveOverride ?? null,

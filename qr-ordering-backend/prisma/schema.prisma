@@ -262,13 +262,8 @@ model MenuItem {
   sortOrder   Int      @default(0)
   isFeatured  Boolean  @default(false)
   featuredOrder Int    @default(0)
-  // --- Item-level inventory (MVP) ---
-  // trackStock off (default) = unlimited, the current behaviour. When on, each
-  // sale decrements stockQty; at 0 the item auto-86s (isAvailable flips to
-  // false). lowStockThreshold (null = no alert) flags an item running low.
-  trackStock        Boolean @default(false)
-  stockQty          Int     @default(0)
-  lowStockThreshold Int?
+  // Per-outlet inventory (trackStock / stockQty / lowStockThreshold) lives on
+  // MenuItemOutletState so each outlet on a shared catalogue tracks its own stock.
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
@@ -295,14 +290,11 @@ model MenuItem {
   @@index([deletedAt])
 }
 
-// Immutable stock-movement ledger for a tracked menu item: every sale, restock,
-// manual set, waste write-off, or void-restore. balanceAfter snapshots the
-// resulting stockQty for audit. reason: sale | restock | set | waste | void_restore.
-// Per-outlet overrides on a (possibly shared) catalogue item: an outlet can set
-// its own price / sold-out / offered-here without forking the catalogue. Absent
-// row or null field = inherit the catalogue value. storeId = the outlet;
-// menuItemId = the catalogue item (shared by a brand's sibling outlets).
-// Phase 2b-3 wires `priceOverride`; availability/active overrides are reserved.
+// Per-outlet state on a (possibly shared) catalogue item: an outlet can set its
+// own price / sold-out / offered-here AND track its own stock without forking the
+// catalogue. Absent row or null field = inherit the catalogue value. storeId =
+// the outlet; menuItemId = the catalogue item (shared by a brand's sibling
+// outlets). Stock is inherently per-outlet.
 model MenuItemOutletState {
   id                  String   @id @default(cuid())
   storeId             String
@@ -310,6 +302,12 @@ model MenuItemOutletState {
   priceOverride       Decimal? @db.Decimal(10, 2)
   isAvailableOverride Boolean?
   isActiveOverride    Boolean?
+  // Per-outlet inventory (moved off MenuItem): trackStock off = unlimited; when
+  // on, each sale decrements stockQty and at 0 the outlet auto-86s the item
+  // (isAvailableOverride -> false). lowStockThreshold (null = no alert).
+  trackStock          Boolean  @default(false)
+  stockQty            Int      @default(0)
+  lowStockThreshold   Int?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -321,6 +319,9 @@ model MenuItemOutletState {
   @@index([menuItemId])
 }
 
+// Immutable stock-movement ledger for a tracked menu item: every sale, restock,
+// manual set, waste write-off, or void-restore. balanceAfter snapshots the
+// resulting stockQty for audit. reason: sale | restock | set | waste | void_restore.
 model StockAdjustment {
   id           String   @id @default(cuid())
   storeId      String

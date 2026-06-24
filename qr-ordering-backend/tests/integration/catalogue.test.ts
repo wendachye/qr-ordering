@@ -190,4 +190,60 @@ describe('shared brand catalogue', () => {
       .send({ tableCode: tableA!.code, items: [{ menuItemId: soldOut.id, quantity: 1 }] });
     expect(orderA.status).toBe(201);
   });
+
+  it('tracks stock per outlet on a shared catalogue', async () => {
+    const a = (await registerTenant()).data;
+    const catA = await catalogueOf(a.user.storeId);
+    const category = await prisma.menuCategory.findFirst({ where: { catalogueId: catA } });
+    const dishName = `Stocked Dish ${uid()}`;
+    const item = await prisma.menuItem.create({
+      data: {
+        storeId: a.user.storeId,
+        catalogueId: catA,
+        categoryId: category!.id,
+        name: dishName,
+        price: 9,
+        sortOrder: 30,
+      },
+    });
+
+    const b = (await registerTenant()).data;
+    await prisma.store.update({ where: { id: b.user.storeId }, data: { catalogueId: catA } });
+    const tableA = await prisma.table.findFirst({ where: { storeId: a.user.storeId } });
+    const tableB = await prisma.table.findFirst({ where: { storeId: b.user.storeId } });
+    const orderAt = (code: string, quantity: number) =>
+      api()
+        .post('/orders')
+        .send({ tableCode: code, items: [{ menuItemId: item.id, quantity }] });
+
+    // B tracks 2 units of the shared item; A leaves it untracked (unlimited).
+    const cfg = await api()
+      .patch(`/admin/inventory/${item.id}/config`)
+      .set(auth(b.token))
+      .send({ trackStock: true, stockQty: 2 });
+    expect(cfg.status).toBe(200);
+
+    // B sells both → sold out at B; B's next order is rejected, A orders freely.
+    expect((await orderAt(tableB!.code, 2)).status).toBe(201);
+    expect((await orderAt(tableB!.code, 1)).status).toBe(400);
+    expect((await orderAt(tableA!.code, 5)).status).toBe(201);
+
+    // B's list shows it tracked + sold out; A's shows it untracked + available.
+    const itemFor = async (token: string) =>
+      (
+        (await api().get('/admin/menu/items').set(auth(token))).body.data as Array<{
+          id: string;
+          trackStock: boolean;
+          stockQty: number;
+          isAvailable: boolean;
+        }>
+      ).find((i) => i.id === item.id)!;
+    const atB = await itemFor(b.token);
+    expect(atB.trackStock).toBe(true);
+    expect(atB.stockQty).toBe(0);
+    expect(atB.isAvailable).toBe(false);
+    const atA = await itemFor(a.token);
+    expect(atA.trackStock).toBe(false);
+    expect(atA.isAvailable).toBe(true);
+  });
 });

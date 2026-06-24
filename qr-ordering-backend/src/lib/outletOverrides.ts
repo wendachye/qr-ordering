@@ -8,6 +8,9 @@ export interface OutletState {
   priceOverride: number | null;
   isAvailableOverride: boolean | null; // per-outlet sold-out / 86
   isActiveOverride: boolean | null; // per-outlet "offered here?" (false = hide here)
+  trackStock: boolean; // per-outlet inventory (off = unlimited)
+  stockQty: number;
+  lowStockThreshold: number | null;
 }
 
 /**
@@ -28,6 +31,9 @@ export async function outletStateMap(
       priceOverride: true,
       isAvailableOverride: true,
       isActiveOverride: true,
+      trackStock: true,
+      stockQty: true,
+      lowStockThreshold: true,
     },
   });
   return new Map(
@@ -37,6 +43,9 @@ export async function outletStateMap(
         priceOverride: r.priceOverride != null ? Number(r.priceOverride) : null,
         isAvailableOverride: r.isAvailableOverride,
         isActiveOverride: r.isActiveOverride,
+        trackStock: r.trackStock,
+        stockQty: r.stockQty,
+        lowStockThreshold: r.lowStockThreshold,
       },
     ]),
   );
