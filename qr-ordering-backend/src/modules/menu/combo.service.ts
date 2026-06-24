@@ -44,9 +44,9 @@ export function toComboDto(c: ComboRow) {
   };
 }
 
-async function assertItemsInStore(storeId: string, ids: string[]) {
+async function assertItemsInStore(catalogueId: string, ids: string[]) {
   if (ids.length === 0) throw ApiError.badRequest('A combo needs at least one option');
-  const count = await prisma.menuItem.count({ where: { id: { in: ids }, storeId } });
+  const count = await prisma.menuItem.count({ where: { id: { in: ids }, catalogueId } });
   if (count !== ids.length) throw ApiError.badRequest('Some combo options are not on this menu');
 }
 
@@ -71,9 +71,9 @@ const uniqueItemIds = (groups: CreateComboInput['groups']) => [
 ];
 
 export async function listCombos() {
-  const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   const combos = await prisma.combo.findMany({
-    where: { storeId },
+    where: { catalogueId },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     include: comboInclude,
   });
@@ -83,8 +83,8 @@ export async function listCombos() {
 export async function createCombo(input: CreateComboInput) {
   const storeId = await getDefaultStoreId();
   const catalogueId = await getCurrentCatalogueId();
-  await assertItemsInStore(storeId, uniqueItemIds(input.groups));
-  const agg = await prisma.combo.aggregate({ where: { storeId }, _max: { sortOrder: true } });
+  await assertItemsInStore(catalogueId, uniqueItemIds(input.groups));
+  const agg = await prisma.combo.aggregate({ where: { catalogueId }, _max: { sortOrder: true } });
   const combo = await prisma.combo.create({
     data: {
       storeId,
@@ -105,10 +105,13 @@ export async function createCombo(input: CreateComboInput) {
 }
 
 export async function updateCombo(id: string, input: UpdateComboInput) {
-  const storeId = await getDefaultStoreId();
-  const existing = await prisma.combo.findFirst({ where: { id, storeId }, select: { id: true } });
+  const catalogueId = await getCurrentCatalogueId();
+  const existing = await prisma.combo.findFirst({
+    where: { id, catalogueId },
+    select: { id: true },
+  });
   if (!existing) throw ApiError.notFound('Combo not found');
-  if (input.groups) await assertItemsInStore(storeId, uniqueItemIds(input.groups));
+  if (input.groups) await assertItemsInStore(catalogueId, uniqueItemIds(input.groups));
 
   const combo = await prisma.$transaction(async (tx) => {
     // Groups are a full replace (drop + recreate) when provided.
@@ -134,8 +137,11 @@ export async function updateCombo(id: string, input: UpdateComboInput) {
 // Combos are never destroyed — "delete" deactivates (isActive=false), hiding it
 // from the customer menu + POS but keeping it. Reversible via updateCombo.
 export async function deleteCombo(id: string) {
-  const storeId = await getDefaultStoreId();
-  const existing = await prisma.combo.findFirst({ where: { id, storeId }, select: { id: true } });
+  const catalogueId = await getCurrentCatalogueId();
+  const existing = await prisma.combo.findFirst({
+    where: { id, catalogueId },
+    select: { id: true },
+  });
   if (!existing) throw ApiError.notFound('Combo not found');
   await prisma.combo.update({ where: { id }, data: { isActive: false } });
   return { id, deactivated: true };

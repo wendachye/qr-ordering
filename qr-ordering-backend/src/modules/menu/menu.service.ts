@@ -15,9 +15,9 @@ import type {
 /* ----------------------------- Categories ----------------------------- */
 
 export async function listCategories() {
-  const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   const categories = await prisma.menuCategory.findMany({
-    where: { storeId },
+    where: { catalogueId },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     // Filtered _count: a nested relation count isn't covered by the soft-delete
     // read filter, so exclude soft-deleted items from the per-category tally.
@@ -39,7 +39,7 @@ export async function createCategory(input: CreateCategoryInput) {
   const catalogueId = await getCurrentCatalogueId();
   // Append to the end — display order is managed by drag-and-drop, not a field.
   const agg = await prisma.menuCategory.aggregate({
-    where: { storeId },
+    where: { catalogueId },
     _max: { sortOrder: true },
   });
   const category = await prisma.menuCategory.create({
@@ -55,8 +55,8 @@ export async function createCategory(input: CreateCategoryInput) {
 }
 
 export async function updateCategory(id: string, input: UpdateCategoryInput) {
-  const storeId = await getDefaultStoreId();
-  await ensureCategoryExists(id, storeId);
+  const catalogueId = await getCurrentCatalogueId();
+  await ensureCategoryExists(id, catalogueId);
   return prisma.menuCategory.update({ where: { id }, data: input });
 }
 
@@ -64,14 +64,14 @@ export async function updateCategory(id: string, input: UpdateCategoryInput) {
 // hides the category + its items from the customer menu. Reversible via
 // updateCategory({ isActive: true }).
 export async function deleteCategory(id: string) {
-  const storeId = await getDefaultStoreId();
-  await ensureCategoryExists(id, storeId);
+  const catalogueId = await getCurrentCatalogueId();
+  await ensureCategoryExists(id, catalogueId);
   await prisma.menuCategory.update({ where: { id }, data: { isActive: false } });
   return { id, deactivated: true };
 }
 
-async function ensureCategoryExists(id: string, storeId: string) {
-  const category = await prisma.menuCategory.findFirst({ where: { id, storeId } });
+async function ensureCategoryExists(id: string, catalogueId: string) {
+  const category = await prisma.menuCategory.findFirst({ where: { id, catalogueId } });
   if (!category) throw ApiError.notFound('Category not found');
   return category;
 }
@@ -81,13 +81,13 @@ async function ensureCategoryExists(id: string, storeId: string) {
  * Returns the refreshed list so the client can write it straight to cache.
  */
 export async function reorderCategories(ids: string[]) {
-  const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   const found = await prisma.menuCategory.findMany({
-    where: { id: { in: ids }, storeId },
+    where: { id: { in: ids }, catalogueId },
     select: { id: true },
   });
   if (found.length !== ids.length) {
-    throw ApiError.badRequest('One or more categories were not found in this store');
+    throw ApiError.badRequest('One or more categories were not found in this catalogue');
   }
   await prisma.$transaction(
     ids.map((id, index) =>
@@ -214,9 +214,9 @@ function optionGroupsCreate(
 }
 
 export async function listItems(categoryId?: string) {
-  const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   const items = await prisma.menuItem.findMany({
-    where: { storeId, ...(categoryId ? { categoryId } : {}) },
+    where: { catalogueId, ...(categoryId ? { categoryId } : {}) },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     include: itemInclude,
   });
@@ -226,19 +226,20 @@ export async function listItems(categoryId?: string) {
 export async function createItem(input: CreateItemInput) {
   const storeId = await getDefaultStoreId();
   const catalogueId = await getCurrentCatalogueId();
-  await ensureCategoryInStore(input.categoryId, storeId);
+  await ensureCategoryInStore(input.categoryId, catalogueId);
 
-  // Enforce the plan's menu-item cap (null = unlimited).
+  // Enforce the plan's menu-item cap (null = unlimited). The cap is per catalogue
+  // — a brand's shared menu counts once across its outlets.
   const ent = await resolveEntitlementsForStore(storeId);
   if (ent.limits.maxMenuItems != null) {
-    const count = await prisma.menuItem.count({ where: { storeId } });
+    const count = await prisma.menuItem.count({ where: { catalogueId } });
     if (count >= ent.limits.maxMenuItems)
       throw limitReachedError('menuItems', ent.limits.maxMenuItems);
   }
 
   // Append to the end of its category (drag-and-drop manages order thereafter).
   const agg = await prisma.menuItem.aggregate({
-    where: { storeId, categoryId: input.categoryId },
+    where: { catalogueId, categoryId: input.categoryId },
     _max: { sortOrder: true },
   });
 
@@ -270,12 +271,13 @@ export async function createItem(input: CreateItemInput) {
 }
 
 export async function updateItem(id: string, input: UpdateItemInput) {
-  const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   const existing = await prisma.menuItem.findUnique({ where: { id } });
-  if (!existing || existing.storeId !== storeId) throw ApiError.notFound('Menu item not found');
+  if (!existing || existing.catalogueId !== catalogueId)
+    throw ApiError.notFound('Menu item not found');
 
   if (input.categoryId) {
-    await ensureCategoryInStore(input.categoryId, storeId);
+    await ensureCategoryInStore(input.categoryId, catalogueId);
   }
 
   // When optionGroups are supplied we full-replace them: drop the existing
@@ -318,17 +320,19 @@ export async function updateItem(id: string, input: UpdateItemInput) {
 // from the customer menu + POS while keeping it (and its order history) intact.
 // Reversible via updateItem({ isActive: true }).
 export async function deleteItem(id: string) {
-  const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   const existing = await prisma.menuItem.findUnique({ where: { id } });
-  if (!existing || existing.storeId !== storeId) throw ApiError.notFound('Menu item not found');
+  if (!existing || existing.catalogueId !== catalogueId)
+    throw ApiError.notFound('Menu item not found');
   await prisma.menuItem.update({ where: { id }, data: { isActive: false } });
   return { id, deactivated: true };
 }
 
 export async function setItemAvailability(id: string, isAvailable: boolean) {
-  const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   const existing = await prisma.menuItem.findUnique({ where: { id } });
-  if (!existing || existing.storeId !== storeId) throw ApiError.notFound('Menu item not found');
+  if (!existing || existing.catalogueId !== catalogueId)
+    throw ApiError.notFound('Menu item not found');
 
   const item = await prisma.menuItem.update({
     where: { id },
@@ -343,13 +347,13 @@ export async function setItemAvailability(id: string, isAvailable: boolean) {
  * (0..n-1). All ids must belong to one category in this store.
  */
 export async function reorderItems(ids: string[]) {
-  const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   const found = await prisma.menuItem.findMany({
-    where: { id: { in: ids }, storeId },
+    where: { id: { in: ids }, catalogueId },
     select: { id: true, categoryId: true },
   });
   if (found.length !== ids.length) {
-    throw ApiError.badRequest('One or more items were not found in this store');
+    throw ApiError.badRequest('One or more items were not found in this catalogue');
   }
   if (new Set(found.map((i) => i.categoryId)).size > 1) {
     throw ApiError.badRequest('Items in a reorder must all belong to the same category');
@@ -365,14 +369,15 @@ export async function reorderItems(ids: string[]) {
  * category. Returns the full item list so the client can refresh its cache.
  */
 export async function moveItem(id: string, categoryId: string) {
-  const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   const existing = await prisma.menuItem.findUnique({ where: { id } });
-  if (!existing || existing.storeId !== storeId) throw ApiError.notFound('Menu item not found');
-  await ensureCategoryInStore(categoryId, storeId);
+  if (!existing || existing.catalogueId !== catalogueId)
+    throw ApiError.notFound('Menu item not found');
+  await ensureCategoryInStore(categoryId, catalogueId);
 
   if (existing.categoryId !== categoryId) {
     const agg = await prisma.menuItem.aggregate({
-      where: { storeId, categoryId },
+      where: { catalogueId, categoryId },
       _max: { sortOrder: true },
     });
     await prisma.menuItem.update({
@@ -383,10 +388,10 @@ export async function moveItem(id: string, categoryId: string) {
   return listItems();
 }
 
-async function ensureCategoryInStore(categoryId: string, storeId: string) {
+async function ensureCategoryInStore(categoryId: string, catalogueId: string) {
   const category = await prisma.menuCategory.findUnique({ where: { id: categoryId } });
-  if (!category || category.storeId !== storeId) {
-    throw ApiError.badRequest('Category does not exist in this store');
+  if (!category || category.catalogueId !== catalogueId) {
+    throw ApiError.badRequest('Category does not exist in this catalogue');
   }
   return category;
 }
@@ -398,14 +403,15 @@ async function ensureCategoryInStore(categoryId: string, storeId: string) {
  * featured strip (featuredOrder = max+1). Returns the full item list.
  */
 export async function setItemFeatured(id: string, isFeatured: boolean) {
-  const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   const existing = await prisma.menuItem.findUnique({ where: { id } });
-  if (!existing || existing.storeId !== storeId) throw ApiError.notFound('Menu item not found');
+  if (!existing || existing.catalogueId !== catalogueId)
+    throw ApiError.notFound('Menu item not found');
 
   let featuredOrder = existing.featuredOrder;
   if (isFeatured && !existing.isFeatured) {
     const agg = await prisma.menuItem.aggregate({
-      where: { storeId, isFeatured: true },
+      where: { catalogueId, isFeatured: true },
       _max: { featuredOrder: true },
     });
     featuredOrder = (agg._max.featuredOrder ?? -1) + 1;
@@ -417,9 +423,9 @@ export async function setItemFeatured(id: string, isFeatured: boolean) {
 
 /** Reassign featuredOrder to match the given id order (0..n-1). Spans categories. */
 export async function reorderFeatured(ids: string[]) {
-  const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   const found = await prisma.menuItem.findMany({
-    where: { id: { in: ids }, storeId, isFeatured: true },
+    where: { id: { in: ids }, catalogueId, isFeatured: true },
     select: { id: true },
   });
   if (found.length !== ids.length) {

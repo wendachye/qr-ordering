@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { api, registerTenant, uid } from '../helpers';
+import { api, auth, registerTenant, uid } from '../helpers';
 import { prisma } from '../../src/lib/prisma';
 
 const catalogueOf = async (storeId: string) =>
@@ -45,5 +45,40 @@ describe('shared brand catalogue', () => {
       .send({ tableCode: tableB!.code, items: [{ menuItemId: item.id, quantity: 1 }] });
     expect(order.status).toBe(201);
     expect(order.body.success).toBe(true);
+  });
+
+  it('a shared catalogue is editable from any outlet', async () => {
+    const a = (await registerTenant()).data;
+    const catA = await catalogueOf(a.user.storeId);
+    const b = (await registerTenant()).data;
+    await prisma.store.update({ where: { id: b.user.storeId }, data: { catalogueId: catA } });
+
+    // B's admin menu now lists A's catalogue (the seeded "Sample Dish").
+    const bList = (await api().get('/admin/menu/items').set(auth(b.token))).body.data as Array<{
+      name: string;
+    }>;
+    expect(bList.some((i) => i.name === 'Sample Dish')).toBe(true);
+
+    // B adds a category + item to the shared catalogue...
+    const cat = (
+      await api()
+        .post('/admin/menu/categories')
+        .set(auth(b.token))
+        .send({ name: `B Cat ${uid()}` })
+    ).body.data;
+    const dishName = `B Dish ${uid()}`;
+    const created = (
+      await api()
+        .post('/admin/menu/items')
+        .set(auth(b.token))
+        .send({ categoryId: cat.id, name: dishName, price: 8 })
+    ).body.data;
+    expect(created.name).toBe(dishName);
+
+    // ...and outlet A sees it (same catalogue).
+    const aList = (await api().get('/admin/menu/items').set(auth(a.token))).body.data as Array<{
+      name: string;
+    }>;
+    expect(aList.some((i) => i.name === dishName)).toBe(true);
   });
 });

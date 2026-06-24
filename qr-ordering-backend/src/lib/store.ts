@@ -14,16 +14,18 @@ export async function getDefaultStoreId(): Promise<string> {
 }
 
 /**
- * The menu Catalogue the current admin's store draws from. The menu is migrating
- * from per-store to a shared brand catalogue (a brand's outlets can point at one
- * catalogue); new menu rows are stamped with this so the link stays consistent
- * ahead of the read-switch. Returns null only for a store not yet provisioned with
- * a catalogue (every store gets one — see registerStore / provisionOutlet).
+ * The menu Catalogue the current admin's store draws from. Menu reads/writes are
+ * catalogue-scoped (a brand's outlets can share one catalogue). Every store is
+ * provisioned with a catalogue (registerStore / provisionOutlet), so this throws
+ * if one is somehow missing rather than silently mis-scoping the menu.
  */
-export async function getCurrentCatalogueId(): Promise<string | null> {
+export async function getCurrentCatalogueId(): Promise<string> {
   const store = await prisma.store.findUnique({
     where: { id: currentStoreId() },
     select: { catalogueId: true },
   });
-  return store?.catalogueId ?? null;
+  if (!store?.catalogueId) {
+    throw new Error('Current store has no catalogue (provisioning gap)');
+  }
+  return store.catalogueId;
 }
