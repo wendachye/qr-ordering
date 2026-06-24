@@ -96,7 +96,8 @@ model Store {
   currentPeriodEnd     DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?
@@ -134,7 +135,8 @@ model Client {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?
@@ -154,7 +156,8 @@ model Table {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?
@@ -177,7 +180,8 @@ model MenuCategory {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?
@@ -234,7 +238,8 @@ model MenuItem {
   lowStockThreshold Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?
@@ -354,7 +359,8 @@ model Combo {
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?
@@ -373,7 +379,8 @@ model ComboGroup {
   comboId   String
   name      String // e.g. "Main", "Side", "Drink"
   sortOrder Int           @default(0)
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?
@@ -393,7 +400,8 @@ model ComboOption {
   // Upcharge for a premium pick (on top of the combo's base price).
   priceDelta Decimal @default(0) @db.Decimal(10, 2)
   sortOrder  Int     @default(0)
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?
@@ -418,7 +426,8 @@ model OptionGroup {
   sortOrder  Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?
@@ -438,7 +447,8 @@ model OptionChoice {
   name          String
   priceDelta    Decimal @default(0) @db.Decimal(10, 2)
   sortOrder     Int     @default(0)
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?
@@ -606,7 +616,8 @@ model AdminUser {
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
   createdAt DateTime @default(now())
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?
@@ -640,7 +651,8 @@ model Plan {
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?
@@ -666,7 +678,8 @@ model Voucher {
   isActive       Boolean   @default(true)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?
@@ -719,7 +732,8 @@ model Member {
   isActive         Boolean   @default(true)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?
@@ -786,7 +800,8 @@ model RewardCatalog {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  // Audit attribution + soft-delete columns (soft delete is a dormant safety net;
+  // the app deactivates via isActive — see auditExtension.ts).
   createdById  String?
   updatedById  String?
   deletedById  String?

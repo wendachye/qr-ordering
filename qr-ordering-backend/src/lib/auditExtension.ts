@@ -3,9 +3,11 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { currentActor, currentIp, currentRequestId, includeDeletedActive } from './requestContext';
 
 // Independently-managed catalog / config / identity entities that carry the
-// audit-attribution + soft-delete columns (see docs/audit-soft-delete-plan.md).
-// Writes get createdById/updatedById stamped; deletes become soft (deletedAt);
-// reads hide soft-deleted rows.
+// audit-attribution + soft-delete columns. Writes get createdById/updatedById
+// stamped; deletes become soft (deletedAt); reads hide soft-deleted rows.
+// NOTE: the product deactivates records (isActive) rather than deleting them, so
+// the delete→soft path is a DORMANT safety net — audit attribution (who
+// created/updated) is the live value here.
 //
 // Deliberately EXCLUDED: the tightly-owned, full-replace children
 // (OptionGroup/OptionChoice/ComboGroup/ComboOption). The app rebuilds those by

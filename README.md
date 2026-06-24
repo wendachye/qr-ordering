@@ -238,8 +238,6 @@ merchant onboarding** (lead time) — start it in parallel so the adapter can la
 - ⬜ Cross-outlet BI / analytics dashboard; white-label diner-app branding. · high · L
 - ⬜ Billing depth: **annual plans, proration, per-client invoicing**, in-app dunning. · med · M
 - ⬜ Menu versioning + scheduled publish; offline-POS resilience. · med · L–XL
-- ⬜ **Audit columns + soft-delete** across tenant tables (platform actions already audited) — design
-  parked in [`qr-ordering-backend/docs/audit-soft-delete-plan.md`](./qr-ordering-backend/docs/audit-soft-delete-plan.md).
 - ⬜ Split the operator console into its own deployment at the first external tenant / 2nd operator
   (today intentionally embedded at `/platform/*`).
 
