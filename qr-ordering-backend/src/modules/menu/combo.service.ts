@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 
 import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../lib/response';
-import { getDefaultStoreId } from '../../lib/store';
+import { getCurrentCatalogueId, getDefaultStoreId } from '../../lib/store';
 import type { CreateComboInput, UpdateComboInput } from '../../validators/combo';
 
 const comboInclude = {
@@ -82,11 +82,13 @@ export async function listCombos() {
 
 export async function createCombo(input: CreateComboInput) {
   const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   await assertItemsInStore(storeId, uniqueItemIds(input.groups));
   const agg = await prisma.combo.aggregate({ where: { storeId }, _max: { sortOrder: true } });
   const combo = await prisma.combo.create({
     data: {
       storeId,
+      catalogueId,
       name: input.name,
       description: input.description ?? null,
       imageUrls: input.imageUrls ?? [],

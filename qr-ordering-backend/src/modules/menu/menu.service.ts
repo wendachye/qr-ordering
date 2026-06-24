@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 
 import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../lib/response';
-import { getDefaultStoreId } from '../../lib/store';
+import { getCurrentCatalogueId, getDefaultStoreId } from '../../lib/store';
 import { salePriceOf } from '../../lib/pricing';
 import { limitReachedError, resolveEntitlementsForStore } from '../../lib/entitlements';
 import type {
@@ -36,6 +36,7 @@ export async function listCategories() {
 
 export async function createCategory(input: CreateCategoryInput) {
   const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   // Append to the end — display order is managed by drag-and-drop, not a field.
   const agg = await prisma.menuCategory.aggregate({
     where: { storeId },
@@ -44,6 +45,7 @@ export async function createCategory(input: CreateCategoryInput) {
   const category = await prisma.menuCategory.create({
     data: {
       storeId,
+      catalogueId,
       name: input.name,
       sortOrder: (agg._max.sortOrder ?? -1) + 1,
       isActive: input.isActive,
@@ -223,6 +225,7 @@ export async function listItems(categoryId?: string) {
 
 export async function createItem(input: CreateItemInput) {
   const storeId = await getDefaultStoreId();
+  const catalogueId = await getCurrentCatalogueId();
   await ensureCategoryInStore(input.categoryId, storeId);
 
   // Enforce the plan's menu-item cap (null = unlimited).
@@ -242,6 +245,7 @@ export async function createItem(input: CreateItemInput) {
   const item = await prisma.menuItem.create({
     data: {
       storeId,
+      catalogueId,
       categoryId: input.categoryId,
       name: input.name,
       description: input.description ?? null,

@@ -142,10 +142,16 @@ export async function registerStore(input: RegisterInput) {
           slug = `${baseSlug}-${n}`;
         }
 
+        // Each new store gets its own brand catalogue (1:1); a brand's outlets can
+        // later be pointed at one shared catalogue.
+        const catalogue = await tx.catalogue.create({
+          data: { name: input.restaurantName.trim() },
+        });
         const store = await tx.store.create({
           data: {
             name: input.restaurantName.trim(),
             slug,
+            catalogueId: catalogue.id,
             // Start every new tenant on a trial; billing gates after it ends.
             trialEndsAt: new Date(Date.now() + config.billing.trialDays * 86_400_000),
           },
@@ -163,11 +169,12 @@ export async function registerStore(input: RegisterInput) {
         // Starter data so the new tenant has a usable, demoable workspace at
         // once: one sample menu item (editable/replaceable) and a few tables.
         const category = await tx.menuCategory.create({
-          data: { storeId: store.id, name: 'Mains', sortOrder: 1 },
+          data: { storeId: store.id, catalogueId: catalogue.id, name: 'Mains', sortOrder: 1 },
         });
         await tx.menuItem.create({
           data: {
             storeId: store.id,
+            catalogueId: catalogue.id,
             categoryId: category.id,
             name: 'Sample Dish',
             price: 10,

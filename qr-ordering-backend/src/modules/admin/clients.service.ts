@@ -118,11 +118,17 @@ async function provisionOutlet(
 
   const trialDays = args.trialDays ?? config.billing.trialDays;
   const onTrial = trialDays > 0;
+  // A fresh 1:1 catalogue per outlet (owned by the client/brand); sibling outlets
+  // can later be pointed at one shared catalogue.
+  const catalogue = await tx.catalogue.create({
+    data: { name: args.name, clientId: args.clientId },
+  });
   const store = await tx.store.create({
     data: {
       name: args.name,
       slug,
       clientId: args.clientId,
+      catalogueId: catalogue.id,
       plan: args.planKey,
       subscriptionStatus: onTrial ? 'TRIALING' : 'ACTIVE',
       trialEndsAt: onTrial ? new Date(Date.now() + trialDays * 86_400_000) : null,
@@ -130,11 +136,12 @@ async function provisionOutlet(
   });
 
   const category = await tx.menuCategory.create({
-    data: { storeId: store.id, name: 'Mains', sortOrder: 1 },
+    data: { storeId: store.id, catalogueId: catalogue.id, name: 'Mains', sortOrder: 1 },
   });
   await tx.menuItem.create({
     data: {
       storeId: store.id,
+      catalogueId: catalogue.id,
       categoryId: category.id,
       name: 'Sample Dish',
       price: 10,
