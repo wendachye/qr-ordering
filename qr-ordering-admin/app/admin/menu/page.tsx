@@ -16,7 +16,6 @@ import { MenuItemForm } from "@/components/menu/MenuItemForm";
 import { ComboManager } from "@/components/menu/ComboManager";
 import { ComboForm } from "@/components/menu/ComboForm";
 import { InventoryManager } from "@/components/menu/InventoryManager";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -40,11 +39,6 @@ type ItemDialog =
   | { mode: "edit"; item: MenuItem }
   | null;
 type ComboDialog = { mode: "create" } | { mode: "edit"; combo: Combo } | null;
-type DeleteTarget =
-  | { kind: "category"; category: Category }
-  | { kind: "item"; item: MenuItem }
-  | { kind: "combo"; combo: Combo }
-  | null;
 
 export default function MenuBuilderPage() {
   const categoriesQuery = useQuery({ queryKey: ["categories"], queryFn: categoriesApi.list });
@@ -61,7 +55,6 @@ export default function MenuBuilderPage() {
   const [categoryDialog, setCategoryDialog] = useState<CategoryDialog>(null);
   const [itemDialog, setItemDialog] = useState<ItemDialog>(null);
   const [comboDialog, setComboDialog] = useState<ComboDialog>(null);
-  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [moveTarget, setMoveTarget] = useState<MenuItem | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState("");
@@ -110,25 +103,6 @@ export default function MenuBuilderPage() {
     (categoriesQuery.error instanceof ApiError && categoriesQuery.error.message) ||
     (itemsQuery.error instanceof ApiError && itemsQuery.error.message) ||
     "Could not load the menu.";
-
-  const deleteBusy =
-    categoryMut.remove.isPending || itemMut.remove.isPending || comboMut.remove.isPending;
-  const confirmDelete = () => {
-    if (!deleteTarget) return;
-    if (deleteTarget.kind === "category") {
-      categoryMut.remove.mutate(deleteTarget.category.id, {
-        onSuccess: () => setDeleteTarget(null),
-      });
-    } else if (deleteTarget.kind === "combo") {
-      comboMut.remove.mutate(deleteTarget.combo.id, {
-        onSuccess: () => setDeleteTarget(null),
-      });
-    } else {
-      itemMut.remove.mutate(deleteTarget.item.id, {
-        onSuccess: () => setDeleteTarget(null),
-      });
-    }
-  };
 
   return (
     <>
@@ -205,7 +179,12 @@ export default function MenuBuilderPage() {
                     : setItemDialog({ mode: "create", categoryId })
                 }
                 onEditItem={(item) => setItemDialog({ mode: "edit", item })}
-                onDeleteItem={(item) => setDeleteTarget({ kind: "item", item })}
+                onToggleItemActive={(item) =>
+                  itemMut.update.mutate({
+                    id: item.id,
+                    input: { isActive: !item.isActive },
+                  })
+                }
                 onMoveItem={(item) => setMoveTarget(item)}
                 onEditCategory={(category) => setCategoryDialog({ mode: "edit", category })}
                 onToggleActive={(category) =>
@@ -213,9 +192,6 @@ export default function MenuBuilderPage() {
                     id: category.id,
                     input: { isActive: !category.isActive },
                   })
-                }
-                onDeleteCategory={(category) =>
-                  setDeleteTarget({ kind: "category", category })
                 }
               />
             )}
@@ -238,7 +214,12 @@ export default function MenuBuilderPage() {
                 combos={combos}
                 onAdd={() => setComboDialog({ mode: "create" })}
                 onEdit={(combo) => setComboDialog({ mode: "edit", combo })}
-                onDelete={(combo) => setDeleteTarget({ kind: "combo", combo })}
+                onToggleActive={(combo) =>
+                  comboMut.update.mutate({
+                    id: combo.id,
+                    input: { isActive: !combo.isActive },
+                  })
+                }
               />
             )}
           </TabsContent>
@@ -349,32 +330,6 @@ export default function MenuBuilderPage() {
           />
         )}
       </ModalDialog>
-
-      {/* Delete confirm (category, item or combo) */}
-      <ConfirmDialog
-        open={!!deleteTarget}
-        title={
-          deleteTarget?.kind === "category"
-            ? "Delete category?"
-            : deleteTarget?.kind === "combo"
-              ? "Delete combo?"
-              : "Delete item?"
-        }
-        message={
-          deleteTarget?.kind === "category"
-            ? `Delete "${deleteTarget.category.name}"? A category with items can't be deleted — remove its items first.`
-            : deleteTarget?.kind === "combo"
-              ? `Delete the "${deleteTarget.combo.name}" combo? This can't be undone.`
-              : deleteTarget?.kind === "item"
-                ? `Delete "${deleteTarget.item.name}"? Items referenced by past orders can't be deleted (mark them sold out instead).`
-                : ""
-        }
-        confirmLabel="Delete"
-        destructive
-        busy={deleteBusy}
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={confirmDelete}
-      />
 
       {/* Move item to another category */}
       <ModalDialog

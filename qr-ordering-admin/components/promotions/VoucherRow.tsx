@@ -17,19 +17,18 @@ function ymd(iso: string | null): string {
 }
 
 // One voucher in the Promotions list: code + value + status badges, an active
-// toggle, and edit / delete actions. The host page owns the mutations.
+// toggle, and an edit action. Vouchers are deactivated (toggle off), never
+// deleted. The host page owns the mutations.
 export function VoucherRow({
   voucher: v,
   toggling,
   onToggle,
   onEdit,
-  onDelete,
 }: {
   voucher: Voucher;
   toggling: boolean;
   onToggle: () => void;
   onEdit: () => void;
-  onDelete: () => void;
 }) {
   const expired = v.expiresAt != null && new Date(v.expiresAt).getTime() < Date.now();
   const usedUp = v.maxRedemptions != null && v.redeemedCount >= v.maxRedemptions;
@@ -67,14 +66,6 @@ export function VoucherRow({
       />
       <Button variant="secondary" size="sm" onClick={onEdit}>
         Edit
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="text-red-600 hover:bg-red-50"
-        onClick={onDelete}
-      >
-        Delete
       </Button>
     </div>
   );

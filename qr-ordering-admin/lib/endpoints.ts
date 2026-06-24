@@ -47,7 +47,6 @@ import type {
   StockLedgerEntry,
   Table,
   TableInput,
-  TrashEntry,
   FloorEntry,
   SessionDetail,
   SessionStatus,
@@ -461,13 +460,6 @@ export const staffApi = {
     apiRequest<StaffMember>("/admin/staff", { method: "POST", body: input }),
   update: (id: string, input: { name?: string | null; role?: Role; isActive?: boolean }) =>
     apiRequest<StaffMember>(`/admin/staff/${id}`, { method: "PATCH", body: input }),
-};
-
-// --- Trash (soft-deleted rows + restore) ---
-export const trashApi = {
-  list: () => apiRequest<TrashEntry[]>("/admin/trash"),
-  restore: (resource: string, id: string) =>
-    apiRequest<{ id: string }>(`/admin/trash/${resource}/${id}/restore`, { method: "POST" }),
 };
 
 // --- Vouchers (discount / promo codes) ---

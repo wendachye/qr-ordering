@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { ModalDialog } from "@/components/ui/modal-dialog";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { useToast } from "@/components/common/Toast";
 import { vouchersApi } from "@/lib/endpoints";
 import { ApiError } from "@/lib/api";
@@ -32,7 +31,6 @@ export default function VouchersPage() {
   const [dialog, setDialog] = useState<
     { mode: "create" } | { mode: "edit"; voucher: Voucher } | null
   >(null);
-  const [deleteTarget, setDeleteTarget] = useState<Voucher | null>(null);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["vouchers"] });
 
@@ -51,19 +49,6 @@ export default function VouchersPage() {
     mutationFn: (v: Voucher) => vouchersApi.update(v.id, { isActive: !v.isActive }),
     onSuccess: invalidate,
     onError: (e) => toast(e instanceof ApiError ? e.message : "Could not update.", "error"),
-  });
-
-  const remove = useMutation({
-    mutationFn: (id: string) => vouchersApi.remove(id),
-    onSuccess: (res) => {
-      invalidate();
-      setDeleteTarget(null);
-      toast(
-        res.deactivated ? "Voucher had redemptions — deactivated instead." : "Voucher deleted.",
-        "success"
-      );
-    },
-    onError: (e) => toast(e instanceof ApiError ? e.message : "Could not delete.", "error"),
   });
 
   const vouchers = query.data ?? [];
@@ -122,7 +107,6 @@ export default function VouchersPage() {
               toggling={toggleActive.isPending}
               onToggle={() => toggleActive.mutate(v)}
               onEdit={() => setDialog({ mode: "edit", voucher: v })}
-              onDelete={() => setDeleteTarget(v)}
             />
           ))}
         </div>
@@ -144,21 +128,6 @@ export default function VouchersPage() {
           />
         )}
       </ModalDialog>
-
-      <ConfirmDialog
-        open={!!deleteTarget}
-        title="Delete voucher?"
-        message={
-          deleteTarget
-            ? `Delete "${deleteTarget.code}"? If it has been redeemed it will be deactivated instead (to keep the report history).`
-            : ""
-        }
-        confirmLabel="Delete"
-        destructive
-        busy={remove.isPending}
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => deleteTarget && remove.mutate(deleteTarget.id)}
-      />
     </>
   );
 }

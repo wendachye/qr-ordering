@@ -29,16 +29,6 @@ export interface StaffMember {
   createdAt: string;
 }
 
-// A soft-deleted, restorable row (Settings → Trash).
-export interface TrashEntry {
-  resource: string; // 'menu-item' | 'menu-category' | 'combo' | 'table' | 'voucher' | 'reward' | 'member'
-  label: string; // human label, e.g. "Menu item"
-  id: string;
-  name: string;
-  deletedAt: string;
-  deletedById: string | null;
-}
-
 export interface LoginResponse {
   token: string;
   user: AuthUser;
@@ -255,7 +245,9 @@ export interface MenuItem {
   discountType: DiscountType | null;
   discountValue: number;
   salePrice: number | null;
+  // isAvailable = sold out today; isActive = on the menu vs archived (deactivated).
   isAvailable: boolean;
+  isActive: boolean;
   // POS-only ("secret") item: hidden from the customer menu, orderable in POS.
   posOnly: boolean;
   // Availability window (customer menu): days 0=Sun..6=Sat (empty = every day),
@@ -355,6 +347,7 @@ export interface MenuItemInput {
   discountType?: DiscountType | null;
   discountValue?: number;
   isAvailable: boolean;
+  isActive?: boolean;
   posOnly?: boolean;
   availableDays?: number[];
   availableFrom?: string | null;
@@ -395,6 +388,7 @@ export interface Combo {
   imageUrls: string[];
   price: number;
   isAvailable: boolean;
+  isActive: boolean;
   posOnly: boolean;
   sortOrder: number;
   groups: ComboOptionGroup[];
@@ -407,6 +401,7 @@ export interface ComboInput {
   price: number;
   imageUrls?: string[];
   isAvailable: boolean;
+  isActive?: boolean;
   posOnly: boolean;
   groups: { name: string; options: { menuItemId: string; priceDelta: number }[] }[];
 }

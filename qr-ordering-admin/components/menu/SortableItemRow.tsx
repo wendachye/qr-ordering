@@ -2,8 +2,9 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowRightLeft, GripVertical, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { ArrowRightLeft, GripVertical, MoreVertical, Pencil, Power } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
@@ -22,13 +23,13 @@ import type { MenuItem } from "@/lib/types";
 export function SortableItemRow({
   item,
   onEdit,
-  onDelete,
+  onToggleActive,
   onMove,
   disableDrag = false,
 }: {
   item: MenuItem;
   onEdit: () => void;
-  onDelete: () => void;
+  onToggleActive: () => void;
   onMove: () => void;
   // While the list is filtered (search), reordering is meaningless — hide the
   // grip so the order can't be silently changed against the filtered subset.
@@ -50,7 +51,11 @@ export function SortableItemRow({
     <Card
       ref={setNodeRef}
       style={style}
-      className={cn("border-slate-200", isDragging && "opacity-50")}
+      className={cn(
+        "border-slate-200",
+        isDragging && "opacity-50",
+        !item.isActive && "opacity-60",
+      )}
     >
       <CardContent className="flex flex-wrap items-center gap-3 p-3">
         {/* Drag handle — listeners live ONLY here, and touch-none is scoped to it
@@ -80,6 +85,7 @@ export function SortableItemRow({
                 Staff only
               </span>
             )}
+            {!item.isActive && <Badge tone="gray">Inactive</Badge>}
           </p>
           {item.description && (
             <p className="mt-0.5 line-clamp-1 text-sm text-slate-500">
@@ -131,12 +137,9 @@ export function SortableItemRow({
               Move to category…
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-red-600 focus:bg-red-50 focus:text-red-700"
-              onSelect={onDelete}
-            >
-              <Trash2 />
-              Delete
+            <DropdownMenuItem onSelect={onToggleActive}>
+              <Power />
+              {item.isActive ? "Deactivate" : "Activate"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Plus, Trash2, UtensilsCrossed } from "lucide-react";
+import { Pencil, Plus, Power, UtensilsCrossed } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,12 +14,12 @@ export function ComboManager({
   combos,
   onAdd,
   onEdit,
-  onDelete,
+  onToggleActive,
 }: {
   combos: Combo[];
   onAdd: () => void;
   onEdit: (c: Combo) => void;
-  onDelete: (c: Combo) => void;
+  onToggleActive: (c: Combo) => void;
 }) {
   if (combos.length === 0) {
     return (
@@ -41,7 +41,7 @@ export function ComboManager({
       {combos.map((c) => {
         const picks = c.groups.map((g) => g.name).join(" · ");
         return (
-          <Card key={c.id} className={c.isAvailable ? "" : "opacity-60"}>
+          <Card key={c.id} className={c.isAvailable && c.isActive ? "" : "opacity-60"}>
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div className="flex min-w-0 items-center gap-3">
                 {c.imageUrls[0] ? (
@@ -59,6 +59,7 @@ export function ComboManager({
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 font-semibold text-slate-900">
                     <span className="truncate">{c.name}</span>
+                    {!c.isActive && <Badge tone="gray">Inactive</Badge>}
                     {!c.isAvailable && <Badge tone="gray">Sold out</Badge>}
                     {c.posOnly && <Badge tone="amber">POS only</Badge>}
                   </p>
@@ -81,11 +82,11 @@ export function ComboManager({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => onDelete(c)}
-                  aria-label={`Delete ${c.name}`}
-                  className="text-slate-400 hover:bg-red-50 hover:text-red-600"
+                  onClick={() => onToggleActive(c)}
+                  aria-label={`${c.isActive ? "Deactivate" : "Activate"} ${c.name}`}
+                  className="text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Power className="h-4 w-4" />
                 </Button>
               </div>
             </CardContent>

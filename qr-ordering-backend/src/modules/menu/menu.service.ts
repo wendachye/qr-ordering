@@ -58,17 +58,14 @@ export async function updateCategory(id: string, input: UpdateCategoryInput) {
   return prisma.menuCategory.update({ where: { id }, data: input });
 }
 
+// Categories are never destroyed — "delete" deactivates (isActive=false), which
+// hides the category + its items from the customer menu. Reversible via
+// updateCategory({ isActive: true }).
 export async function deleteCategory(id: string) {
   const storeId = await getDefaultStoreId();
   await ensureCategoryExists(id, storeId);
-  const itemCount = await prisma.menuItem.count({ where: { categoryId: id } });
-  if (itemCount > 0) {
-    throw ApiError.conflict(
-      'This category still has items. Move or delete them before deleting the category.',
-    );
-  }
-  await prisma.menuCategory.delete({ where: { id } });
-  return { id };
+  await prisma.menuCategory.update({ where: { id }, data: { isActive: false } });
+  return { id, deactivated: true };
 }
 
 async function ensureCategoryExists(id: string, storeId: string) {
@@ -121,6 +118,7 @@ function toItemDto(item: {
   discountType: string | null;
   discountValue: unknown;
   isAvailable: boolean;
+  isActive: boolean;
   posOnly: boolean;
   availableDays: number[];
   availableFrom: string | null;
@@ -156,6 +154,7 @@ function toItemDto(item: {
     discountValue: Number(item.discountValue ?? 0),
     salePrice: salePriceOf(Number(item.price), item.discountType, Number(item.discountValue ?? 0)),
     isAvailable: item.isAvailable,
+    isActive: item.isActive,
     posOnly: item.posOnly,
     availableDays: item.availableDays,
     availableFrom: item.availableFrom,
@@ -295,6 +294,7 @@ export async function updateItem(id: string, input: UpdateItemInput) {
         discountType: input.discountType,
         discountValue: input.discountValue,
         isAvailable: input.isAvailable,
+        isActive: input.isActive,
         posOnly: input.posOnly,
         availableDays: input.availableDays,
         availableFrom: input.availableFrom,
@@ -310,19 +310,15 @@ export async function updateItem(id: string, input: UpdateItemInput) {
   return toItemDto(item);
 }
 
+// Items are never destroyed — "delete" deactivates (isActive=false), hiding it
+// from the customer menu + POS while keeping it (and its order history) intact.
+// Reversible via updateItem({ isActive: true }).
 export async function deleteItem(id: string) {
   const storeId = await getDefaultStoreId();
   const existing = await prisma.menuItem.findUnique({ where: { id } });
   if (!existing || existing.storeId !== storeId) throw ApiError.notFound('Menu item not found');
-
-  const orderedCount = await prisma.orderItem.count({ where: { menuItemId: id } });
-  if (orderedCount > 0) {
-    throw ApiError.conflict(
-      'This item appears on existing orders. Mark it sold out instead of deleting it.',
-    );
-  }
-  await prisma.menuItem.delete({ where: { id } });
-  return { id };
+  await prisma.menuItem.update({ where: { id }, data: { isActive: false } });
+  return { id, deactivated: true };
 }
 
 export async function setItemAvailability(id: string, isAvailable: boolean) {

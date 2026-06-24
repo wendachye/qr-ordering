@@ -49,8 +49,11 @@ async function buildStoreMenu(storeId: string, opts: { includePosOnly: boolean }
   // the POS can badge an off-schedule item.
   const now = new Date();
   const hideUnscheduled = !opts.includePosOnly;
-  const scheduledIn = (it: { availableDays: number[]; availableFrom: string | null; availableTo: string | null }) =>
-    !hideUnscheduled || isItemAvailableNow(it, now);
+  const scheduledIn = (it: {
+    availableDays: number[];
+    availableFrom: string | null;
+    availableTo: string | null;
+  }) => !hideUnscheduled || isItemAvailableNow(it, now);
 
   const [settings, categories, featuredItems] = await Promise.all([
     prisma.store.findUnique({
@@ -69,9 +72,10 @@ async function buildStoreMenu(storeId: string, opts: { includePosOnly: boolean }
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: {
         items: {
-          // deletedAt: null — a nested include isn't covered by the soft-delete
-          // extension's read filter, so exclude soft-deleted items here.
-          where: { ...posFilter, deletedAt: null },
+          // isActive: true — hide archived (deactivated) items from customers
+          // and the POS. deletedAt: null — a nested include isn't covered by the
+          // soft-delete extension's read filter, so exclude soft-deleted here too.
+          where: { ...posFilter, isActive: true, deletedAt: null },
           orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
           include: {
             optionGroups: {
@@ -84,7 +88,7 @@ async function buildStoreMenu(storeId: string, opts: { includePosOnly: boolean }
     }),
     // Featured strip: featured + available items only, across all categories.
     prisma.menuItem.findMany({
-      where: { storeId, isFeatured: true, isAvailable: true, ...posFilter },
+      where: { storeId, isFeatured: true, isAvailable: true, isActive: true, ...posFilter },
       orderBy: [{ featuredOrder: 'asc' }, { name: 'asc' }],
       include: {
         optionGroups: {
@@ -197,7 +201,15 @@ export async function getOpenTabForTable(tableCode: string) {
   });
 
   if (!session) {
-    return { tableName: table.name, hasOpenTab: false, sessionNumber: null, openedAt: null, rounds: [], itemCount: 0, total: 0 };
+    return {
+      tableName: table.name,
+      hasOpenTab: false,
+      sessionNumber: null,
+      openedAt: null,
+      rounds: [],
+      itemCount: 0,
+      total: 0,
+    };
   }
 
   const rounds = session.orders

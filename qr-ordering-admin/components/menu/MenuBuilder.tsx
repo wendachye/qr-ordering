@@ -35,21 +35,19 @@ export function MenuBuilder({
   itemsByCat,
   onAddItem,
   onEditItem,
-  onDeleteItem,
+  onToggleItemActive,
   onMoveItem,
   onEditCategory,
   onToggleActive,
-  onDeleteCategory,
 }: {
   categories: Category[];
   itemsByCat: Map<string, MenuItem[]>;
   onAddItem: (categoryId: string) => void;
   onEditItem: (i: MenuItem) => void;
-  onDeleteItem: (i: MenuItem) => void;
+  onToggleItemActive: (i: MenuItem) => void;
   onMoveItem: (i: MenuItem) => void;
   onEditCategory: (c: Category) => void;
   onToggleActive: (c: Category) => void;
-  onDeleteCategory: (c: Category) => void;
 }) {
   const sensors = useMenuSensors();
   const reorderCategories = useReorderCategories();
@@ -137,10 +135,9 @@ export function MenuBuilder({
           searching={searching}
           onEditCategory={() => onEditCategory(cat)}
           onToggleActive={() => onToggleActive(cat)}
-          onDeleteCategory={() => onDeleteCategory(cat)}
           onAddItem={() => onAddItem(cat.id)}
           onEditItem={onEditItem}
-          onDeleteItem={onDeleteItem}
+          onToggleItemActive={onToggleItemActive}
           onMoveItem={onMoveItem}
         />
       ))}

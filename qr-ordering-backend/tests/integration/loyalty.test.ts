@@ -162,7 +162,7 @@ describe('loyalty — reward catalog', () => {
     expect(list.map((r: any) => r.pointsCost)).toEqual([500, 800]); // sorted asc
   });
 
-  it('deletes an unused reward', async () => {
+  it('deactivates a reward on delete (never destroyed)', async () => {
     const token = await tenant();
     const r = (
       await api()
@@ -172,7 +172,10 @@ describe('loyalty — reward catalog', () => {
     ).body.data;
     const del = await api().delete(`/admin/loyalty/rewards/${r.id}`).set(auth(token));
     expect(del.status).toBe(200);
-    expect(del.body.data.deactivated).toBe(false);
+    expect(del.body.data.deactivated).toBe(true);
+    // The reward is kept, just inactive.
+    const fresh = await prisma.rewardCatalog.findUnique({ where: { id: r.id } });
+    expect(fresh?.isActive).toBe(false);
   });
 });
 

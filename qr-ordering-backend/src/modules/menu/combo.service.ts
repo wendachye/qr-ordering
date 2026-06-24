@@ -27,6 +27,7 @@ export function toComboDto(c: ComboRow) {
     imageUrls: c.imageUrls,
     price: Number(c.price),
     isAvailable: c.isAvailable,
+    isActive: c.isActive,
     posOnly: c.posOnly,
     sortOrder: c.sortOrder,
     groups: c.groups.map((g) => ({
@@ -91,6 +92,7 @@ export async function createCombo(input: CreateComboInput) {
       imageUrls: input.imageUrls ?? [],
       price: input.price,
       isAvailable: input.isAvailable,
+      isActive: input.isActive,
       posOnly: input.posOnly,
       sortOrder: (agg._max.sortOrder ?? -1) + 1,
       groups: groupsCreate(input.groups),
@@ -117,6 +119,7 @@ export async function updateCombo(id: string, input: UpdateComboInput) {
         ...(input.price !== undefined ? { price: input.price } : {}),
         ...(input.imageUrls !== undefined ? { imageUrls: input.imageUrls } : {}),
         ...(input.isAvailable !== undefined ? { isAvailable: input.isAvailable } : {}),
+        ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
         ...(input.posOnly !== undefined ? { posOnly: input.posOnly } : {}),
         ...(input.groups ? { groups: groupsCreate(input.groups) } : {}),
       },
@@ -126,18 +129,25 @@ export async function updateCombo(id: string, input: UpdateComboInput) {
   return toComboDto(combo);
 }
 
+// Combos are never destroyed — "delete" deactivates (isActive=false), hiding it
+// from the customer menu + POS but keeping it. Reversible via updateCombo.
 export async function deleteCombo(id: string) {
   const storeId = await getDefaultStoreId();
   const existing = await prisma.combo.findFirst({ where: { id, storeId }, select: { id: true } });
   if (!existing) throw ApiError.notFound('Combo not found');
-  await prisma.combo.delete({ where: { id } });
-  return { id };
+  await prisma.combo.update({ where: { id }, data: { isActive: false } });
+  return { id, deactivated: true };
 }
 
 /** Combos for the customer / POS menu. POS sees POS-only combos; both hide unavailable. */
 export async function buildCombosForMenu(storeId: string, opts: { includePosOnly: boolean }) {
   const combos = await prisma.combo.findMany({
-    where: { storeId, isAvailable: true, ...(opts.includePosOnly ? {} : { posOnly: false }) },
+    where: {
+      storeId,
+      isAvailable: true,
+      isActive: true,
+      ...(opts.includePosOnly ? {} : { posOnly: false }),
+    },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     include: comboInclude,
   });

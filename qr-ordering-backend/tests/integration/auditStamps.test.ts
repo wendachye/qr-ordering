@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { describe, it, expect } from 'vitest';
 
-import { api, auth, registerTenant, uid } from '../helpers';
+import { api, registerTenant, uid } from '../helpers';
 import { prisma } from '../../src/lib/prisma';
 import { requestContext, withDeleted } from '../../src/lib/requestContext';
 
@@ -122,30 +122,5 @@ describe('soft delete (A3)', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].actorId).toBe(adminId);
     expect(rows[0].entity).toBe('MenuCategory');
-  });
-
-  it('lists soft-deleted rows in the Trash and restores them (HTTP)', async () => {
-    const { data } = await registerTenant();
-    const cat = await asActor(data.user.id, () =>
-      prisma.menuCategory.create({ data: { storeId: data.user.storeId, name: `Trash ${uid()}` } }),
-    );
-    await asActor(data.user.id, () => prisma.menuCategory.delete({ where: { id: cat.id } }));
-
-    const trash = (await api().get('/admin/trash').set(auth(data.token))).body.data as Array<{
-      resource: string;
-      id: string;
-    }>;
-    expect(trash.some((t) => t.id === cat.id && t.resource === 'menu-category')).toBe(true);
-
-    const res = await api()
-      .post(`/admin/trash/menu-category/${cat.id}/restore`)
-      .set(auth(data.token));
-    expect(res.status).toBe(200);
-    expect(await prisma.menuCategory.findUnique({ where: { id: cat.id } })).not.toBeNull();
-
-    const after = (await api().get('/admin/trash').set(auth(data.token))).body.data as Array<{
-      id: string;
-    }>;
-    expect(after.some((t) => t.id === cat.id)).toBe(false);
   });
 });

@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link2, Pencil, Plus, QrCode, Trash2 } from "lucide-react";
+import { Link2, Pencil, Plus, QrCode } from "lucide-react";
 import { SettingsTabs } from "@/components/settings/SettingsTabs";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ModalDialog } from "@/components/ui/modal-dialog";
 import { TableForm } from "@/components/tables/TableForm";
 import { TableQrDialog } from "@/components/tables/TableQrDialog";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { LoadingState } from "@/components/common/LoadingState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -24,17 +23,17 @@ import { copyToClipboard } from "@/lib/clipboard";
 import type { Table } from "@/lib/types";
 
 // Settings → Tables: set up the restaurant's tables (add / rename / activate /
-// delete) and their QR ordering links. The live operational view lives on the
-// Tables screen (/admin/tables); this is the configuration surface.
+// deactivate) and their QR ordering links. Tables are never deleted — an unused
+// one is deactivated (toggle off), which hides its QR link but keeps its history.
+// The live operational view lives on the Tables screen (/admin/tables).
 export default function SettingsTablesPage() {
   const { toast } = useToast();
   const query = useQuery({ queryKey: ["tables"], queryFn: tablesApi.list });
-  const { create, update, remove } = useTableMutations();
+  const { create, update } = useTableMutations();
   const { limits } = useEntitlements();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Table | null>(null);
-  const [deleting, setDeleting] = useState<Table | null>(null);
   const [qrTable, setQrTable] = useState<Table | null>(null);
 
   const tables = query.data ?? [];
@@ -84,7 +83,7 @@ export default function SettingsTablesPage() {
           className="mb-4"
           title={`You've reached your plan's ${limits.maxTables}-table limit`}
         >
-          Upgrade to add more tables, or delete an unused one.
+          Upgrade to add more tables, or deactivate an unused one.
         </UpgradeNotice>
       )}
 
@@ -155,15 +154,6 @@ export default function SettingsTablesPage() {
                 <Pencil />
                 Edit
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label={`Delete ${t.name}`}
-                className="text-red-600 hover:bg-red-50"
-                onClick={() => setDeleting(t)}
-              >
-                <Trash2 />
-              </Button>
             </div>
           ))}
         </div>
@@ -191,23 +181,6 @@ export default function SettingsTablesPage() {
       </ModalDialog>
 
       <TableQrDialog table={qrTable} open={!!qrTable} onClose={() => setQrTable(null)} />
-
-      <ConfirmDialog
-        open={!!deleting}
-        title="Delete table?"
-        message={
-          deleting
-            ? `Delete "${deleting.name}" (${deleting.code})? A table that already has orders or sessions cannot be deleted — deactivate it instead.`
-            : ""
-        }
-        confirmLabel="Delete"
-        destructive
-        busy={remove.isPending}
-        onCancel={() => setDeleting(null)}
-        onConfirm={() => {
-          if (deleting) remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) });
-        }}
-      />
     </>
   );
 }

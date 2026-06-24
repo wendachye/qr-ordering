@@ -17,7 +17,6 @@ import {
   MoreVertical,
   Pencil,
   Power,
-  Trash2,
   ChevronDown,
   Plus,
 } from "lucide-react";
@@ -28,7 +27,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SortableItemRow } from "@/components/menu/SortableItemRow";
@@ -45,10 +43,9 @@ export function CategorySection({
   searching = false,
   onEditCategory,
   onToggleActive,
-  onDeleteCategory,
   onAddItem,
   onEditItem,
-  onDeleteItem,
+  onToggleItemActive,
   onMoveItem,
 }: {
   category: Category;
@@ -59,10 +56,9 @@ export function CategorySection({
   searching?: boolean;
   onEditCategory: () => void;
   onToggleActive: () => void;
-  onDeleteCategory: () => void;
   onAddItem: () => void;
   onEditItem: (i: MenuItem) => void;
-  onDeleteItem: (i: MenuItem) => void;
+  onToggleItemActive: (i: MenuItem) => void;
   onMoveItem: (i: MenuItem) => void;
 }) {
   const sensors = useMenuSensors();
@@ -157,14 +153,6 @@ export function CategorySection({
                   <Power />
                   {category.isActive ? "Deactivate" : "Activate"}
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-red-600 focus:bg-red-50 focus:text-red-700"
-                  onSelect={onDeleteCategory}
-                >
-                  <Trash2 />
-                  Delete
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -200,7 +188,7 @@ export function CategorySection({
                         item={item}
                         disableDrag={searching}
                         onEdit={() => onEditItem(item)}
-                        onDelete={() => onDeleteItem(item)}
+                        onToggleActive={() => onToggleItemActive(item)}
                         onMove={() => onMoveItem(item)}
                       />
                     ))}

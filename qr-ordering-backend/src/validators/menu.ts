@@ -89,6 +89,7 @@ export const updateItemSchema = z
     discountType: z.enum(['PERCENT', 'FIXED']).nullable(),
     discountValue: z.coerce.number().min(0).max(100000),
     isAvailable: z.boolean(),
+    isActive: z.boolean(),
     posOnly: z.boolean(),
     availableDays: z.array(z.coerce.number().int().min(0).max(6)).max(7),
     availableFrom: hhmm().nullable(),

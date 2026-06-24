@@ -308,21 +308,14 @@ export async function updateMember(id: string, input: UpdateMemberInput) {
   return memberDto(m);
 }
 
+// Members are never destroyed — "delete" deactivates (isActive=false), keeping
+// the loyalty history intact. Reversible via updateMember({ isActive: true }).
 export async function deleteMember(id: string) {
   const storeId = await getDefaultStoreId();
   const existing = await prisma.member.findFirst({ where: { id, storeId } });
   if (!existing) throw ApiError.notFound('Member not found');
-  const [ledgerCount, sessionCount] = await Promise.all([
-    prisma.pointsLedger.count({ where: { memberId: id } }),
-    prisma.tableSession.count({ where: { memberId: id } }),
-  ]);
-  // Keep the audit trail once a member has any history — deactivate instead.
-  if (ledgerCount > 0 || sessionCount > 0) {
-    await prisma.member.update({ where: { id }, data: { isActive: false } });
-    return { id, deactivated: true };
-  }
-  await prisma.member.delete({ where: { id } });
-  return { id, deactivated: false };
+  await prisma.member.update({ where: { id }, data: { isActive: false } });
+  return { id, deactivated: true };
 }
 
 // Manual points adjustment (manager goodwill / correction). Signed, non-zero.
@@ -431,16 +424,12 @@ export async function updateReward(id: string, input: UpdateRewardInput) {
   return rewardDto(r);
 }
 
+// Rewards are never destroyed — "delete" deactivates (isActive=false), keeping
+// any redemption history. Reversible via updateReward({ isActive: true }).
 export async function deleteReward(id: string) {
   const storeId = await getDefaultStoreId();
   const existing = await prisma.rewardCatalog.findFirst({ where: { id, storeId } });
   if (!existing) throw ApiError.notFound('Reward not found');
-  const issued = await prisma.rewardRedemption.count({ where: { catalogId: id } });
-  // Keep the audit trail once any instance has been issued — deactivate instead.
-  if (issued > 0) {
-    await prisma.rewardCatalog.update({ where: { id }, data: { isActive: false } });
-    return { id, deactivated: true };
-  }
-  await prisma.rewardCatalog.delete({ where: { id } });
-  return { id, deactivated: false };
+  await prisma.rewardCatalog.update({ where: { id }, data: { isActive: false } });
+  return { id, deactivated: true };
 }

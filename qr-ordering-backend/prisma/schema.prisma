@@ -207,7 +207,11 @@ model MenuItem {
   // order. discountType PERCENT/FIXED (null = none); discountValue is % or RM.
   discountType  String?
   discountValue Decimal @default(0) @db.Decimal(10, 2)
+  // isAvailable = "sold out / 86 today" (temporary, customer-visible state).
   isAvailable Boolean  @default(true)
+  // isActive = "on the menu" vs archived/removed. Staff deactivate instead of
+  // deleting; archived items are hidden from customers but kept (reversible).
+  isActive    Boolean  @default(true)
   // POS-only ("secret") item: orderable by staff in the admin POS, hidden from
   // the customer menu + public API. Default false = visible to customers.
   posOnly     Boolean  @default(false)
@@ -342,7 +346,10 @@ model Combo {
   description String?
   imageUrls   String[] @default([])
   price       Decimal  @db.Decimal(10, 2)
+  // isAvailable = sold-out today; isActive = on the menu vs archived (deactivate
+  // instead of delete). Archived combos are hidden from customers but kept.
   isAvailable Boolean  @default(true)
+  isActive    Boolean  @default(true)
   posOnly     Boolean  @default(false)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())

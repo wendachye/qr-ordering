@@ -19,6 +19,7 @@ export const createComboSchema = z.object({
   price: z.coerce.number().min(0, 'Price must be >= 0').max(100000),
   imageUrls: z.array(z.string().trim().min(1).max(1000)).max(8).optional(),
   isAvailable: z.boolean().default(true),
+  isActive: z.boolean().default(true),
   posOnly: z.boolean().default(false),
   groups: z.array(comboGroupSchema).min(1, 'Add at least one group').max(10),
 });

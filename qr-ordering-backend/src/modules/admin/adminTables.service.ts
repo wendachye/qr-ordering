@@ -63,17 +63,11 @@ export async function updateTable(id: string, input: UpdateTableInput) {
   return prisma.table.update({ where: { id }, data: input });
 }
 
+// Tables are never destroyed — "delete" deactivates (isActive=false), so history
+// (orders/sessions) and the QR code survive and it's reversible. Reactivate via
+// updateTable({ isActive: true }).
 export async function deleteTable(id: string) {
   await ensureTable(id);
-  // Block deletion if the table has any history (orders or sessions); the FKs
-  // are RESTRICT, and we'd rather keep history. Deactivate instead.
-  const [orderCount, sessionCount] = await Promise.all([
-    prisma.order.count({ where: { tableId: id } }),
-    prisma.tableSession.count({ where: { tableId: id } }),
-  ]);
-  if (orderCount > 0 || sessionCount > 0) {
-    throw ApiError.conflict('This table has orders and cannot be deleted. Deactivate it instead.');
-  }
-  await prisma.table.delete({ where: { id } });
-  return { id };
+  await prisma.table.update({ where: { id }, data: { isActive: false } });
+  return { id, deactivated: true };
 }
