@@ -240,7 +240,3 @@ merchant onboarding** (lead time) — start it in parallel so the adapter can la
 - ⬜ Menu versioning + scheduled publish; offline-POS resilience. · med · L–XL
 - ⬜ Split the operator console into its own deployment at the first external tenant / 2nd operator
   (today intentionally embedded at `/platform/*`).
-
-### API & docs
-- 🟡 **Typed responses in the OpenAPI spec** — request bodies are generated from the Zod validators;
-  response bodies are currently the generic `{ success, data }` envelope, being filled in per-endpoint.

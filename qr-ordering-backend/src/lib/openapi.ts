@@ -9,10 +9,11 @@
  * - Request bodies/queries reference the real validators, so they cannot drift
  *   from validation. The few inline (non-exported) query/param schemas are
  *   restated here.
- * - Responses are not Zod-typed in this codebase, so each is documented as the
- *   standard success envelope `{ success: true, data }` with `data` left open
- *   (typed incrementally later). Errors use the shared `{ success: false, error }`
- *   envelope produced by src/middleware/error.ts.
+ * - Responses use the success envelope `{ success: true, data }`. The typed `data`
+ *   schemas live in ./openapiResponses (mirrored from the service DTOs) and are
+ *   injected into each operation's 2xx response below; any endpoint not in that
+ *   map falls back to `data: unknown`. Errors use the shared
+ *   `{ success: false, error }` envelope produced by src/middleware/error.ts.
  */
 import { z } from 'zod';
 import {
@@ -72,6 +73,7 @@ import {
   menuSettingsSchema,
 } from '../validators/menu';
 import { markFailedSchema } from '../validators/printJob';
+import { responseData } from './openapiResponses';
 
 // ---- Shared response envelopes -------------------------------------------
 
@@ -824,6 +826,26 @@ const paths: ZodOpenApiPathsObject = {
     }),
   },
 };
+
+// Inject the typed `data` schema into each operation's 2xx success response.
+// `op()` defaults to `data: z.unknown()`; openapiResponses maps the real DTOs by
+// "METHOD /path". Endpoints without a mapping keep the open `unknown` data.
+for (const [path, item] of Object.entries(paths)) {
+  for (const method of ['get', 'post', 'patch', 'put', 'delete'] as const) {
+    const operation = (item as Record<string, ZodOpenApiOperationObject | undefined>)[method];
+    if (!operation?.responses) continue;
+    const data = responseData[`${method.toUpperCase()} ${path}`];
+    if (!data) continue;
+    const responses = operation.responses as Record<
+      string,
+      { content?: { 'application/json'?: { schema?: z.ZodTypeAny } } }
+    >;
+    const okStatus = Object.keys(responses).find((s) => s.startsWith('2'));
+    if (!okStatus) continue;
+    const json = responses[okStatus].content?.['application/json'];
+    if (json) json.schema = z.object({ success: z.literal(true), data });
+  }
+}
 
 export const openapiDocument = createDocument({
   openapi: '3.1.0',
