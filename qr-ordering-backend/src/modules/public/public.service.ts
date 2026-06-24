@@ -4,6 +4,7 @@ import { salePriceOf } from '../../lib/pricing';
 import { isItemAvailableNow } from '../../lib/availability';
 import { buildCombosForMenu } from '../menu/combo.service';
 import { currentStoreId } from '../../lib/tenant';
+import { outletPriceMap } from '../../lib/outletOverrides';
 
 /** Loads an active table by its public code, together with its store. */
 export async function getTableByCode(tableCode: string) {
@@ -107,6 +108,13 @@ async function buildStoreMenu(
   ]);
 
   type ItemPayload = (typeof featuredItems)[number];
+  // Per-outlet base-price overrides (shared catalogue) for the resolving outlet.
+  const priceOverrides = await outletPriceMap(storeId, [
+    ...new Set([
+      ...featuredItems.map((i) => i.id),
+      ...categories.flatMap((c) => c.items.map((i) => i.id)),
+    ]),
+  ]);
   const mapItem = (item: ItemPayload) => ({
     id: item.id,
     name: item.name,
@@ -114,8 +122,12 @@ async function buildStoreMenu(
     imageUrls: item.imageUrls,
     tag: item.tag,
     tags: item.tags,
-    price: Number(item.price),
-    salePrice: salePriceOf(Number(item.price), item.discountType, Number(item.discountValue ?? 0)),
+    price: priceOverrides.get(item.id) ?? Number(item.price),
+    salePrice: salePriceOf(
+      priceOverrides.get(item.id) ?? Number(item.price),
+      item.discountType,
+      Number(item.discountValue ?? 0),
+    ),
     isAvailable: item.isAvailable,
     availableNow: isItemAvailableNow(item, now),
     posOnly: item.posOnly,

@@ -6,6 +6,7 @@ import { buildKitchenPayload } from '../../lib/printPayload';
 import { config } from '../../config/env';
 import { ordersPlacedTotal } from '../../lib/metrics';
 import { effectiveItemPrice } from '../../lib/pricing';
+import { outletPriceMap } from '../../lib/outletOverrides';
 import { isItemAvailableNow } from '../../lib/availability';
 import { floorEvents } from '../../lib/floorEvents';
 import { applyStockDeductions } from '../inventory/inventory.service';
@@ -94,6 +95,8 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
     },
   });
   const byId = new Map(menuItems.map((m) => [m.id, m]));
+  // Per-outlet base-price overrides for this outlet (shared catalogue).
+  const priceOverrides = await outletPriceMap(table.storeId, itemIds);
 
   // Combos referenced in the order, with their groups + options (scoped to store).
   const comboIds = [
@@ -290,7 +293,11 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
     // Manual price override (admin only) replaces the computed unit price; the
     // option snapshot is still kept for the kitchen ticket. The item's standing
     // menu discount (if any) reduces the base price; options add at full value.
-    const saleBase = effectiveItemPrice(mi.price, mi.discountType, mi.discountValue);
+    // Per-outlet price override (shared catalogue): the ordering outlet may set
+    // its own base price; the item's standing menu discount still applies on top.
+    const outletBase = priceOverrides.get(mi.id);
+    const base = outletBase != null ? new Prisma.Decimal(outletBase) : mi.price;
+    const saleBase = effectiveItemPrice(base, mi.discountType, mi.discountValue);
     const basePrice = saleBase.add(delta);
     const overridden = !!(ctx.admin && line.priceOverride != null);
     // Round an override to cents so every persisted figure stays at 2dp and the

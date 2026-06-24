@@ -106,6 +106,12 @@ export const soldOutSchema = z.object({
   isAvailable: z.boolean(),
 });
 
+// Per-outlet price override for a shared-catalogue item. null clears it (the
+// outlet falls back to the catalogue price).
+export const outletPriceSchema = z.object({
+  price: z.coerce.number().min(0).max(100000).nullable(),
+});
+
 // Bulk reorder: ids in the desired display order (categories store-wide, or
 // items within one category). sortOrder is reassigned to the array index.
 export const reorderSchema = z.object({

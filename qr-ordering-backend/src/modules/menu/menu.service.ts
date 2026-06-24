@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../lib/response';
 import { getCurrentCatalogueId, getDefaultStoreId } from '../../lib/store';
+import { outletPriceMap } from '../../lib/outletOverrides';
 import { salePriceOf } from '../../lib/pricing';
 import { limitReachedError, resolveEntitlementsForStore } from '../../lib/entitlements';
 import type {
@@ -215,12 +216,19 @@ function optionGroupsCreate(
 
 export async function listItems(categoryId?: string) {
   const catalogueId = await getCurrentCatalogueId();
+  const storeId = await getDefaultStoreId();
   const items = await prisma.menuItem.findMany({
     where: { catalogueId, ...(categoryId ? { categoryId } : {}) },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     include: itemInclude,
   });
-  return items.map(toItemDto);
+  // `outletPrice` = this outlet's per-store price override (null = inherits the
+  // catalogue price). A shared catalogue can be priced differently per outlet.
+  const overrides = await outletPriceMap(
+    storeId,
+    items.map((i) => i.id),
+  );
+  return items.map((item) => ({ ...toItemDto(item), outletPrice: overrides.get(item.id) ?? null }));
 }
 
 export async function createItem(input: CreateItemInput) {
@@ -340,6 +348,27 @@ export async function setItemAvailability(id: string, isAvailable: boolean) {
     include: itemInclude,
   });
   return toItemDto(item);
+}
+
+/**
+ * Set (price) or clear (null) the current outlet's price override for a catalogue
+ * item — the "different price per location" knob on a shared catalogue. The item
+ * must belong to the outlet's catalogue. Returns the item DTO + the outlet price.
+ */
+export async function setItemOutletPrice(id: string, price: number | null) {
+  const catalogueId = await getCurrentCatalogueId();
+  const storeId = await getDefaultStoreId();
+  const existing = await prisma.menuItem.findUnique({ where: { id } });
+  if (!existing || existing.catalogueId !== catalogueId)
+    throw ApiError.notFound('Menu item not found');
+
+  await prisma.menuItemOutletState.upsert({
+    where: { storeId_menuItemId: { storeId, menuItemId: id } },
+    create: { storeId, menuItemId: id, priceOverride: price },
+    update: { priceOverride: price },
+  });
+  const item = await prisma.menuItem.findUnique({ where: { id }, include: itemInclude });
+  return { ...toItemDto(item!), outletPrice: price };
 }
 
 /**

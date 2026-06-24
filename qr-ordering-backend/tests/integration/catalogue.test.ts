@@ -81,4 +81,51 @@ describe('shared brand catalogue', () => {
     }>;
     expect(aList.some((i) => i.name === dishName)).toBe(true);
   });
+
+  it('an outlet can override the price on a shared catalogue (menu + order)', async () => {
+    const a = (await registerTenant()).data;
+    const catA = await catalogueOf(a.user.storeId);
+    const category = await prisma.menuCategory.findFirst({ where: { catalogueId: catA } });
+    const dishName = `Priced Dish ${uid()}`;
+    const item = await prisma.menuItem.create({
+      data: {
+        storeId: a.user.storeId,
+        catalogueId: catA,
+        categoryId: category!.id,
+        name: dishName,
+        price: 10,
+        sortOrder: 9,
+      },
+    });
+
+    const b = (await registerTenant()).data;
+    await prisma.store.update({ where: { id: b.user.storeId }, data: { catalogueId: catA } });
+    const tableA = await prisma.table.findFirst({ where: { storeId: a.user.storeId } });
+    const tableB = await prisma.table.findFirst({ where: { storeId: b.user.storeId } });
+
+    // B sets its own price for the shared item.
+    const set = await api()
+      .patch(`/admin/menu/items/${item.id}/outlet-price`)
+      .set(auth(b.token))
+      .send({ price: 15 });
+    expect(set.status).toBe(200);
+    expect(set.body.data.outletPrice).toBe(15);
+
+    // B's customer menu shows 15; A's still shows the catalogue 10.
+    const priceOnMenu = async (code: string) => {
+      const res = await api().get(`/public/menu?tableCode=${code}`);
+      return (res.body.data.categories as Array<{ items: Array<{ name: string; price: number }> }>)
+        .flatMap((c) => c.items)
+        .find((i) => i.name === dishName)?.price;
+    };
+    expect(await priceOnMenu(tableB!.code)).toBe(15);
+    expect(await priceOnMenu(tableA!.code)).toBe(10);
+
+    // An order at B is charged B's price (2 × 15 = 30), not the catalogue 10.
+    const order = await api()
+      .post('/orders')
+      .send({ tableCode: tableB!.code, items: [{ menuItemId: item.id, quantity: 2 }] });
+    expect(order.status).toBe(201);
+    expect(order.body.data.total).toBe(30);
+  });
 });

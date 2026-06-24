@@ -11,6 +11,7 @@ import {
   featureSchema,
   menuSettingsSchema,
   moveItemSchema,
+  outletPriceSchema,
   reorderSchema,
   soldOutSchema,
   updateCategorySchema,
@@ -30,6 +31,7 @@ import {
   reorderItems,
   setItemAvailability,
   setItemFeatured,
+  setItemOutletPrice,
   updateCategory,
   updateItem,
   updateMenuSettings,
@@ -107,6 +109,13 @@ menuRouter.delete('/items/:id', async (req: Request<{ id: string }>, res) => {
 menuRouter.patch('/items/:id/sold-out', async (req: Request<{ id: string }>, res) => {
   const { isAvailable } = soldOutSchema.parse(req.body);
   sendOk(res, await setItemAvailability(req.params.id, isAvailable));
+});
+
+// PATCH /api/admin/menu/items/:id/outlet-price  body: { price: number | null }
+// Per-outlet price override on a shared catalogue (null clears it).
+menuRouter.patch('/items/:id/outlet-price', async (req: Request<{ id: string }>, res) => {
+  const { price } = outletPriceSchema.parse(req.body);
+  sendOk(res, await setItemOutletPrice(req.params.id, price));
 });
 
 // PATCH /api/admin/menu/items/:id/move  body: { categoryId }

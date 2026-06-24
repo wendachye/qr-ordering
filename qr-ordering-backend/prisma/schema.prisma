@@ -110,6 +110,7 @@ model Store {
   tables     Table[]
   categories MenuCategory[]
   items      MenuItem[]
+  itemOutletStates MenuItemOutletState[]
   stockAdjustments StockAdjustment[]
   invoices       Invoice[]
   invoiceCounter InvoiceCounter?
@@ -284,6 +285,7 @@ model MenuItem {
   orderItems   OrderItem[]
   optionGroups OptionGroup[]
   comboOptions ComboOption[]
+  outletStates MenuItemOutletState[]
   stockAdjustments StockAdjustment[]
 
   @@index([storeId])
@@ -296,6 +298,29 @@ model MenuItem {
 // Immutable stock-movement ledger for a tracked menu item: every sale, restock,
 // manual set, waste write-off, or void-restore. balanceAfter snapshots the
 // resulting stockQty for audit. reason: sale | restock | set | waste | void_restore.
+// Per-outlet overrides on a (possibly shared) catalogue item: an outlet can set
+// its own price / sold-out / offered-here without forking the catalogue. Absent
+// row or null field = inherit the catalogue value. storeId = the outlet;
+// menuItemId = the catalogue item (shared by a brand's sibling outlets).
+// Phase 2b-3 wires `priceOverride`; availability/active overrides are reserved.
+model MenuItemOutletState {
+  id                  String   @id @default(cuid())
+  storeId             String
+  menuItemId          String
+  priceOverride       Decimal? @db.Decimal(10, 2)
+  isAvailableOverride Boolean?
+  isActiveOverride    Boolean?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  store    Store    @relation(fields: [storeId], references: [id])
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, menuItemId])
+  @@index([storeId])
+  @@index([menuItemId])
+}
+
 model StockAdjustment {
   id           String   @id @default(cuid())
   storeId      String
