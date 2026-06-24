@@ -15,6 +15,9 @@ model Store {
   // The platform client (account/brand) that owns this outlet. Nullable for
   // back-compat; backfilled 1:1 for existing stores.
   clientId      String?
+  // The shared menu catalogue this outlet draws from. Outlets of one brand point
+  // at the same catalogue; backfilled 1:1 for existing stores (Phase 1 expand).
+  catalogueId   String?
   featuredTitle String   @default("Popular")
   // Master switch for the customer-menu featured strip (per-item ★ still applies).
   featuredEnabled Boolean @default(true)
@@ -119,8 +122,10 @@ model Store {
   members    Member[]
   rewards    RewardCatalog[]
   client     Client?         @relation(fields: [clientId], references: [id])
+  catalogue  Catalogue?      @relation(fields: [catalogueId], references: [id])
 
   @@index([clientId])
+  @@index([catalogueId])
   @@index([deletedAt])
 }
 
@@ -143,9 +148,32 @@ model Client {
   deletedByImp String?
   deletedAt    DateTime?
 
-  outlets Store[]
+  outlets    Store[]
+  catalogues Catalogue[]
 
   @@index([deletedAt])
+}
+
+// A shared brand menu catalogue: one or more outlets (Stores) draw their menu
+// from it. Per-outlet differences (price / availability / stock) live in override
+// tables added in a later phase. Phase 1 (expand) gives each existing store its
+// own 1:1 catalogue, so behaviour is unchanged until outlets are pointed at a
+// shared one. `storeId` still lives on the menu models during the transition.
+model Catalogue {
+  id        String   @id @default(cuid())
+  name      String
+  // The owning client (brand account); null for a standalone store's catalogue.
+  clientId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client     Client?        @relation(fields: [clientId], references: [id])
+  stores     Store[]
+  categories MenuCategory[]
+  items      MenuItem[]
+  combos     Combo[]
+
+  @@index([clientId])
 }
 
 model Table {
@@ -175,6 +203,7 @@ model Table {
 model MenuCategory {
   id        String   @id @default(cuid())
   storeId   String
+  catalogueId String?
   name      String
   sortOrder Int      @default(0)
   isActive  Boolean  @default(true)
@@ -188,16 +217,19 @@ model MenuCategory {
   deletedByImp String?
   deletedAt    DateTime?
 
-  store Store      @relation(fields: [storeId], references: [id])
-  items MenuItem[]
+  store     Store      @relation(fields: [storeId], references: [id])
+  catalogue Catalogue? @relation(fields: [catalogueId], references: [id])
+  items     MenuItem[]
 
   @@index([storeId])
+  @@index([catalogueId])
   @@index([deletedAt])
 }
 
 model MenuItem {
   id          String   @id @default(cuid())
   storeId     String
+  catalogueId String?
   categoryId  String
   name        String
   description String?
@@ -247,6 +279,7 @@ model MenuItem {
   deletedAt    DateTime?
 
   store        Store         @relation(fields: [storeId], references: [id])
+  catalogue    Catalogue?    @relation(fields: [catalogueId], references: [id])
   category     MenuCategory  @relation(fields: [categoryId], references: [id])
   orderItems   OrderItem[]
   optionGroups OptionGroup[]
@@ -254,6 +287,7 @@ model MenuItem {
   stockAdjustments StockAdjustment[]
 
   @@index([storeId])
+  @@index([catalogueId])
   @@index([categoryId])
   @@index([storeId, isFeatured])
   @@index([deletedAt])
@@ -347,6 +381,7 @@ model InvoiceCounter {
 model Combo {
   id          String   @id @default(cuid())
   storeId     String
+  catalogueId String?
   name        String
   description String?
   imageUrls   String[] @default([])
@@ -367,10 +402,12 @@ model Combo {
   deletedByImp String?
   deletedAt    DateTime?
 
-  store  Store        @relation(fields: [storeId], references: [id])
-  groups ComboGroup[]
+  store     Store        @relation(fields: [storeId], references: [id])
+  catalogue Catalogue?   @relation(fields: [catalogueId], references: [id])
+  groups    ComboGroup[]
 
   @@index([storeId])
+  @@index([catalogueId])
   @@index([deletedAt])
 }
 

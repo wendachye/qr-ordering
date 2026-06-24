@@ -228,8 +228,12 @@ merchant onboarding** (lead time) — start it in parallel so the adapter can la
 - ⬜ **Consolidate CI to the repo root** — the per-app `.github/workflows/ci.yml` files are nested,
   so GitHub Actions never runs them; move to a root `.github/workflows/` with `paths:` filters. *Quick win.* · high · M
 - ⬜ **MFA (TOTP)** for OWNER / platform-admin. · med · M
-- ⬜ **Per-outlet shared brand catalogue** — menu / price / stock overrides on one catalogue (today
+- 🟡 **Per-outlet shared brand catalogue** — menu / price / stock overrides on one catalogue (today
   each outlet is a separate menu copy). Best done *before* the 2nd tenant locks in the per-Store assumption. · high · XL
+  *Phase 1 (expand) done:* `Catalogue` entity + `Store.catalogueId` + `catalogueId` on the menu models,
+  backfilled 1:1. Remaining: switch the menu/public services to read via the catalogue + a per-outlet
+  override (price/availability/stock) resolution layer, then point a brand's outlets at one catalogue
+  and drop the per-store `storeId`.
 - ⬜ **SSE → Redis pub/sub** for horizontal scale (the floor bus is single-process today). · med · M
 - ⬜ **Print-agent per-store provisioning** — `getDueJobs` is global today; scope per tenant when a
   2nd printing tenant onboards. · med · M
