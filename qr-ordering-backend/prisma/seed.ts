@@ -79,12 +79,29 @@ const SPICE: OptionGroupDef = {
 };
 
 async function main() {
-  // ----- Store -----
-  const store = await prisma.store.upsert({
+  // ----- Store + its brand catalogue -----
+  // Store.catalogueId is required, so a fresh store must be created WITH a
+  // catalogue. Re-seeds reuse the store's existing catalogue (1:1) so the demo
+  // menu is preserved. Categories + items below are stamped with catalogueId.
+  const existing = await prisma.store.findUnique({
     where: { slug: 'demo-restaurant' },
-    update: { name: 'Sakura Japanese Dining' },
-    create: { name: 'Sakura Japanese Dining', slug: 'demo-restaurant' },
+    select: { id: true, catalogueId: true },
   });
+  let store;
+  let catalogueId: string;
+  if (existing) {
+    catalogueId = existing.catalogueId;
+    store = await prisma.store.update({
+      where: { id: existing.id },
+      data: { name: 'Sakura Japanese Dining' },
+    });
+  } else {
+    const catalogue = await prisma.catalogue.create({ data: { name: 'Sakura Japanese Dining' } });
+    catalogueId = catalogue.id;
+    store = await prisma.store.create({
+      data: { name: 'Sakura Japanese Dining', slug: 'demo-restaurant', catalogueId },
+    });
+  }
   console.log(`Store: ${store.name} (${store.slug})`);
 
   // ----- Client (platform account that owns this outlet) -----
@@ -97,21 +114,8 @@ async function main() {
   if (store.clientId !== client.id) {
     await prisma.store.update({ where: { id: store.id }, data: { clientId: client.id } });
   }
-
-  // ----- Catalogue (the shared brand menu this outlet serves) -----
-  // Reuse the store's catalogue when one already exists (1:1 backfill), else
-  // provision a deterministic one so re-seeds are idempotent and catalogue-based
-  // reads (customer menu, admin, orders) resolve. Categories + items below are
-  // stamped with this catalogueId.
-  const catalogueId = store.catalogueId ?? `cat_${store.id}`;
-  await prisma.catalogue.upsert({
-    where: { id: catalogueId },
-    update: {},
-    create: { id: catalogueId, name: store.name, clientId: client.id },
-  });
-  if (store.catalogueId !== catalogueId) {
-    await prisma.store.update({ where: { id: store.id }, data: { catalogueId } });
-  }
+  // Attach the client to the brand catalogue (idempotent).
+  await prisma.catalogue.update({ where: { id: catalogueId }, data: { clientId: client.id } });
 
   // ----- Admin user -----
   const passwordHash = await bcrypt.hash('password123', 10);
@@ -190,14 +194,14 @@ async function main() {
   ];
   const categoryIdByName = new Map<string, string>();
   for (const [idx, name] of categoryDefs.entries()) {
-    const existing = await prisma.menuCategory.findFirst({ where: { storeId: store.id, name } });
+    const existing = await prisma.menuCategory.findFirst({ where: { catalogueId, name } });
     const category = existing
       ? await prisma.menuCategory.update({
           where: { id: existing.id },
           data: { sortOrder: idx + 1, isActive: true, catalogueId },
         })
       : await prisma.menuCategory.create({
-          data: { storeId: store.id, catalogueId, name, sortOrder: idx + 1 },
+          data: { catalogueId, name, sortOrder: idx + 1 },
         });
     categoryIdByName.set(name, category.id);
   }
@@ -422,7 +426,7 @@ async function main() {
     const imageUrls = makePlaceholderImages(def.name, def.images, def.hue);
 
     const existing = await prisma.menuItem.findFirst({
-      where: { storeId: store.id, name: def.name },
+      where: { catalogueId, name: def.name },
     });
     const item = existing
       ? await prisma.menuItem.update({
@@ -439,7 +443,6 @@ async function main() {
         })
       : await prisma.menuItem.create({
           data: {
-            storeId: store.id,
             catalogueId,
             categoryId,
             name: def.name,

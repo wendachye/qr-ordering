@@ -99,7 +99,6 @@ describe('shared catalogue provisioning (Phase 3)', () => {
     const category = await prisma.menuCategory.findFirst({ where: { catalogueId: cat.id } });
     await prisma.menuItem.create({
       data: {
-        storeId: client.outlets[0].id,
         catalogueId: cat.id,
         categoryId: category!.id,
         name: dishName,

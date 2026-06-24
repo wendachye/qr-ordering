@@ -16,7 +16,6 @@ describe('shared brand catalogue', () => {
     const dishName = `Shared Dish ${uid()}`;
     const item = await prisma.menuItem.create({
       data: {
-        storeId: a.user.storeId,
         catalogueId: catA,
         categoryId: category!.id,
         name: dishName,
@@ -89,7 +88,6 @@ describe('shared brand catalogue', () => {
     const dishName = `Priced Dish ${uid()}`;
     const item = await prisma.menuItem.create({
       data: {
-        storeId: a.user.storeId,
         catalogueId: catA,
         categoryId: category!.id,
         name: dishName,
@@ -138,7 +136,6 @@ describe('shared brand catalogue', () => {
     const mk = (name: string, sortOrder: number) =>
       prisma.menuItem.create({
         data: {
-          storeId: a.user.storeId,
           catalogueId: catA,
           categoryId: category!.id,
           name,
@@ -198,7 +195,6 @@ describe('shared brand catalogue', () => {
     const dishName = `Stocked Dish ${uid()}`;
     const item = await prisma.menuItem.create({
       data: {
-        storeId: a.user.storeId,
         catalogueId: catA,
         categoryId: category!.id,
         name: dishName,
@@ -254,7 +250,6 @@ describe('shared brand catalogue', () => {
     // A's catalogue: seeded "Sample Dish" + one we add → 2 items.
     await prisma.menuItem.create({
       data: {
-        storeId: a.user.storeId,
         catalogueId: catA,
         categoryId: category!.id,
         name: `Extra Dish ${uid()}`,

@@ -15,9 +15,9 @@ model Store {
   // The platform client (account/brand) that owns this outlet. Nullable for
   // back-compat; backfilled 1:1 for existing stores.
   clientId      String?
-  // The shared menu catalogue this outlet draws from. Outlets of one brand point
-  // at the same catalogue; backfilled 1:1 for existing stores (Phase 1 expand).
-  catalogueId   String?
+  // The shared menu catalogue this outlet draws from (required — every store
+  // serves a catalogue). Outlets of one brand point at the same catalogue.
+  catalogueId   String
   featuredTitle String   @default("Popular")
   // Master switch for the customer-menu featured strip (per-item ★ still applies).
   featuredEnabled Boolean @default(true)
@@ -108,8 +108,6 @@ model Store {
   deletedAt    DateTime?
 
   tables     Table[]
-  categories MenuCategory[]
-  items      MenuItem[]
   itemOutletStates MenuItemOutletState[]
   stockAdjustments StockAdjustment[]
   invoices       Invoice[]
@@ -117,13 +115,12 @@ model Store {
   orders     Order[]
   sessions   TableSession[]
   payments   Payment[]
-  combos     Combo[]
   adminUsers AdminUser[]
   vouchers   Voucher[]
   members    Member[]
   rewards    RewardCatalog[]
   client     Client?         @relation(fields: [clientId], references: [id])
-  catalogue  Catalogue?      @relation(fields: [catalogueId], references: [id])
+  catalogue  Catalogue       @relation(fields: [catalogueId], references: [id])
 
   @@index([clientId])
   @@index([catalogueId])
@@ -203,8 +200,7 @@ model Table {
 
 model MenuCategory {
   id        String   @id @default(cuid())
-  storeId   String
-  catalogueId String?
+  catalogueId String
   name      String
   sortOrder Int      @default(0)
   isActive  Boolean  @default(true)
@@ -218,19 +214,16 @@ model MenuCategory {
   deletedByImp String?
   deletedAt    DateTime?
 
-  store     Store      @relation(fields: [storeId], references: [id])
-  catalogue Catalogue? @relation(fields: [catalogueId], references: [id])
+  catalogue Catalogue  @relation(fields: [catalogueId], references: [id])
   items     MenuItem[]
 
-  @@index([storeId])
   @@index([catalogueId])
   @@index([deletedAt])
 }
 
 model MenuItem {
   id          String   @id @default(cuid())
-  storeId     String
-  catalogueId String?
+  catalogueId String
   categoryId  String
   name        String
   description String?
@@ -274,8 +267,7 @@ model MenuItem {
   deletedByImp String?
   deletedAt    DateTime?
 
-  store        Store         @relation(fields: [storeId], references: [id])
-  catalogue    Catalogue?    @relation(fields: [catalogueId], references: [id])
+  catalogue    Catalogue     @relation(fields: [catalogueId], references: [id])
   category     MenuCategory  @relation(fields: [categoryId], references: [id])
   orderItems   OrderItem[]
   optionGroups OptionGroup[]
@@ -283,10 +275,9 @@ model MenuItem {
   outletStates MenuItemOutletState[]
   stockAdjustments StockAdjustment[]
 
-  @@index([storeId])
   @@index([catalogueId])
   @@index([categoryId])
-  @@index([storeId, isFeatured])
+  @@index([catalogueId, isFeatured])
   @@index([deletedAt])
 }
 
@@ -406,8 +397,7 @@ model InvoiceCounter {
 // never rewrites history.
 model Combo {
   id          String   @id @default(cuid())
-  storeId     String
-  catalogueId String?
+  catalogueId String
   name        String
   description String?
   imageUrls   String[] @default([])
@@ -428,11 +418,9 @@ model Combo {
   deletedByImp String?
   deletedAt    DateTime?
 
-  store     Store        @relation(fields: [storeId], references: [id])
-  catalogue Catalogue?   @relation(fields: [catalogueId], references: [id])
+  catalogue Catalogue    @relation(fields: [catalogueId], references: [id])
   groups    ComboGroup[]
 
-  @@index([storeId])
   @@index([catalogueId])
   @@index([deletedAt])
 }

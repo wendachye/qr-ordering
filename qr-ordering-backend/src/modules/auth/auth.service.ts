@@ -169,11 +169,10 @@ export async function registerStore(input: RegisterInput) {
         // Starter data so the new tenant has a usable, demoable workspace at
         // once: one sample menu item (editable/replaceable) and a few tables.
         const category = await tx.menuCategory.create({
-          data: { storeId: store.id, catalogueId: catalogue.id, name: 'Mains', sortOrder: 1 },
+          data: { catalogueId: catalogue.id, name: 'Mains', sortOrder: 1 },
         });
         await tx.menuItem.create({
           data: {
-            storeId: store.id,
             catalogueId: catalogue.id,
             categoryId: category.id,
             name: 'Sample Dish',

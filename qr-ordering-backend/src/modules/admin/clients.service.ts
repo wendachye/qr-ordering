@@ -32,7 +32,9 @@ const OUTLET_SELECT = {
   trialEndsAt: true,
   isActive: true,
   createdAt: true,
-  _count: { select: { tables: true, items: true } },
+  _count: { select: { tables: true } },
+  // Menu items are catalogue-scoped now — count via the outlet's catalogue.
+  catalogue: { select: { _count: { select: { items: true } } } },
 } satisfies Prisma.StoreSelect;
 
 type OutletRow = {
@@ -44,7 +46,8 @@ type OutletRow = {
   trialEndsAt: Date | null;
   isActive: boolean;
   createdAt: Date;
-  _count: { tables: number; items: number };
+  _count: { tables: number };
+  catalogue: { _count: { items: number } } | null;
 };
 
 function outletDto(s: OutletRow) {
@@ -57,7 +60,7 @@ function outletDto(s: OutletRow) {
     trialEndsAt: s.trialEndsAt,
     isActive: s.isActive,
     tableCount: s._count.tables,
-    menuItemCount: s._count.items,
+    menuItemCount: s.catalogue?._count.items ?? 0,
     createdAt: s.createdAt,
   };
 }
@@ -170,11 +173,10 @@ async function provisionOutlet(
   // sibling outlet.
   if (!args.catalogueId) {
     const category = await tx.menuCategory.create({
-      data: { storeId: store.id, catalogueId, name: 'Mains', sortOrder: 1 },
+      data: { catalogueId, name: 'Mains', sortOrder: 1 },
     });
     await tx.menuItem.create({
       data: {
-        storeId: store.id,
         catalogueId,
         categoryId: category.id,
         name: 'Sample Dish',

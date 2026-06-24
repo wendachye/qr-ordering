@@ -19,15 +19,19 @@ function asActor<T>(actorId: string, fn: () => Promise<T>): Promise<T> {
   );
 }
 
+const catalogueOf = async (storeId: string) =>
+  (await prisma.store.findUnique({ where: { id: storeId }, select: { catalogueId: true } }))!
+    .catalogueId;
+
 describe('audit stamping (A2)', () => {
   it('stamps createdById + updatedById on an audited write, attributed to the actor', async () => {
     const { data } = await registerTenant();
     const adminId = data.user.id;
-    const storeId = data.user.storeId;
+    const catalogueId = await catalogueOf(data.user.storeId);
 
     // Create as the owner → both stamps are the owner.
     const cat = await asActor(adminId, () =>
-      prisma.menuCategory.create({ data: { storeId, name: `Cat ${uid()}` } }),
+      prisma.menuCategory.create({ data: { catalogueId, name: `Cat ${uid()}` } }),
     );
     expect(cat.createdById).toBe(adminId);
     expect(cat.updatedById).toBe(adminId);
@@ -43,7 +47,7 @@ describe('audit stamping (A2)', () => {
   it('leaves stamps null when there is no actor in the request context', async () => {
     const { data } = await registerTenant();
     const cat = await prisma.menuCategory.create({
-      data: { storeId: data.user.storeId, name: `Cat ${uid()}` },
+      data: { catalogueId: await catalogueOf(data.user.storeId), name: `Cat ${uid()}` },
     });
     expect(cat.createdById).toBeNull();
     expect(cat.updatedById).toBeNull();
@@ -63,8 +67,9 @@ describe('soft delete (A3)', () => {
   it('soft-deletes (keeps the row, hides it, attributes it) and restores', async () => {
     const { data } = await registerTenant();
     const adminId = data.user.id;
+    const catalogueId = await catalogueOf(data.user.storeId);
     const cat = await asActor(adminId, () =>
-      prisma.menuCategory.create({ data: { storeId: data.user.storeId, name: `Cat ${uid()}` } }),
+      prisma.menuCategory.create({ data: { catalogueId, name: `Cat ${uid()}` } }),
     );
 
     // delete → soft delete: hidden from normal reads...
@@ -90,9 +95,10 @@ describe('soft delete (A3)', () => {
   it('removes a soft-deleted menu item from the customer menu (nested include)', async () => {
     const { data } = await registerTenant();
     const storeId = data.user.storeId;
+    const catalogueId = await catalogueOf(storeId);
     const table = await prisma.table.findFirst({ where: { storeId } });
     const item = await prisma.menuItem.findFirst({
-      where: { storeId, isAvailable: true, posOnly: false },
+      where: { catalogueId, isAvailable: true, posOnly: false },
     });
     expect(table && item).toBeTruthy();
 
@@ -111,8 +117,9 @@ describe('soft delete (A3)', () => {
   it('records an AuditLog row when an audited model is soft-deleted', async () => {
     const { data } = await registerTenant();
     const adminId = data.user.id;
+    const catalogueId = await catalogueOf(data.user.storeId);
     const cat = await asActor(adminId, () =>
-      prisma.menuCategory.create({ data: { storeId: data.user.storeId, name: `Cat ${uid()}` } }),
+      prisma.menuCategory.create({ data: { catalogueId, name: `Cat ${uid()}` } }),
     );
     await asActor(adminId, () => prisma.menuCategory.delete({ where: { id: cat.id } }));
 

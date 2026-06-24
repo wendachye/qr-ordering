@@ -52,7 +52,7 @@ export async function getTableByCode(tableCode: string) {
  */
 async function buildStoreMenu(
   storeId: string,
-  catalogueId: string | null,
+  catalogueId: string,
   opts: { includePosOnly: boolean },
 ) {
   // Customer menu hides POS-only items; the POS menu includes them.

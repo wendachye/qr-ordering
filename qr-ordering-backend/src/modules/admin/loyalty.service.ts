@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 
 import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../lib/response';
-import { getDefaultStoreId } from '../../lib/store';
+import { getCurrentCatalogueId, getDefaultStoreId } from '../../lib/store';
 import {
   applyPoints,
   memberDto,
@@ -379,18 +379,19 @@ export async function listRewards() {
   return rows.map(rewardDto);
 }
 
-async function ensureMenuItemInStore(menuItemId: string, storeId: string) {
+async function ensureMenuItemInCatalogue(menuItemId: string) {
+  const catalogueId = await getCurrentCatalogueId();
   const item = await prisma.menuItem.findFirst({
-    where: { id: menuItemId, storeId },
+    where: { id: menuItemId, catalogueId },
     select: { id: true },
   });
-  if (!item) throw ApiError.badRequest('That menu item does not exist in this store');
+  if (!item) throw ApiError.badRequest('That menu item does not exist on this menu');
 }
 
 export async function createReward(input: CreateRewardInput) {
   const storeId = await getDefaultStoreId();
   if (input.type === 'FREE_ITEM' && input.menuItemId) {
-    await ensureMenuItemInStore(input.menuItemId, storeId);
+    await ensureMenuItemInCatalogue(input.menuItemId);
   }
   const r = await prisma.rewardCatalog.create({
     data: {
@@ -411,7 +412,7 @@ export async function updateReward(id: string, input: UpdateRewardInput) {
   const storeId = await getDefaultStoreId();
   const existing = await prisma.rewardCatalog.findFirst({ where: { id, storeId } });
   if (!existing) throw ApiError.notFound('Reward not found');
-  if (input.menuItemId) await ensureMenuItemInStore(input.menuItemId, storeId);
+  if (input.menuItemId) await ensureMenuItemInCatalogue(input.menuItemId);
   const data: Prisma.RewardCatalogUpdateInput = {};
   if (input.name !== undefined) data.name = input.name;
   if (input.description !== undefined) data.description = input.description?.trim() || null;

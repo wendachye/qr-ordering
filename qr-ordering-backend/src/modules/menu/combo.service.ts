@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 
 import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../lib/response';
-import { getCurrentCatalogueId, getDefaultStoreId } from '../../lib/store';
+import { getCurrentCatalogueId } from '../../lib/store';
 import type { CreateComboInput, UpdateComboInput } from '../../validators/combo';
 
 const comboInclude = {
@@ -81,13 +81,11 @@ export async function listCombos() {
 }
 
 export async function createCombo(input: CreateComboInput) {
-  const storeId = await getDefaultStoreId();
   const catalogueId = await getCurrentCatalogueId();
   await assertItemsInStore(catalogueId, uniqueItemIds(input.groups));
   const agg = await prisma.combo.aggregate({ where: { catalogueId }, _max: { sortOrder: true } });
   const combo = await prisma.combo.create({
     data: {
-      storeId,
       catalogueId,
       name: input.name,
       description: input.description ?? null,
@@ -148,10 +146,7 @@ export async function deleteCombo(id: string) {
 }
 
 /** Combos for the customer / POS menu. POS sees POS-only combos; both hide unavailable. */
-export async function buildCombosForMenu(
-  catalogueId: string | null,
-  opts: { includePosOnly: boolean },
-) {
+export async function buildCombosForMenu(catalogueId: string, opts: { includePosOnly: boolean }) {
   const combos = await prisma.combo.findMany({
     where: {
       catalogueId,
