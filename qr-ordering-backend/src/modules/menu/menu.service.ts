@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { ApiError } from '../../lib/response';
 import { getCurrentCatalogueId, getDefaultStoreId } from '../../lib/store';
-import { outletPriceMap } from '../../lib/outletOverrides';
+import { outletStateMap } from '../../lib/outletOverrides';
 import { salePriceOf } from '../../lib/pricing';
 import { limitReachedError, resolveEntitlementsForStore } from '../../lib/entitlements';
 import type {
@@ -222,13 +222,22 @@ export async function listItems(categoryId?: string) {
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     include: itemInclude,
   });
-  // `outletPrice` = this outlet's per-store price override (null = inherits the
-  // catalogue price). A shared catalogue can be priced differently per outlet.
-  const overrides = await outletPriceMap(
+  // Per-outlet overrides (null = inherits the catalogue): a shared catalogue can
+  // be priced / 86'd / hidden differently per outlet. Exposed alongside the
+  // catalogue DTO so the admin UI can show + manage this outlet's deviations.
+  const states = await outletStateMap(
     storeId,
     items.map((i) => i.id),
   );
-  return items.map((item) => ({ ...toItemDto(item), outletPrice: overrides.get(item.id) ?? null }));
+  return items.map((item) => {
+    const ov = states.get(item.id);
+    return {
+      ...toItemDto(item),
+      outletPrice: ov?.priceOverride ?? null,
+      outletAvailable: ov?.isAvailableOverride ?? null,
+      outletActive: ov?.isActiveOverride ?? null,
+    };
+  });
 }
 
 export async function createItem(input: CreateItemInput) {
@@ -351,24 +360,43 @@ export async function setItemAvailability(id: string, isAvailable: boolean) {
 }
 
 /**
- * Set (price) or clear (null) the current outlet's price override for a catalogue
- * item — the "different price per location" knob on a shared catalogue. The item
- * must belong to the outlet's catalogue. Returns the item DTO + the outlet price.
+ * Set or clear this outlet's per-store overrides for a catalogue item — the
+ * "price / availability / offered-here, per location" knob on a shared catalogue.
+ * Only the provided fields change; null on a field clears that override (the
+ * outlet falls back to the catalogue value). The item must belong to the outlet's
+ * catalogue. Returns the catalogue DTO + this outlet's resulting overrides.
  */
-export async function setItemOutletPrice(id: string, price: number | null) {
+export async function setItemOutletState(
+  id: string,
+  patch: { price?: number | null; isAvailable?: boolean | null; isActive?: boolean | null },
+) {
   const catalogueId = await getCurrentCatalogueId();
   const storeId = await getDefaultStoreId();
   const existing = await prisma.menuItem.findUnique({ where: { id } });
   if (!existing || existing.catalogueId !== catalogueId)
     throw ApiError.notFound('Menu item not found');
 
-  await prisma.menuItemOutletState.upsert({
+  const fields: {
+    priceOverride?: number | null;
+    isAvailableOverride?: boolean | null;
+    isActiveOverride?: boolean | null;
+  } = {};
+  if ('price' in patch) fields.priceOverride = patch.price ?? null;
+  if ('isAvailable' in patch) fields.isAvailableOverride = patch.isAvailable ?? null;
+  if ('isActive' in patch) fields.isActiveOverride = patch.isActive ?? null;
+
+  const state = await prisma.menuItemOutletState.upsert({
     where: { storeId_menuItemId: { storeId, menuItemId: id } },
-    create: { storeId, menuItemId: id, priceOverride: price },
-    update: { priceOverride: price },
+    create: { storeId, menuItemId: id, ...fields },
+    update: fields,
   });
   const item = await prisma.menuItem.findUnique({ where: { id }, include: itemInclude });
-  return { ...toItemDto(item!), outletPrice: price };
+  return {
+    ...toItemDto(item!),
+    outletPrice: state.priceOverride != null ? Number(state.priceOverride) : null,
+    outletAvailable: state.isAvailableOverride ?? null,
+    outletActive: state.isActiveOverride ?? null,
+  };
 }
 
 /**

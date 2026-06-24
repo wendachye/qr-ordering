@@ -4,7 +4,12 @@ import { salePriceOf } from '../../lib/pricing';
 import { isItemAvailableNow } from '../../lib/availability';
 import { buildCombosForMenu } from '../menu/combo.service';
 import { currentStoreId } from '../../lib/tenant';
-import { outletPriceMap } from '../../lib/outletOverrides';
+import {
+  effectiveAvailable,
+  effectivePrice,
+  offeredAtOutlet,
+  outletStateMap,
+} from '../../lib/outletOverrides';
 
 /** Loads an active table by its public code, together with its store. */
 export async function getTableByCode(tableCode: string) {
@@ -108,44 +113,43 @@ async function buildStoreMenu(
   ]);
 
   type ItemPayload = (typeof featuredItems)[number];
-  // Per-outlet base-price overrides (shared catalogue) for the resolving outlet.
-  const priceOverrides = await outletPriceMap(storeId, [
+  // Per-outlet overrides (price / sold-out / offered-here) for the resolving outlet.
+  const states = await outletStateMap(storeId, [
     ...new Set([
       ...featuredItems.map((i) => i.id),
       ...categories.flatMap((c) => c.items.map((i) => i.id)),
     ]),
   ]);
-  const mapItem = (item: ItemPayload) => ({
-    id: item.id,
-    name: item.name,
-    description: item.description,
-    imageUrls: item.imageUrls,
-    tag: item.tag,
-    tags: item.tags,
-    price: priceOverrides.get(item.id) ?? Number(item.price),
-    salePrice: salePriceOf(
-      priceOverrides.get(item.id) ?? Number(item.price),
-      item.discountType,
-      Number(item.discountValue ?? 0),
-    ),
-    isAvailable: item.isAvailable,
-    availableNow: isItemAvailableNow(item, now),
-    posOnly: item.posOnly,
-    sortOrder: item.sortOrder,
-    categoryId: item.categoryId,
-    optionGroups: item.optionGroups.map((g) => ({
-      id: g.id,
-      name: g.name,
-      required: g.required,
-      minSelect: g.minSelect,
-      maxSelect: g.maxSelect,
-      choices: g.choices.map((ch) => ({
-        id: ch.id,
-        name: ch.name,
-        priceDelta: Number(ch.priceDelta),
+  const mapItem = (item: ItemPayload) => {
+    const base = effectivePrice(states.get(item.id), Number(item.price));
+    return {
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      imageUrls: item.imageUrls,
+      tag: item.tag,
+      tags: item.tags,
+      price: base,
+      salePrice: salePriceOf(base, item.discountType, Number(item.discountValue ?? 0)),
+      isAvailable: effectiveAvailable(states.get(item.id), item.isAvailable),
+      availableNow: isItemAvailableNow(item, now),
+      posOnly: item.posOnly,
+      sortOrder: item.sortOrder,
+      categoryId: item.categoryId,
+      optionGroups: item.optionGroups.map((g) => ({
+        id: g.id,
+        name: g.name,
+        required: g.required,
+        minSelect: g.minSelect,
+        maxSelect: g.maxSelect,
+        choices: g.choices.map((ch) => ({
+          id: ch.id,
+          name: ch.name,
+          priceDelta: Number(ch.priceDelta),
+        })),
       })),
-    })),
-  });
+    };
+  };
 
   const combos = await buildCombosForMenu(catalogueId, opts);
 
@@ -161,13 +165,20 @@ async function buildStoreMenu(
       subtitle: settings?.bannerSubtitle ?? null,
     },
     // Master switch: hide the whole strip when the store has it turned off.
+    // Items the outlet has hidden (offered-here = false) are dropped per outlet.
     featured:
-      settings?.featuredEnabled === false ? [] : featuredItems.filter(scheduledIn).map(mapItem),
+      settings?.featuredEnabled === false
+        ? []
+        : featuredItems
+            .filter((i) => scheduledIn(i) && offeredAtOutlet(states.get(i.id), i.isActive))
+            .map(mapItem),
     categories: categories.map((c) => ({
       id: c.id,
       name: c.name,
       sortOrder: c.sortOrder,
-      items: c.items.filter(scheduledIn).map(mapItem),
+      items: c.items
+        .filter((i) => scheduledIn(i) && offeredAtOutlet(states.get(i.id), i.isActive))
+        .map(mapItem),
     })),
   };
 }

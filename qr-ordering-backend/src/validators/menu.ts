@@ -106,11 +106,17 @@ export const soldOutSchema = z.object({
   isAvailable: z.boolean(),
 });
 
-// Per-outlet price override for a shared-catalogue item. null clears it (the
-// outlet falls back to the catalogue price).
-export const outletPriceSchema = z.object({
-  price: z.coerce.number().min(0).max(100000).nullable(),
-});
+// Per-outlet overrides for a shared-catalogue item (price / sold-out /
+// offered-here). Only the provided fields change; null on a field clears that
+// override (the outlet falls back to the catalogue value).
+export const outletStateSchema = z
+  .object({
+    price: z.coerce.number().min(0).max(100000).nullable(),
+    isAvailable: z.boolean().nullable(),
+    isActive: z.boolean().nullable(),
+  })
+  .partial()
+  .refine((d) => Object.keys(d).length > 0, { message: 'No override fields provided' });
 
 // Bulk reorder: ids in the desired display order (categories store-wide, or
 // items within one category). sortOrder is reassigned to the array index.

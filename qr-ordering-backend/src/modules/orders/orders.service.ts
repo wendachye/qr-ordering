@@ -6,7 +6,7 @@ import { buildKitchenPayload } from '../../lib/printPayload';
 import { config } from '../../config/env';
 import { ordersPlacedTotal } from '../../lib/metrics';
 import { effectiveItemPrice } from '../../lib/pricing';
-import { outletPriceMap } from '../../lib/outletOverrides';
+import { effectiveAvailable, outletStateMap } from '../../lib/outletOverrides';
 import { isItemAvailableNow } from '../../lib/availability';
 import { floorEvents } from '../../lib/floorEvents';
 import { applyStockDeductions } from '../inventory/inventory.service';
@@ -95,8 +95,8 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
     },
   });
   const byId = new Map(menuItems.map((m) => [m.id, m]));
-  // Per-outlet base-price overrides for this outlet (shared catalogue).
-  const priceOverrides = await outletPriceMap(table.storeId, itemIds);
+  // Per-outlet overrides (price + sold-out) for this outlet (shared catalogue).
+  const states = await outletStateMap(table.storeId, itemIds);
 
   // Combos referenced in the order, with their groups + options (scoped to store).
   const comboIds = [
@@ -219,7 +219,8 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
 
     const mi = line.menuItemId ? byId.get(line.menuItemId) : undefined;
     if (!mi) throw ApiError.badRequest(`Menu item "${line.menuItemId ?? '?'}" is not on this menu`);
-    if (!mi.isAvailable) throw ApiError.badRequest(`"${mi.name}" is sold out`);
+    if (!effectiveAvailable(states.get(mi.id), mi.isAvailable))
+      throw ApiError.badRequest(`"${mi.name}" is sold out`);
     // Off-schedule items are blocked for diners, but staff can still order them.
     if (!ctx.admin && !isItemAvailableNow(mi)) {
       throw ApiError.badRequest(`"${mi.name}" isn't available right now`);
@@ -295,7 +296,7 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
     // menu discount (if any) reduces the base price; options add at full value.
     // Per-outlet price override (shared catalogue): the ordering outlet may set
     // its own base price; the item's standing menu discount still applies on top.
-    const outletBase = priceOverrides.get(mi.id);
+    const outletBase = states.get(mi.id)?.priceOverride;
     const base = outletBase != null ? new Prisma.Decimal(outletBase) : mi.price;
     const saleBase = effectiveItemPrice(base, mi.discountType, mi.discountValue);
     const basePrice = saleBase.add(delta);

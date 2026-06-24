@@ -11,7 +11,7 @@ import {
   featureSchema,
   menuSettingsSchema,
   moveItemSchema,
-  outletPriceSchema,
+  outletStateSchema,
   reorderSchema,
   soldOutSchema,
   updateCategorySchema,
@@ -31,7 +31,7 @@ import {
   reorderItems,
   setItemAvailability,
   setItemFeatured,
-  setItemOutletPrice,
+  setItemOutletState,
   updateCategory,
   updateItem,
   updateMenuSettings,
@@ -111,11 +111,11 @@ menuRouter.patch('/items/:id/sold-out', async (req: Request<{ id: string }>, res
   sendOk(res, await setItemAvailability(req.params.id, isAvailable));
 });
 
-// PATCH /api/admin/menu/items/:id/outlet-price  body: { price: number | null }
-// Per-outlet price override on a shared catalogue (null clears it).
-menuRouter.patch('/items/:id/outlet-price', async (req: Request<{ id: string }>, res) => {
-  const { price } = outletPriceSchema.parse(req.body);
-  sendOk(res, await setItemOutletPrice(req.params.id, price));
+// PATCH /api/admin/menu/items/:id/outlet-state
+//   body: { price?, isAvailable?, isActive? }  (null on a field clears it)
+// This outlet's per-store overrides on a shared catalogue (price / 86 / hide).
+menuRouter.patch('/items/:id/outlet-state', async (req: Request<{ id: string }>, res) => {
+  sendOk(res, await setItemOutletState(req.params.id, outletStateSchema.parse(req.body)));
 });
 
 // PATCH /api/admin/menu/items/:id/move  body: { categoryId }

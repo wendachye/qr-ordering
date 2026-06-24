@@ -105,7 +105,7 @@ describe('shared brand catalogue', () => {
 
     // B sets its own price for the shared item.
     const set = await api()
-      .patch(`/admin/menu/items/${item.id}/outlet-price`)
+      .patch(`/admin/menu/items/${item.id}/outlet-state`)
       .set(auth(b.token))
       .send({ price: 15 });
     expect(set.status).toBe(200);
@@ -127,5 +127,67 @@ describe('shared brand catalogue', () => {
       .send({ tableCode: tableB!.code, items: [{ menuItemId: item.id, quantity: 2 }] });
     expect(order.status).toBe(201);
     expect(order.body.data.total).toBe(30);
+  });
+
+  it('an outlet can 86 or hide a shared item without affecting siblings', async () => {
+    const a = (await registerTenant()).data;
+    const catA = await catalogueOf(a.user.storeId);
+    const category = await prisma.menuCategory.findFirst({ where: { catalogueId: catA } });
+    const soldOutName = `SoldOut ${uid()}`;
+    const hiddenName = `Hidden ${uid()}`;
+    const mk = (name: string, sortOrder: number) =>
+      prisma.menuItem.create({
+        data: {
+          storeId: a.user.storeId,
+          catalogueId: catA,
+          categoryId: category!.id,
+          name,
+          price: 7,
+          sortOrder,
+        },
+      });
+    const soldOut = await mk(soldOutName, 20);
+    const hidden = await mk(hiddenName, 21);
+
+    const b = (await registerTenant()).data;
+    await prisma.store.update({ where: { id: b.user.storeId }, data: { catalogueId: catA } });
+    const tableA = await prisma.table.findFirst({ where: { storeId: a.user.storeId } });
+    const tableB = await prisma.table.findFirst({ where: { storeId: b.user.storeId } });
+
+    // B 86's one item and stops offering another — both only at B.
+    await api()
+      .patch(`/admin/menu/items/${soldOut.id}/outlet-state`)
+      .set(auth(b.token))
+      .send({ isAvailable: false });
+    await api()
+      .patch(`/admin/menu/items/${hidden.id}/outlet-state`)
+      .set(auth(b.token))
+      .send({ isActive: false });
+
+    const itemsOn = async (code: string) =>
+      (
+        (await api().get(`/public/menu?tableCode=${code}`)).body.data.categories as Array<{
+          items: Array<{ name: string; isAvailable: boolean }>;
+        }>
+      ).flatMap((c) => c.items);
+    const bItems = await itemsOn(tableB!.code);
+    const aItems = await itemsOn(tableA!.code);
+
+    // B: 86'd item shows but is unavailable; hidden item is gone entirely.
+    expect(bItems.find((i) => i.name === soldOutName)?.isAvailable).toBe(false);
+    expect(bItems.some((i) => i.name === hiddenName)).toBe(false);
+    // A (sibling): both fully available + visible — overrides don't leak.
+    expect(aItems.find((i) => i.name === soldOutName)?.isAvailable).toBe(true);
+    expect(aItems.some((i) => i.name === hiddenName)).toBe(true);
+
+    // Ordering B's 86'd item is rejected; A can still order it.
+    const orderB = await api()
+      .post('/orders')
+      .send({ tableCode: tableB!.code, items: [{ menuItemId: soldOut.id, quantity: 1 }] });
+    expect(orderB.status).toBe(400);
+    const orderA = await api()
+      .post('/orders')
+      .send({ tableCode: tableA!.code, items: [{ menuItemId: soldOut.id, quantity: 1 }] });
+    expect(orderA.status).toBe(201);
   });
 });
