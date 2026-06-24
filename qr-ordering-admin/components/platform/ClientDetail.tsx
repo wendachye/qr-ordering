@@ -121,6 +121,7 @@ export function ClientDetail({ client }: { client: Client }) {
       <OutletEditDialog outlet={editing} onClose={() => setEditing(null)} onSaved={setData} />
       <AddOutletDialog
         clientId={client.id}
+        catalogues={client.catalogues ?? []}
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onAdded={setData}

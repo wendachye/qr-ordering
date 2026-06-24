@@ -65,6 +65,13 @@ export interface Outlet {
   createdAt: string;
 }
 
+// One of a client's brand menus (catalogues) + how many outlets share it.
+export interface ClientCatalogue {
+  id: string;
+  name: string;
+  outletCount: number;
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -76,6 +83,9 @@ export interface Client {
   updatedAt: string;
   outletCount: number;
   outlets: Outlet[];
+  // Brand menus the client owns (populated on the single-client read). Drives the
+  // "share an existing menu" picker when adding an outlet.
+  catalogues?: ClientCatalogue[];
 }
 
 export type PlanKey = "basic" | "pro";
@@ -101,6 +111,8 @@ export interface AddOutletInput {
   adminPassword?: string;
   planKey: PlanKey;
   trialDays?: number;
+  // Join an existing brand catalogue (share its menu) instead of a fresh one.
+  catalogueId?: string;
 }
 export interface UpdateOutletInput {
   name?: string;

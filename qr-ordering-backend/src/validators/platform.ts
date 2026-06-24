@@ -64,6 +64,9 @@ export const addOutletSchema = z
     adminPassword: adminPassword.optional(),
     planKey: planKey.default('basic'),
     trialDays: z.coerce.number().int().min(0).max(365).optional(),
+    // Join an existing brand catalogue (share its menu) instead of creating a new
+    // one. Must be one of the client's own catalogues; omit for a fresh menu.
+    catalogueId: z.string().min(1).optional(),
   })
   .refine((d) => !d.adminEmail || !!d.adminPassword, {
     message: 'A temporary password is required for the owner login',

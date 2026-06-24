@@ -73,7 +73,9 @@ type ClientRow = {
   updatedAt: Date;
 };
 
-function clientDto(c: ClientRow, outlets: OutletRow[]) {
+type CatalogueRow = { id: string; name: string; _count: { stores: number } };
+
+function clientDto(c: ClientRow, outlets: OutletRow[], catalogues?: CatalogueRow[]) {
   return {
     id: c.id,
     name: c.name,
@@ -85,6 +87,18 @@ function clientDto(c: ClientRow, outlets: OutletRow[]) {
     updatedAt: c.updatedAt,
     outletCount: outlets.length,
     outlets: outlets.map(outletDto),
+    // The client's brand menus + how many outlets share each — drives the "share
+    // an existing menu" picker when adding an outlet. Populated on the single
+    // client read only (getClient).
+    ...(catalogues
+      ? {
+          catalogues: catalogues.map((cat) => ({
+            id: cat.id,
+            name: cat.name,
+            outletCount: cat._count.stores,
+          })),
+        }
+      : {}),
   };
 }
 
@@ -106,6 +120,9 @@ async function provisionOutlet(
     trialDays?: number;
     adminEmail?: string;
     adminPassword?: string;
+    // Join an existing brand catalogue (share the menu with sibling outlets);
+    // omit to mint a fresh 1:1 catalogue for this outlet.
+    catalogueId?: string;
   },
 ) {
   const baseSlug = slugify(args.name) || 'outlet';
@@ -118,36 +135,54 @@ async function provisionOutlet(
 
   const trialDays = args.trialDays ?? config.billing.trialDays;
   const onTrial = trialDays > 0;
-  // A fresh 1:1 catalogue per outlet (owned by the client/brand); sibling outlets
-  // can later be pointed at one shared catalogue.
-  const catalogue = await tx.catalogue.create({
-    data: { name: args.name, clientId: args.clientId },
-  });
+
+  // Menu: join an existing brand catalogue (sibling outlets share one menu) or
+  // mint a fresh 1:1 catalogue for this outlet. A joined catalogue must belong to
+  // the same client (no cross-tenant menu sharing).
+  let catalogueId = args.catalogueId;
+  if (catalogueId) {
+    const existing = await tx.catalogue.findFirst({
+      where: { id: catalogueId, clientId: args.clientId },
+      select: { id: true },
+    });
+    if (!existing) throw ApiError.badRequest('Selected menu does not belong to this client');
+  } else {
+    const created = await tx.catalogue.create({
+      data: { name: args.name, clientId: args.clientId },
+    });
+    catalogueId = created.id;
+  }
+
   const store = await tx.store.create({
     data: {
       name: args.name,
       slug,
       clientId: args.clientId,
-      catalogueId: catalogue.id,
+      catalogueId,
       plan: args.planKey,
       subscriptionStatus: onTrial ? 'TRIALING' : 'ACTIVE',
       trialEndsAt: onTrial ? new Date(Date.now() + trialDays * 86_400_000) : null,
     },
   });
 
-  const category = await tx.menuCategory.create({
-    data: { storeId: store.id, catalogueId: catalogue.id, name: 'Mains', sortOrder: 1 },
-  });
-  await tx.menuItem.create({
-    data: {
-      storeId: store.id,
-      catalogueId: catalogue.id,
-      categoryId: category.id,
-      name: 'Sample Dish',
-      price: 10,
-      sortOrder: 1,
-    },
-  });
+  // Seed a starter menu ONLY for a brand-new catalogue — a shared catalogue
+  // already carries the brand's menu, and seeding would pollute it for every
+  // sibling outlet.
+  if (!args.catalogueId) {
+    const category = await tx.menuCategory.create({
+      data: { storeId: store.id, catalogueId, name: 'Mains', sortOrder: 1 },
+    });
+    await tx.menuItem.create({
+      data: {
+        storeId: store.id,
+        catalogueId,
+        categoryId: category.id,
+        name: 'Sample Dish',
+        price: 10,
+        sortOrder: 1,
+      },
+    });
+  }
   const used = new Set<string>();
   for (let i = 1; i <= STARTER_TABLE_COUNT; i++) {
     let code = randomTableCode();
@@ -177,10 +212,16 @@ export async function listClients() {
 export async function getClient(id: string) {
   const c = await prisma.client.findUnique({
     where: { id },
-    include: { outlets: { orderBy: { createdAt: 'asc' }, select: OUTLET_SELECT } },
+    include: {
+      outlets: { orderBy: { createdAt: 'asc' }, select: OUTLET_SELECT },
+      catalogues: {
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, name: true, _count: { select: { stores: true } } },
+      },
+    },
   });
   if (!c) throw ApiError.notFound('Client not found');
-  return clientDto(c, c.outlets);
+  return clientDto(c, c.outlets, c.catalogues);
 }
 
 export async function createClient(input: CreateClientInput) {
@@ -267,6 +308,7 @@ export async function addOutlet(clientId: string, input: AddOutletInput) {
           trialDays: input.trialDays,
           adminEmail: input.adminEmail,
           adminPassword: input.adminPassword,
+          catalogueId: input.catalogueId,
         }),
       );
       outletStoreId = store.id;
