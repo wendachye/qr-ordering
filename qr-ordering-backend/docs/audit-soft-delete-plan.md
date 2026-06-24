@@ -1,9 +1,11 @@
 # Plan — Audit attribution + soft delete
 
-**Status:** A1 + A2 done; **A3 core done** (delete→soft + read filter for 10 models). A3
-remainder next: partial unique indexes (consent), `restore` endpoints + Trash view, and an
-`AuditLog` row on delete. Scope refreshed against the current schema. Schema changes here
-require explicit consent to run.
+**Status:** **A1–A3 done** + audit-on-delete. Soft delete (delete→soft, read filter, attribution)
+for 10 models; an `AuditLog` row on every soft delete; `restore` endpoints + a **Settings → Trash**
+view (verified end-to-end in the browser). **Deferred:** unique-identifier reuse (partial unique
+indexes) — would need ~20 `findUnique`→`findFirst` across auth/routing for marginal benefit, and
+keeping full uniques means soft-deleted rows retain their slug/email/code, which also makes restore
+collision-free. Schema changes here require explicit consent to run.
 
 > **Soft-delete scope (implemented).** Behaviour applies to **10** independently-managed
 > entities: `Store`, `Client`, `AdminUser`, `MenuCategory`, `MenuItem`, `Combo`, `Table`,
@@ -135,17 +137,22 @@ style (more boilerplate). Trade-off: an extension is "magic" — document it lou
   extension) stamps `createdById`/`updatedById` on create/createMany/update/updateMany/upsert
   of the audited models, from the ALS actor; top-level writes only; skips when no actor in
   context. Covered by `tests/integration/auditStamps.test.ts`.
-- **A3 — soft delete.** 🟡 **core done** — `auditExtension` rewrites delete/deleteMany → soft
+- **A3 — soft delete.** ✅ **done** — `auditExtension` rewrites delete/deleteMany → soft
   (deletedAt + deletedById/deletedByImp) and injects the `deletedAt: null` read filter
   (findMany/findFirst/count/aggregate/groupBy; findUnique is post-filtered) for the 10 audited
   models; `withDeleted()` (ALS flag) reveals them. The customer menu's nested `category.items`
-  filters explicitly. Covered by `auditStamps.test.ts`. **Remaining:** partial unique indexes
-  (slug/email/code reuse — consented migration), `restore` endpoints + a Trash view, and an
-  `AuditLog` row on delete.
-- **A4 — dedicated `AuditLog` table** — 🟡 **partially shipped**: an `AuditLog` model +
-  `writeAudit()` already record **platform/operator** actions (client/outlet/plan CRUD +
-  impersonation). Remaining: have in-scope **tenant** deletes (and optionally create/update)
-  also write an `AuditLog` row, for a mutation trail beyond per-row stamps.
+  filters explicitly. A soft delete also writes an `AuditLog` row (via the base client). The
+  `src/modules/admin/trash.{service,routes}.ts` module exposes `GET /admin/trash` + `POST
+/admin/trash/:resource/:id/restore` (`settings:manage`, tenant-scoped) for 7 store-scoped
+  resources (menu item/category, combo, table, voucher, reward, member), surfaced as
+  **Settings → Trash** in the admin app. Covered by `auditStamps.test.ts` (stamping, soft-delete
+  lifecycle, audit-on-delete, Trash list+restore) and verified in-browser. **Deferred:** partial
+  unique indexes for slug/email/code reuse (see Status).
+- **A4 — dedicated `AuditLog` table** — ✅ **deletes covered**: an `AuditLog` model +
+  `writeAudit()` record **platform/operator** actions (client/outlet/plan CRUD + impersonation),
+  and tenant **soft deletes** now also write an `AuditLog` row (`<model>.delete` /
+  `<model>.deleteMany`) from the audit extension. Optional future: also log create/update for a
+  full mutation trail.
 - **A5 — PII purge cron** (optional): permanently delete `Member` rows soft-deleted
   > N days, for data-minimization/GDPR.
 

@@ -29,6 +29,16 @@ export interface StaffMember {
   createdAt: string;
 }
 
+// A soft-deleted, restorable row (Settings → Trash).
+export interface TrashEntry {
+  resource: string; // 'menu-item' | 'menu-category' | 'combo' | 'table' | 'voucher' | 'reward' | 'member'
+  label: string; // human label, e.g. "Menu item"
+  id: string;
+  name: string;
+  deletedAt: string;
+  deletedById: string | null;
+}
+
 export interface LoginResponse {
   token: string;
   user: AuthUser;
