@@ -142,10 +142,13 @@ export async function deleteCombo(id: string) {
 }
 
 /** Combos for the customer / POS menu. POS sees POS-only combos; both hide unavailable. */
-export async function buildCombosForMenu(storeId: string, opts: { includePosOnly: boolean }) {
+export async function buildCombosForMenu(
+  catalogueId: string | null,
+  opts: { includePosOnly: boolean },
+) {
   const combos = await prisma.combo.findMany({
     where: {
-      storeId,
+      catalogueId,
       isAvailable: true,
       isActive: true,
       ...(opts.includePosOnly ? {} : { posOnly: false }),

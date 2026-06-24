@@ -57,8 +57,12 @@ async function ensureOpenSession(storeId: string, tableId: string) {
  *  7. Return order id + number
  */
 export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: boolean } = {}) {
-  // 1. Validate table
-  const table = await prisma.table.findUnique({ where: { code: input.tableCode } });
+  // 1. Validate table (+ its store's catalogue, which the ordered items are
+  // scoped to — a brand's outlets can share one catalogue).
+  const table = await prisma.table.findUnique({
+    where: { code: input.tableCode },
+    include: { store: { select: { catalogueId: true } } },
+  });
   if (!table) throw ApiError.notFound(`Table "${input.tableCode}" was not found`);
   if (!table.isActive) throw ApiError.badRequest(`Table "${input.tableCode}" is not active`);
 
@@ -81,7 +85,7 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
     ...new Set(input.items.map((i) => i.menuItemId).filter((id): id is string => !!id)),
   ];
   const menuItems = await prisma.menuItem.findMany({
-    where: { id: { in: itemIds }, storeId: table.storeId },
+    where: { id: { in: itemIds }, catalogueId: table.store.catalogueId },
     include: {
       optionGroups: {
         orderBy: { sortOrder: 'asc' },
@@ -97,7 +101,7 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
   ];
   const combos = comboIds.length
     ? await prisma.combo.findMany({
-        where: { id: { in: comboIds }, storeId: table.storeId },
+        where: { id: { in: comboIds }, catalogueId: table.store.catalogueId },
         include: {
           groups: {
             orderBy: { sortOrder: 'asc' },
@@ -130,11 +134,16 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
       for (const g of combo.groups) {
         const opt = g.options.find((o) => o.id === picks.get(g.id));
         if (!opt) throw ApiError.badRequest(`Choose a "${g.name}" for "${combo.name}"`);
-        if (!opt.menuItem.isAvailable) throw ApiError.badRequest(`"${opt.menuItem.name}" is sold out`);
+        if (!opt.menuItem.isAvailable)
+          throw ApiError.badRequest(`"${opt.menuItem.name}" is sold out`);
         componentMenuItemIds.push(opt.menuItemId);
         const delta = new Prisma.Decimal(opt.priceDelta);
         unit = unit.add(delta);
-        selectedOptions.push({ group: g.name, choice: opt.menuItem.name, priceDelta: Number(delta) });
+        selectedOptions.push({
+          group: g.name,
+          choice: opt.menuItem.name,
+          priceDelta: Number(delta),
+        });
         optionStrings.push(
           delta.greaterThan(0)
             ? `${g.name}: ${opt.menuItem.name} (+${delta.toFixed(2)})`
@@ -342,7 +351,8 @@ export async function createOrder(input: CreateAdminOrderInput, ctx: { admin?: b
   // each combo's chosen component items. Only tracked items move (in the order tx).
   const deductions = new Map<string, number>();
   for (const l of lines) {
-    if (l.menuItemId) deductions.set(l.menuItemId, (deductions.get(l.menuItemId) ?? 0) + l.quantity);
+    if (l.menuItemId)
+      deductions.set(l.menuItemId, (deductions.get(l.menuItemId) ?? 0) + l.quantity);
     for (const cid of l.componentMenuItemIds) {
       deductions.set(cid, (deductions.get(cid) ?? 0) + l.quantity);
     }

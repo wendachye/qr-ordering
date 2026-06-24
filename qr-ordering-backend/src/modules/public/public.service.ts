@@ -32,6 +32,9 @@ export async function getTableByCode(tableCode: string) {
       slug: table.store.slug,
       logoUrl: table.store.logoUrl,
       themeColor: table.store.themeColor,
+      // The shared catalogue this outlet's menu is read from (per-store settings
+      // like banner / takeaway stay on the store).
+      catalogueId: table.store.catalogueId,
     },
   };
 }
@@ -41,7 +44,11 @@ export async function getTableByCode(tableCode: string) {
  * `includePosOnly` is false for the customer menu (POS-only "secret" items are
  * hidden) and true for the staff POS menu.
  */
-async function buildStoreMenu(storeId: string, opts: { includePosOnly: boolean }) {
+async function buildStoreMenu(
+  storeId: string,
+  catalogueId: string | null,
+  opts: { includePosOnly: boolean },
+) {
   // Customer menu hides POS-only items; the POS menu includes them.
   const posFilter = opts.includePosOnly ? {} : { posOnly: false };
   // The customer menu also hides items outside their availability window; the POS
@@ -68,7 +75,7 @@ async function buildStoreMenu(storeId: string, opts: { includePosOnly: boolean }
       },
     }),
     prisma.menuCategory.findMany({
-      where: { storeId, isActive: true },
+      where: { catalogueId, isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: {
         items: {
@@ -88,7 +95,7 @@ async function buildStoreMenu(storeId: string, opts: { includePosOnly: boolean }
     }),
     // Featured strip: featured + available items only, across all categories.
     prisma.menuItem.findMany({
-      where: { storeId, isFeatured: true, isAvailable: true, isActive: true, ...posFilter },
+      where: { catalogueId, isFeatured: true, isAvailable: true, isActive: true, ...posFilter },
       orderBy: [{ featuredOrder: 'asc' }, { name: 'asc' }],
       include: {
         optionGroups: {
@@ -128,7 +135,7 @@ async function buildStoreMenu(storeId: string, opts: { includePosOnly: boolean }
     })),
   });
 
-  const combos = await buildCombosForMenu(storeId, opts);
+  const combos = await buildCombosForMenu(catalogueId, opts);
 
   return {
     featuredTitle: settings?.featuredTitle ?? 'Popular',
@@ -156,7 +163,7 @@ async function buildStoreMenu(storeId: string, opts: { includePosOnly: boolean }
 /** Customer menu for a table (POS-only "secret" items hidden). */
 export async function getMenuForTable(tableCode: string) {
   const { table, store } = await getTableByCode(tableCode);
-  const menu = await buildStoreMenu(store.id, { includePosOnly: false });
+  const menu = await buildStoreMenu(store.id, store.catalogueId, { includePosOnly: false });
   return { store, table, ...menu };
 }
 
@@ -252,6 +259,6 @@ export async function getPosMenuForTable(tableCode: string) {
   if (store.id !== currentStoreId()) {
     throw ApiError.notFound(`Table "${tableCode}" was not found`);
   }
-  const menu = await buildStoreMenu(store.id, { includePosOnly: true });
+  const menu = await buildStoreMenu(store.id, store.catalogueId, { includePosOnly: true });
   return { store, table, ...menu };
 }
