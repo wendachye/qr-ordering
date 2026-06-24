@@ -176,9 +176,6 @@ when `NODE_ENV=production`.
 ## Roadmap
 
 Production-grade today for ordering, POS, menu, reporting, tax/SC, multi-tenancy and billing.
-**Recently shipped:** combos / set meals, item-level inventory (auto-86 + restore-on-void),
-Malaysia e-Invoice (MyInvois — sandbox), loyalty **earn/redeem at settlement**, a realtime SSE
-floor, and immediate staff-token revocation.
 
 Everything below is **pending**, sized **value · effort** (S < 1d · M 1–3d · L 1–2wk · XL > 2wk).
 
@@ -218,11 +215,14 @@ merchant onboarding** (lead time) — start it in parallel so the adapter can la
 - ⬜ Gift cards / stored value; member-get-member referrals. · med · L
 
 ### Diner experience
-- ⬜ **Menu search + Halal / dietary filter chips** (the tag vocabulary already exists). · high · M
-- ⬜ Cart upsell / "frequently added"; call-staff / request-bill button. · med · M
+- ⬜ **Surface the receipt** — `ReceiptView` + `getReceipt` already exist but nothing links to them;
+  show a "View receipt" link on a settled tab. *Cheapest meaningful win.* · high · S
+- ⬜ **Call-staff / request-bill** button (reuse the realtime SSE floor bus). · high · M
+- ⬜ Structured **Halal / dietary** flags + quick filter (the free-text tag filter was removed; this
+  needs real schema fields to be trustworthy). · med · M
 - ⬜ **Multi-language** menu UI (BM / 中文 / Tamil). · med · L
-- ⬜ Accessibility: restore pinch-zoom, dialog focus trap, tablist semantics. · med · S
-- ⬜ Split-by-diner; post-visit feedback + Google-review funnel. · med · M–L
+- ⬜ **PWA / offline** shell + menu cache (flaky venue Wi-Fi). · med · M
+- ⬜ Cart upsell / "frequently added"; split-by-diner; post-visit feedback + Google-review funnel. · med · M–L
 
 ### Platform, scale & integrations
 - ⬜ **Consolidate CI to the repo root** — the per-app `.github/workflows/ci.yml` files are nested,
@@ -246,5 +246,3 @@ merchant onboarding** (lead time) — start it in parallel so the adapter can la
 ### API & docs
 - 🟡 **Typed responses in the OpenAPI spec** — request bodies are generated from the Zod validators;
   response bodies are currently the generic `{ success, data }` envelope, being filled in per-endpoint.
-- ⬜ **`/api/v2`** if/when a breaking change lands — the API is already versioned under `/api/v1`,
-  so a new version is additive (mount a `v2` router; clients pin their version).
