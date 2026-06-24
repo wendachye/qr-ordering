@@ -19,7 +19,9 @@ export async function listCategories() {
   const categories = await prisma.menuCategory.findMany({
     where: { storeId },
     orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-    include: { _count: { select: { items: true } } },
+    // Filtered _count: a nested relation count isn't covered by the soft-delete
+    // read filter, so exclude soft-deleted items from the per-category tally.
+    include: { _count: { select: { items: { where: { deletedAt: null } } } } },
   });
   return categories.map((c) => ({
     id: c.id,

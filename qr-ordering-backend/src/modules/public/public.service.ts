@@ -69,7 +69,9 @@ async function buildStoreMenu(storeId: string, opts: { includePosOnly: boolean }
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: {
         items: {
-          where: posFilter,
+          // deletedAt: null — a nested include isn't covered by the soft-delete
+          // extension's read filter, so exclude soft-deleted items here.
+          where: { ...posFilter, deletedAt: null },
           orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
           include: {
             optionGroups: {

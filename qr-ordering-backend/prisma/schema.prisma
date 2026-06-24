@@ -96,6 +96,12 @@ model Store {
   currentPeriodEnd     DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
 
   tables     Table[]
   categories MenuCategory[]
@@ -114,6 +120,7 @@ model Store {
   client     Client?         @relation(fields: [clientId], references: [id])
 
   @@index([clientId])
+  @@index([deletedAt])
 }
 
 // A platform client (the paying account / brand) that owns one or more outlets.
@@ -127,8 +134,16 @@ model Client {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
 
   outlets Store[]
+
+  @@index([deletedAt])
 }
 
 model Table {
@@ -139,12 +154,19 @@ model Table {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
 
   store    Store          @relation(fields: [storeId], references: [id])
   orders   Order[]
   sessions TableSession[]
 
   @@index([storeId])
+  @@index([deletedAt])
 }
 
 model MenuCategory {
@@ -155,11 +177,18 @@ model MenuCategory {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
 
   store Store      @relation(fields: [storeId], references: [id])
   items MenuItem[]
 
   @@index([storeId])
+  @@index([deletedAt])
 }
 
 model MenuItem {
@@ -201,6 +230,12 @@ model MenuItem {
   lowStockThreshold Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
 
   store        Store         @relation(fields: [storeId], references: [id])
   category     MenuCategory  @relation(fields: [categoryId], references: [id])
@@ -212,6 +247,7 @@ model MenuItem {
   @@index([storeId])
   @@index([categoryId])
   @@index([storeId, isFeatured])
+  @@index([deletedAt])
 }
 
 // Immutable stock-movement ledger for a tracked menu item: every sale, restock,
@@ -311,11 +347,18 @@ model Combo {
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
 
   store  Store        @relation(fields: [storeId], references: [id])
   groups ComboGroup[]
 
   @@index([storeId])
+  @@index([deletedAt])
 }
 
 model ComboGroup {
@@ -323,10 +366,17 @@ model ComboGroup {
   comboId   String
   name      String // e.g. "Main", "Side", "Drink"
   sortOrder Int           @default(0)
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
   combo     Combo         @relation(fields: [comboId], references: [id], onDelete: Cascade)
   options   ComboOption[]
 
   @@index([comboId])
+  @@index([deletedAt])
 }
 
 model ComboOption {
@@ -336,12 +386,19 @@ model ComboOption {
   // Upcharge for a premium pick (on top of the combo's base price).
   priceDelta Decimal @default(0) @db.Decimal(10, 2)
   sortOrder  Int     @default(0)
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
 
   group    ComboGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
   menuItem MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
 
   @@index([groupId])
   @@index([menuItemId])
+  @@index([deletedAt])
 }
 
 model OptionGroup {
@@ -354,11 +411,18 @@ model OptionGroup {
   sortOrder  Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
 
   menuItem MenuItem       @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
   choices  OptionChoice[]
 
   @@index([menuItemId])
+  @@index([deletedAt])
 }
 
 model OptionChoice {
@@ -367,10 +431,17 @@ model OptionChoice {
   name          String
   priceDelta    Decimal @default(0) @db.Decimal(10, 2)
   sortOrder     Int     @default(0)
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
 
   group OptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
 
   @@index([optionGroupId])
+  @@index([deletedAt])
 }
 
 model Order {
@@ -528,10 +599,17 @@ model AdminUser {
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
   createdAt DateTime @default(now())
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
 
   store Store @relation(fields: [storeId], references: [id])
 
   @@index([storeId])
+  @@index([deletedAt])
 }
 
 // Global subscription plan definitions (one row per tier, e.g. basic | pro),
@@ -555,6 +633,14 @@ model Plan {
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
+
+  @@index([deletedAt])
 }
 
 // A discount voucher / promo code. Worth a PERCENT or FIXED amount off a bill,
@@ -573,12 +659,19 @@ model Voucher {
   isActive       Boolean   @default(true)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
 
   store       Store               @relation(fields: [storeId], references: [id])
   redemptions VoucherRedemption[]
 
   @@unique([storeId, code])
   @@index([storeId])
+  @@index([deletedAt])
 }
 
 // One realised redemption of a voucher against a settled tab.
@@ -619,6 +712,12 @@ model Member {
   isActive         Boolean   @default(true)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
 
   store        Store              @relation(fields: [storeId], references: [id])
   pointsLedger PointsLedger[]
@@ -629,6 +728,7 @@ model Member {
   @@unique([storeId, phone])
   @@index([storeId])
   @@index([storeId, lastActivityAt])
+  @@index([deletedAt])
 }
 
 // Immutable points ledger. `points` is SIGNED (+EARN/+BONUS, −REDEEM/−EXPIRE).
@@ -679,11 +779,18 @@ model RewardCatalog {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  // Audit attribution + soft delete (docs/audit-soft-delete-plan.md).
+  createdById  String?
+  updatedById  String?
+  deletedById  String?
+  deletedByImp String?
+  deletedAt    DateTime?
 
   store       Store              @relation(fields: [storeId], references: [id])
   redemptions RewardRedemption[]
 
   @@index([storeId])
+  @@index([deletedAt])
 }
 
 // A reward instance issued to a member (from the catalog or a stamp card),
